@@ -113,7 +113,7 @@
         const response = await fetch('/api/game/memory-win', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ level, time })
+            body: JSON.stringify({ level, timeTaken: time })       
         });
         
         if (response.ok) {

@@ -53,12 +53,20 @@
             box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: 0.2s;
         }
         .nav-btn:active { transform: translateY(3px); box-shadow: none; }
+        
+        .level-info {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 15px; border-radius: 15px;
+            margin-bottom: 10px; color: #27ae60; font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
     <h1 style="color: #2c3e50; text-shadow: 2px 2px 0 white; font-size: 3rem; margin-top: 20px;">🎤 Họa Mi Tập Hót 🎤</h1>
     
+    <div class="level-info">Cấp độ hiện tại: <span id="current-level-display">1</span></div>
+
     <div style="text-align: center; max-width: 600px; padding: 20px;">
         
         <div class="sentence-card">
@@ -84,16 +92,27 @@
     <script>
         // --- DANH SÁCH CÂU LUYỆN TẬP ---
         const phrases = [
-            "Con mèo trèo cây cau",
-            "Bà đi chợ mua rau",
-            "Trời hôm nay rất đẹp",
-            "Em yêu trường em",
-            "Cây bàng lá xanh",
-            "Mẹ đi làm từ sáng sớm",
-            "Bé tập tô màu"
+            "Con mèo trèo cây cau", "Bà đi chợ mua rau", "Trời hôm nay rất đẹp",
+            "Em yêu trường em", "Cây bàng lá xanh", "Mẹ đi làm từ sáng sớm", "Bé tập tô màu",
+            "Con ong chăm chỉ", "Bông hoa nở rộ", "Chú ếch con", "Mặt trời mọc",
+            "Cánh đồng lúa chín", "Dòng sông xanh mát", "Đàn chim bay lượn"
         ];
         
         let currentIndex = 0;
+        let currentLevel = 1; // Biến lưu cấp độ hiện tại
+
+        // 1. Tự động tải cấp độ khi vào trang
+        window.onload = async () => {
+            try {
+                const res = await fetch('/api/user/progress');
+                if (res.ok) {
+                    const data = await res.json();
+                    currentLevel = data.englishSpeechLevel || 1;
+                    document.getElementById('current-level-display').textContent = currentLevel;
+                    console.log("Cấp độ luyện nói hiện tại:", currentLevel);
+                }
+            } catch(e) { console.log("Chưa đăng nhập hoặc lỗi tải cấp độ"); }
+        };
 
         // KIỂM TRA TRÌNH DUYỆT
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -143,21 +162,38 @@
             };
         }
 
+        // Hàm kiểm tra kết quả và gọi API
         function checkResult(spokenText) {
             const target = phrases[currentIndex];
-            
-            // Xử lý chuỗi (bỏ dấu chấm phẩy, viết thường) để so sánh dễ hơn
             const cleanSpoken = spokenText.toLowerCase().replace(/[.,!?;]/g, '').trim();
             const cleanTarget = target.toLowerCase().replace(/[.,!?;]/g, '').trim();
 
             if (cleanSpoken.includes(cleanTarget) || cleanTarget.includes(cleanSpoken)) {
-                scoreArea.innerHTML = "<h3 style='color:#27ae60; margin:0;'>🎉 TUYỆT VỜI! CHÍNH XÁC! 🎉</h3>";
-                nextBtn.style.display = 'block'; // Hiện nút câu tiếp theo
+                scoreArea.innerHTML = "<h3 style='color:#27ae60; margin:0;'>🎉 CHÍNH XÁC! 🎉</h3>";
+                nextBtn.style.display = 'block';
                 
-                // (Tùy chọn) Gửi điểm về server nếu muốn
-                // fetch('/api/update-score', ...); 
+                // GỌI API CHÍNH XÁC ĐỂ CỘNG ĐIỂM VÀ TĂNG CẤP
+                fetch('/api/game/english-speech-win', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        level: currentLevel, 
+                        timeTaken: 0 
+                    }) 
+                })        
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Kết quả:", data);
+                    if (data.newLevel) {
+                        currentLevel = data.newLevel;
+                        document.getElementById('current-level-display').textContent = currentLevel;
+                        alert("Chúc mừng! Bé đã lên cấp độ " + currentLevel);
+                    }
+                })
+                .catch(err => console.error("Lỗi lưu điểm:", err));
+
             } else {
-                scoreArea.innerHTML = "<h3 style='color:#e74c3c; margin:0;'>Gần đúng rồi, thử lại nhé! 💪</h3>";
+                scoreArea.innerHTML = "<h3 style='color:#e74c3c; margin:0;'>Thử lại nhé! 💪</h3>";
             }
         }
 
@@ -172,42 +208,6 @@
             resultText.textContent = "Nhấn micro để bắt đầu...";
             nextBtn.style.display = 'none';
         }
-        // 1. Tự động tải cấp độ khi vào trang
-window.onload = async () => {
-    try {
-        const res = await fetch('/api/user/progress');
-        const data = await res.json();
-        console.log("Cấp độ luyện nói hiện tại:", data.englishSpeechLevel);
-        // Ở đây bạn có thể thêm logic hiển thị cấp độ lên màn hình nếu muốn
-    } catch(e) {}
-};
-
-// 2. Sửa lại hàm checkResult để báo công với Server khi đọc đúng
-// (Tìm hàm checkResult cũ và thay thế đoạn xử lý đúng bằng đoạn này)
-function checkResult(spokenText) {
-    const target = phrases[currentIndex];
-    const cleanSpoken = spokenText.toLowerCase().replace(/[.,!?;]/g, '').trim();
-    const cleanTarget = target.toLowerCase().replace(/[.,!?;]/g, '').trim();
-
-    if (cleanSpoken.includes(cleanTarget) || cleanTarget.includes(cleanSpoken)) {
-        scoreArea.innerHTML = "<h3 style='color:#27ae60; margin:0;'>🎉 CHÍNH XÁC! 🎉</h3>";
-        nextBtn.style.display = 'block';
-        
-        // --- THÊM ĐOẠN NÀY ĐỂ LƯU ĐIỂM ---
-        // --- SỬA THÀNH: GỌI API CHUNG ĐỂ CHỈ CỘNG ĐIỂM (KHÔNG TĂNG CẤP TIẾNG ANH) ---
-        fetch('/api/submit-test', { 
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ answers: ['dung'] }) // Gửi dữ liệu giả để server nhận
-        })
-        .then(res => res.json())
-        .then(data => console.log("Đã cộng điểm luyện tập:", data.message));
-        // -------------------------------------------------------------------------
-        // ---------------------------------
-    } else {
-        scoreArea.innerHTML = "<h3 style='color:#e74c3c; margin:0;'>Thử lại nhé! 💪</h3>";
-    }
-}
     </script>
 </body>
 </html>

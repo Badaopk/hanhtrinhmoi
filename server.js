@@ -235,26 +235,42 @@ app.post('/api/admin/broadcast', (req, res) => {
 });
 
 // Giao nhiệm vụ (Quest) - Đã khôi phục logic lưu vào DB
+// Giao nhiệm vụ (Quest) - Đã sửa lỗi biến timeLimit
 app.post('/api/admin/assign-quest', async (req, res) => {
-    const { username, taskType, target, reward } = req.body;
+    // 1. Nhận thêm tham số penalty và timeLimit từ Admin
+    const { username, taskType, target, reward, penalty, timeLimit } = req.body;
+    
     const user = await User.findOne({ username });
     if (user) {
-        user.activeQuest = { taskType, target, reward, progress: 0 };
+        // 2. Tạo object nhiệm vụ chuẩn tên biến
+        user.activeQuest = { 
+            taskType, 
+            target: parseInt(target), 
+            reward: parseInt(reward), 
+            progress: 0,
+            penalty: parseInt(penalty || 0),     // Điểm phạt
+            timeLimit: parseInt(timeLimit || 0)  // <--- ĐÃ SỬA: Dùng timeLimit (viết liền)
+        };
+        
+        // Lưu vào DB (Cần markModified vì activeQuest là Mixed Type)
+        user.markModified('activeQuest');
         await user.save();
         
-        // Gửi socket nếu online
+        // Gửi thông báo ngay cho Client nếu đang online
         const socketId = Object.keys(io.sockets.sockets).find(id => {
             const s = io.sockets.sockets[id];
             return s.request.session.user?.username === username;
         });
-        if (socketId) io.to(socketId).emit('newQuest', { taskType, target, reward });
         
-        res.json({ message: 'Đã giao nhiệm vụ' });
+        if (socketId) {
+            io.to(socketId).emit('newQuest', user.activeQuest);
+        }
+        
+        res.json({ message: 'Đã giao nhiệm vụ thành công!' });
     } else {
-        res.status(404).json({ message: 'User không tìm thấy' });
+        res.status(404).json({ message: 'Không tìm thấy người dùng này' });
     }
 });
-
 // Bảo trì hệ thống - Đã khôi phục
 app.get('/api/admin/maintenance-status', (req, res) => res.json({ maintenanceMode }));
 app.post('/api/admin/maintenance-toggle', (req, res) => {
@@ -266,36 +282,87 @@ app.post('/api/admin/maintenance-toggle', (req, res) => {
     }
     res.json({ maintenanceMode });
 });
+// --- LOGIC NHIỆM VỤ (Đã sửa để khớp với Database) ---
+function updateQuestProgress(user, taskType, performance = { timeTaken: 0, isWin: true }) {
+    if (!user.activeQuest || !user.activeQuest.taskType) return; // Không có nhiệm vụ thì thôi
 
+    const quest = user.activeQuest;
+    
+    // Kiểm tra xem game vừa chơi có khớp nhiệm vụ không
+    // (So sánh tương đối để linh hoạt: VD giao "Cờ" thì chơi "Cờ Vua" hay "Cờ Tướng" đều tính)
+    if (quest.taskType === taskType || taskType.includes(quest.taskType)) {
+        
+        // 1. Kiểm tra thời gian (nếu Admin có set giới hạn và client gửi lên timeTaken)
+        if (quest.timeLimit > 0 && performance.timeTaken > quest.timeLimit) {
+            // Có thể trừ điểm hoặc chỉ không tính nhiệm vụ
+            user.history.push({ 
+                activity: `Thất bại NV ${quest.taskType}: Quá giờ (${performance.timeTaken}s > ${quest.timeLimit}s)`, 
+                timestamp: new Date() 
+            });
+            return; // Dừng, không cộng tiến độ
+        }
+
+        // 2. Nếu hoàn thành tốt
+        if (performance.isWin) {
+            quest.progress = (quest.progress || 0) + 1;
+            
+            // Nếu đủ số lượng yêu cầu -> Hoàn thành
+            if (quest.progress >= quest.target) {
+                user.score += parseInt(quest.reward);
+                user.history.push({ 
+                    activity: `🎉 Hoàn thành NV ${quest.taskType}: +${quest.reward} điểm`, 
+                    timestamp: new Date() 
+                });
+                user.activeQuest = null; // Xóa nhiệm vụ đã xong
+            } else {
+                // Cập nhật tiến độ
+                user.activeQuest = quest; // Mongoose cần gán lại để nhận diện thay đổi object
+            }
+        }
+    }
+}
 // --- 7. API GAME WIN (LƯU ĐIỂM VÀO DB) ---
 
-async function handleWin(req, res, gameKey, points = 10) {
+// --- 5. API GAME WIN (Đã tích hợp Nhiệm vụ & Fix lỗi) ---
+async function handleWin(req, res, gameKey, points = 10, taskName = '') {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa login' });
     try {
         const user = await User.findOne({ username: req.session.user.username });
         if (!user) return res.status(404);
 
+        // 1. Cộng điểm & Tăng cấp
         user.score += points;
         user[gameKey] = (user[gameKey] || 1) + 1;
-        user.history.push({ activity: `Thắng game (${gameKey})`, timestamp: new Date() });
+        user.history.push({ activity: `Thắng game (${taskName || gameKey})`, timestamp: new Date() });
+
+        // 2. KIỂM TRA NHIỆM VỤ (Logic mới thêm)
+        // Lấy thời gian chơi từ Client gửi lên (nếu có), mặc định 0
+        const timeTaken = req.body.timeTaken || 0; 
+        // Gọi hàm updateQuestProgress vừa viết ở trên
+        updateQuestProgress(user, taskName, { timeTaken: timeTaken, isWin: true });
+
+        // 3. Lưu vào Database
+        user.markModified('activeQuest'); // Bắt buộc dòng này để lưu thay đổi trong Object Mixed
         await user.save();
 
         res.json({ message: 'Lưu thành công', newLevel: user[gameKey], newScore: user.score });
-    } catch (e) { res.status(500).json({ message: 'Lỗi lưu điểm' }); }
+    } catch (e) { 
+        console.error(e);
+        res.status(500).json({ message: 'Lỗi lưu điểm' }); 
+    }
 }
-
-app.post('/api/game/detective-win', (req, res) => handleWin(req, res, 'detectiveLevel', 20));
-app.post('/api/game/crossword-win', (req, res) => handleWin(req, res, 'crosswordLevel', 15));
-app.post('/api/game/story-win', (req, res) => handleWin(req, res, 'storyLevel', 30));
-app.post('/api/game/english-speech-win', (req, res) => handleWin(req, res, 'englishSpeechLevel', 10));
-app.post('/api/game/othello-win', (req, res) => handleWin(req, res, 'othelloLevel', 25));
-app.post('/api/game/shape-win', (req, res) => handleWin(req, res, 'shapeLevel', 20));
-app.post('/api/game/build-win', (req, res) => handleWin(req, res, 'buildLevel', 30));
-app.post('/api/game/chess-win-level', (req, res) => handleWin(req, res, 'chessLevel', 50));
-app.post('/api/game/caro-win', (req, res) => handleWin(req, res, 'caroLevel', 20));
-app.post('/api/game/go-win', (req, res) => handleWin(req, res, 'goLevel', 30));
-// Thêm API nhận kết quả thắng game Ghép hình
-app.post('/api/game/memory-win', (req, res) => handleWin(req, res, 'memoryLevel', 15));
+// Cập nhật các dòng gọi API để truyền thêm Tên Nhiệm Vụ (Tham số thứ 3)
+app.post('/api/game/detective-win', (req, res) => handleWin(req, res, 'detectiveLevel', 20, 'Thám tử'));
+app.post('/api/game/crossword-win', (req, res) => handleWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
+app.post('/api/game/story-win', (req, res) => handleWin(req, res, 'storyLevel', 30, 'Sáng Tác'));
+app.post('/api/game/english-speech-win', (req, res) => handleWin(req, res, 'englishSpeechLevel', 10, 'Tiếng Anh'));
+app.post('/api/game/othello-win', (req, res) => handleWin(req, res, 'othelloLevel', 25, 'Phục Kích'));
+app.post('/api/game/shape-win', (req, res) => handleWin(req, res, 'shapeLevel', 20, 'Ghép Hình'));
+app.post('/api/game/build-win', (req, res) => handleWin(req, res, 'buildLevel', 30, 'Xây Dựng'));
+app.post('/api/game/chess-win-level', (req, res) => handleWin(req, res, 'chessLevel', 50, 'Cờ Vua'));
+app.post('/api/game/caro-win', (req, res) => handleWin(req, res, 'caroLevel', 20, 'Cờ Caro')); 
+app.post('/api/game/go-win', (req, res) => handleWin(req, res, 'goLevel', 30, 'Cờ Vây'));
+app.post('/api/game/memory-win', (req, res) => handleWin(req, res, 'memoryLevel', 15, 'Ghép Hình'));
 app.post('/api/submit-test', async (req, res) => {
     const { answers } = req.body; 
     let score = Math.floor(Math.random() * 10) + 1; 
