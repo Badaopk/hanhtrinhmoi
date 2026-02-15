@@ -73,7 +73,19 @@ const monopolyGames = {};
 let maintenanceMode = false; // Đã khôi phục biến bảo trì
 
 // --- 5. API HỆ THỐNG (AUTH) ---
-
+// --- API LẤY BẢNG XẾP HẠNG (BXH) ---
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        // Lấy top 10 người dùng có điểm cao nhất, chỉ lấy các tài khoản là 'child'
+        const topPlayers = await User.find({ role: 'child' })
+            .sort({ score: -1 }) // Sắp xếp điểm giảm dần
+            .limit(10)           // Chỉ lấy 10 người đứng đầu
+            .select('username score'); // Chỉ lấy tên và điểm để bảo mật
+        res.json(topPlayers);
+    } catch (e) {
+        res.status(500).json({ message: 'Lỗi khi tải bảng xếp hạng' });
+    }
+});
 app.post('/api/register/:role', async (req, res) => {
     const { username, password, parentCode } = req.body;
     const role = req.params.role;
@@ -105,7 +117,15 @@ app.post('/api/register/:role', async (req, res) => {
             await linkedParent.save();
         }
 
-        res.json({ message: 'Đăng ký thành công!', user: { username, role: newUser.role } });
+       // Thay đoạn cũ bằng đoạn này:
+res.json({ 
+    message: 'Đăng ký thành công!', 
+    user: { 
+        username, 
+        role: newUser.role, 
+        parentCode: newUser.parentCode // Thêm dòng này để hiện mã cho phụ huynh
+    } 
+});
     } catch (e) {
         res.status(500).json({ message: 'Lỗi server: ' + e.message });
     }
@@ -123,7 +143,15 @@ app.post('/api/login', async (req, res) => {
         req.session.user = { username: user.username, role: user.role };
         req.session.save();
 
-        res.json({ message: 'Đăng nhập thành công!', user: { username: user.username, role: user.role, parentCode: user.parentCode } });
+        res.json({ 
+    message: 'Đăng nhập thành công!', 
+    user: { 
+        username: user.username, 
+        role: user.role, 
+        parentCode: user.parentCode,
+        children: user.children // Thêm dòng này để hiện danh sách các bé
+    } 
+});       
     } catch (e) {
         res.status(500).json({ message: 'Lỗi đăng nhập' });
     }
