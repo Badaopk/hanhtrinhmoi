@@ -99,12 +99,43 @@
                 });
                 const data = await res.json();
                 
+                // --- ĐOẠN CODE MỚI THAY THẾ TRONG handleFormSubmit ---
+
                 if (!res.ok) {
                     throw new Error(data.message);
                 }
 
-                showMessage(data.message);
+                // SỬA Ở ĐÂY: Kiểm tra nếu có mã phụ huynh thì hiện ra
+                if (data.user && data.user.parentCode) {
+                    showMessage(`
+                        ✅ Đăng ký thành công!<br>
+                        <strong>Mã kết nối của bạn là: <span style="color:red; font-size:1.5rem">${data.user.parentCode}</span></strong><br>
+                        (Hãy ghi lại mã này để nhập khi đăng ký tài khoản cho Bé)
+                    `);
+                } else {
+                    showMessage(data.message);
+                }
                 
+                if (url.includes('register')) {
+                    form.reset();
+                }
+
+                // SỬA Ở ĐÂY: Lưu thêm danh sách con và role khi đăng nhập
+                if (url === '/api/login') {
+                    localStorage.setItem('currentUser', data.user.username);
+                    localStorage.setItem('role', data.user.role);
+                    
+                    // Lưu danh sách các bé (nếu là phụ huynh)
+                    if (data.user.children && data.user.children.length > 0) {
+                        localStorage.setItem('children', JSON.stringify(data.user.children));
+                    } else {
+                        localStorage.removeItem('children'); // Xóa nếu không có
+                    }
+
+                    showMessage('Đăng nhập thành công! Đang chuyển về trang chủ...');
+                    setTimeout(() => window.location.href = 'index.html', 1500); // Đảm bảo chuyển đúng trang
+                }
+// --- HẾT ĐOẠN CODE MỚI ---                
                 if (url.includes('register')) {
                     form.reset();
                 }

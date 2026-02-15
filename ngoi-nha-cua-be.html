@@ -115,7 +115,7 @@
         const trophiesData = {
             chess: [ { lvl: 10, name: "Tân Binh", icon: "🥉" }, { lvl: 30, name: "Chiến Binh", icon: "🥈" }, { lvl: 60, name: "Kiện Tướng", icon: "🥇" }, { lvl: 100, name: "Vua Cờ", icon: "👑" } ],
             caro: [ { lvl: 10, name: "Tập Sự", icon: "🌱" }, { lvl: 25, name: "Cao Thủ", icon: "⚔️" }, { lvl: 50, name: "Bất Bại", icon: "🏆" } ],
-            shape: [ { lvl: 5, name: "Bé Tập Vẽ", icon: "🖍️" }, { lvl: 20, name: "Kiến Trúc Sư", icon: "🏰" }, { lvl: 50, name: "Sáng Tạo", icon: "✨" } ]
+            shape: [ { lvl: 5, name: "Bé Tập Vẽ", icon: "🖍️" }, { lvl: 20, name: "Kiến Trúc Sư", icon: "🏰" }, { lvl: 50, name: "Sáng Tạo", icon: "✨" } ],
             detective: [{ lvl: 10, name: "Thám Tử Tập Sự", icon: "🕵️‍♂️" },{ lvl: 40, name: "Thám Tử Tài Ba", icon: "🔍" },{ lvl: 80, name: "Siêu Thám Tử", icon: "🕶️" },{ lvl: 100, name: "Huyền Thoại Thám Tử", icon: "💎" }]
         };
 
@@ -123,27 +123,48 @@
             try {
                 // 1. Tải Tiến trình cá nhân
                 const resProgress = await fetch('/api/user/progress');
+                
+                // Xử lý khi chưa đăng nhập
                 if (resProgress.status === 401) {
                     document.getElementById('display-name').textContent = "Khách (Chưa đăng nhập)";
                     return;
                 }
+                
                 const data = await resProgress.json();
                 
-                document.getElementById('display-score').textContent = (data.score || 0).toLocaleString();
-                document.getElementById('display-name').textContent = localStorage.getItem('currentUser') || "Bé Ngoan";
+                // --- ĐOẠN CODE MỚI ĐỂ HIỆN TÊN BÉ ---
+                const role = localStorage.getItem('role');
+                const childrenRaw = localStorage.getItem('children');
+                let displayName = data.username;
 
+                if (role === 'parent' && childrenRaw) {
+                    try {
+                        const children = JSON.parse(childrenRaw);
+                        if (children.length > 0) {
+                            displayName = `${data.username} (Phụ huynh của: ${children.join(', ')})`;
+                            document.getElementById('display-name').style.fontSize = "1.8rem"; // Chỉnh chữ nhỏ lại xíu nếu dài
+                        }
+                    } catch (e) { console.log('Lỗi đọc danh sách con', e); }
+                }
+                
+                document.getElementById('display-name').textContent = displayName;
+                // --- KẾT THÚC ĐOẠN MỚI ---
+
+                document.getElementById('display-score').textContent = (data.score || 0).toLocaleString();
+
+                // Render các tủ cúp (giữ nguyên logic của bạn)
                 renderShelf('shelf-chess', trophiesData.chess, data.chessLevel || 1);
                 renderShelf('shelf-caro', trophiesData.caro, data.caroLevel || 1);
                 renderShelf('shelf-shape', trophiesData.shape, data.shapeLevel || 1);
+                // Lưu ý: Bạn đang thiếu khai báo trophiesData.detective ở bên trên, nhớ kiểm tra lại nhé!
 
-                // 2. Tải Bảng xếp hạng [MỚI]
+                // 2. Tải Bảng xếp hạng
                 const resLeaderboard = await fetch('/api/leaderboard');
                 const topUsers = await resLeaderboard.json();
                 renderLeaderboard(topUsers);
 
             } catch (err) { console.error(err); }
         }
-
         function renderShelf(elementId, list, currentLevel) {
             const container = document.getElementById(elementId);
             container.innerHTML = '';

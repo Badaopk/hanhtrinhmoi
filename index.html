@@ -78,7 +78,7 @@
             const authContainer = document.getElementById('auth-container');
             
             try {
-                const response = await fetch('/api/me');
+                const response = await fetch('/api/user/progress');
                 if (!response.ok) {
                     authContainer.innerHTML = `<a href="login.html"><button class="auth-btn">Đăng Nhập / Đăng Ký</button></a>`;
                     return;
