@@ -163,7 +163,7 @@
         let isGameActive = false;
         let myRole = 'w'; 
         let currentRoom = null;
-
+        let gameStartTime;
         // Biến xử lý Click (Thay cho Drag)
         let selectedSquare = null; 
 
@@ -325,6 +325,7 @@
             game.reset(); board.start();
             isGameActive = true; myRole = 'w';
             selectedSquare = null; removeHighlights();
+            gameStartTime = Date.now();
             document.getElementById('pve-status').textContent = `🎮 Đang đấu Cấp ${level}`;
             document.querySelectorAll('.lvl-btn').forEach(b => b.style.border = "none");
         };
@@ -406,11 +407,15 @@
                 if (currentMode === 'pve') {
                     if (game.turn() === 'b') { 
                         statusEl.textContent = "🏆 BẠN THẮNG!";
+                        const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
                         try {
                             const res = await fetch('/api/game/chess-win-level', { 
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ playedLevel: currentPlayingLevel }) 
+                                body: JSON.stringify({ 
+                                    playedLevel: currentPlayingLevel,
+                                    timeTaken: timeSpent // <--- THÊM BIẾN NÀY VÀO ĐÂY
+                                })                            
                             });
                             const d = await res.json();
                             if(d.newLevel) { 

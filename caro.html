@@ -103,7 +103,7 @@
         let playerSymbol = 'X';
         let aiSymbol = 'O';
         let isMyTurn = true;
-
+        let gameStartTime;
         // --- 1. KHỞI TẠO & TẢI DỮ LIỆU ---
         async function init() {
             try {
@@ -145,6 +145,7 @@
             playerSymbol = 'X'; aiSymbol = 'O';
             size = parseInt(document.getElementById('board-size-select').value);
             resetGameState();
+            gameStartTime = Date.now();
             document.getElementById('menu-area').style.display = 'none';
             document.getElementById('play-area').style.display = 'block';
             document.getElementById('control-area').style.display = 'block';
@@ -298,12 +299,16 @@
             if (winner === playerSymbol) {
                 statusEl.textContent = "🎉 BÉ THẮNG RỒI!";
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                
+                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
                 const levelToReport = isOnlineMode ? 0 : parseInt(aiLevelSelect.value);
                 const res = await fetch('/api/game/caro-win', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ type: isOnlineMode ? 'online' : 'ai', level: levelToReport })
+                    body: JSON.stringify({ 
+                        type: isOnlineMode ? 'online' : 'ai', 
+                        level: levelToReport,
+                        timeTaken: timeSpent // <--- THÊM BIẾN NÀY VÀO ĐÂY
+                    })
                 });
 
                 if (res.ok && !isOnlineMode && levelToReport === currentLevel) {
@@ -331,6 +336,7 @@
                 isMyTurn = (playerSymbol === 'X');
                 size = 20;
                 resetGameState();
+                gameStartTime = Date.now();
                 document.getElementById('menu-area').style.display = 'none';
                 document.getElementById('play-area').style.display = 'block';
                 document.getElementById('control-area').style.display = 'block';

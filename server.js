@@ -32,28 +32,25 @@ const userSchema = new mongoose.Schema({
     role: { type: String, required: true },
     parentCode: String,
     score: { type: Number, default: 0 },
-    createdAt: { type: Date, default: Date.now },
     isSuspended: { type: Boolean, default: false },
     children: [String], 
-    history: [{ activity: String, timestamp: Date }], 
-    activeQuest: { type: Object, default: null }, // Lưu nhiệm vụ hiện tại
-    // Level Game
+    history: [{ activity: String, timestamp: { type: Date, default: Date.now } }], 
+    quests: { type: Array, default: [] }, 
+    playtimeLimitMinutes: { type: Number, default: 0 },
+    // Đầy đủ 11 loại cấp độ game
     chessLevel: { type: Number, default: 1 },
     caroLevel: { type: Number, default: 1 },
-    othelloLevel: { type: Number, default: 1 },
-    goLevel: { type: Number, default: 1 },
-    storyLevel: { type: Number, default: 1 },
+    memoryLevel: { type: Number, default: 1 },
     crosswordLevel: { type: Number, default: 1 },
     englishSpeechLevel: { type: Number, default: 1 },
     detectiveLevel: { type: Number, default: 1 },
-    mathLevel: { type: Number, default: 1 },
+    goLevel: { type: Number, default: 1 },
+    othelloLevel: { type: Number, default: 1 },
+    storyLevel: { type: Number, default: 1 },
     shapeLevel: { type: Number, default: 1 },
-    buildLevel: { type: Number, default: 1 },
-    memoryLevel: { type: Number, default: 1 }, // <--- THÊM MỚI
-    monopolyLevel: { type: Number, default: 1 }
+    buildLevel: { type: Number, default: 1 }
 });
 const User = mongoose.model('User', userSchema);
-
 // --- 3. CẤU HÌNH MIDDLEWARE ---
 const sessionMiddleware = session({
     secret: 'hanh-tinh-mo-uoc-vinh-cuu-merged-2026',
@@ -78,6 +75,50 @@ const monopolyGames = {};
 let maintenanceMode = false; // Đã khôi phục biến bảo trì
 
 // --- 5. API HỆ THỐNG (AUTH) ---
+// 1. Kho nhiệm vụ đa dạng (Càng lên cấp cao nhiệm vụ càng khó)
+const QUEST_POOL = [
+    { taskType: 'Cờ Vua', levelKey: 'chessLevel', targetBase: 1, rewardBase: 50 },
+    { taskType: 'Ghép Hình', levelKey: 'memoryLevel', targetBase: 2, rewardBase: 30 },
+    { taskType: 'Ô Chữ', levelKey: 'crosswordLevel', targetBase: 1, rewardBase: 40 },
+    { taskType: 'Thám tử', levelKey: 'detectiveLevel', targetBase: 1, rewardBase: 60 },
+    { taskType: 'Cờ Caro', levelKey: 'caroLevel', targetBase: 2, rewardBase: 50 },
+    { taskType: 'Cờ Vây', levelKey: 'goLevel', targetBase: 1, rewardBase: 100 }
+];
+
+// 2. Hàm tự động cấp 4 nhiệm vụ "hợp trình độ" mỗi ngày
+async function refreshDailyQuests(user) {
+    const today = new Date().toDateString();
+    // Lọc các nhiệm vụ hàng ngày của hôm nay
+    const hasDailyToday = user.quests.some(q => q.isDaily && q.date === today);
+
+    if (!hasDailyToday) {
+        // Xóa nhiệm vụ hàng ngày cũ của hôm qua (giữ lại nhiệm vụ Admin giao riêng)
+        user.quests = user.quests.filter(q => !q.isDaily);
+
+        // Trộn kho nhiệm vụ và lấy 4 cái ngẫu nhiên
+        const shuffled = [...QUEST_POOL].sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, 4);
+
+        selected.forEach(q => {
+            const currentLvl = user[q.levelKey] || 1;
+            // Tiến độ yêu cầu tăng theo cấp độ (VD: Cấp 10 yêu cầu thắng nhiều ván hơn)
+            const dynamicTarget = q.targetBase + Math.floor(currentLvl / 5); 
+            const dynamicReward = q.rewardBase + (currentLvl * 5);
+
+            user.quests.push({
+                id: 'd-' + Math.random().toString(36).substr(2, 5),
+                taskType: q.taskType,
+                target: dynamicTarget,
+                reward: dynamicReward,
+                progress: 0,
+                isDaily: true,
+                date: today
+            });
+        });
+        user.markModified('quests');
+        await user.save();
+    }
+}
 // --- API LẤY BẢNG XẾP HẠNG (BXH) ---
 app.get('/api/leaderboard', async (req, res) => {
     try {
@@ -171,18 +212,33 @@ app.get('/api/user/progress', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
     const user = await User.findOne({ username: req.session.user.username }).select('-password');
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' });
+    await refreshDailyQuests(user);
     res.json(user);
 });
 
 // --- 6. API ADMIN (ĐÃ KHÔI PHỤC ĐẦY ĐỦ) ---
+app.post('/api/admin/update-user', async (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ message: 'Không có quyền' });
+    
+    const { username, ...updateData } = req.body; 
+    
+    try {
+        // Chuyển đổi các giá trị sang số để đảm bảo tính toán đúng
+        for (let key in updateData) {
+            if (key !== 'username') updateData[key] = parseInt(updateData[key]);
+        }
 
+        await User.updateOne({ username }, { $set: updateData });
+        res.json({ message: 'Đã cập nhật đầy đủ 11 cấp độ cho ' + username });
+    } catch(e) {
+        res.status(500).json({ message: 'Lỗi khi cập nhật dữ liệu' });
+    }
+});
 // Lấy danh sách user
 app.get('/api/admin/all-users', async (req, res) => {
-    if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ message: 'Không có quyền' });
     const users = await User.find().select('-password');
     res.json(users);
 });
-
 // Tạo user nhanh
 app.post('/api/admin/create-user', async (req, res) => {
     const { username, password, role } = req.body;
@@ -237,41 +293,19 @@ app.post('/api/admin/broadcast', (req, res) => {
 // Giao nhiệm vụ (Quest) - Đã khôi phục logic lưu vào DB
 // Giao nhiệm vụ (Quest) - Đã sửa lỗi biến timeLimit
 app.post('/api/admin/assign-quest', async (req, res) => {
-    // 1. Nhận thêm tham số penalty và timeLimit từ Admin
     const { username, taskType, target, reward, penalty, timeLimit } = req.body;
-    
     const user = await User.findOne({ username });
     if (user) {
-        // 2. Tạo object nhiệm vụ chuẩn tên biến
-        user.activeQuest = { 
-            taskType, 
-            target: parseInt(target), 
-            reward: parseInt(reward), 
-            progress: 0,
-            penalty: parseInt(penalty || 0),     // Điểm phạt
-            timeLimit: parseInt(timeLimit || 0)  // <--- ĐÃ SỬA: Dùng timeLimit (viết liền)
-        };
-        
-        // Lưu vào DB (Cần markModified vì activeQuest là Mixed Type)
-        user.markModified('activeQuest');
-        await user.save();
-        
-        // Gửi thông báo ngay cho Client nếu đang online
-        const socketId = Object.keys(io.sockets.sockets).find(id => {
-            const s = io.sockets.sockets[id];
-            return s.request.session.user?.username === username;
+        user.quests.push({
+            id: 'q' + Date.now(), taskType, target: parseInt(target), 
+            reward: parseInt(reward), penalty: parseInt(penalty || 0), 
+            timeLimit: parseInt(timeLimit || 0), progress: 0
         });
-        
-        if (socketId) {
-            io.to(socketId).emit('newQuest', user.activeQuest);
-        }
-        
-        res.json({ message: 'Đã giao nhiệm vụ thành công!' });
-    } else {
-        res.status(404).json({ message: 'Không tìm thấy người dùng này' });
+        user.markModified('quests');
+        await user.save();
+        res.json({ message: 'Giao nhiệm vụ thành công!' });
     }
 });
-// Bảo trì hệ thống - Đã khôi phục
 app.get('/api/admin/maintenance-status', (req, res) => res.json({ maintenanceMode }));
 app.post('/api/admin/maintenance-toggle', (req, res) => {
     maintenanceMode = !maintenanceMode;
@@ -283,72 +317,63 @@ app.post('/api/admin/maintenance-toggle', (req, res) => {
     res.json({ maintenanceMode });
 });
 // --- LOGIC NHIỆM VỤ (Đã sửa để khớp với Database) ---
+// --- 7. API GAME WIN (LƯU ĐIỂM VÀO DB) ---
 function updateQuestProgress(user, taskType, performance = { timeTaken: 0, isWin: true }) {
-    if (!user.activeQuest || !user.activeQuest.taskType) return; // Không có nhiệm vụ thì thôi
-
-    const quest = user.activeQuest;
-    
-    // Kiểm tra xem game vừa chơi có khớp nhiệm vụ không
-    // (So sánh tương đối để linh hoạt: VD giao "Cờ" thì chơi "Cờ Vua" hay "Cờ Tướng" đều tính)
-    if (quest.taskType === taskType || taskType.includes(quest.taskType)) {
-        
-        // 1. Kiểm tra thời gian (nếu Admin có set giới hạn và client gửi lên timeTaken)
-        if (quest.timeLimit > 0 && performance.timeTaken > quest.timeLimit) {
-            // Có thể trừ điểm hoặc chỉ không tính nhiệm vụ
-            user.history.push({ 
-                activity: `Thất bại NV ${quest.taskType}: Quá giờ (${performance.timeTaken}s > ${quest.timeLimit}s)`, 
-                timestamp: new Date() 
-            });
-            return; // Dừng, không cộng tiến độ
-        }
-
-        // 2. Nếu hoàn thành tốt
-        if (performance.isWin) {
-            quest.progress = (quest.progress || 0) + 1;
-            
-            // Nếu đủ số lượng yêu cầu -> Hoàn thành
-            if (quest.progress >= quest.target) {
-                user.score += parseInt(quest.reward);
-                user.history.push({ 
-                    activity: `🎉 Hoàn thành NV ${quest.taskType}: +${quest.reward} điểm`, 
-                    timestamp: new Date() 
-                });
-                user.activeQuest = null; // Xóa nhiệm vụ đã xong
-            } else {
-                // Cập nhật tiến độ
-                user.activeQuest = quest; // Mongoose cần gán lại để nhận diện thay đổi object
+    if (!user.quests || user.quests.length === 0) return;
+    for (let i = user.quests.length - 1; i >= 0; i--) {
+        let q = user.quests[i];
+        if (q.taskType === taskType || taskType.includes(q.taskType)) {
+            // 1. Phạt điểm nếu quá giờ
+            if (q.timeLimit > 0 && performance.timeTaken > q.timeLimit) {
+                const p = parseInt(q.penalty || 20);
+                user.score = Math.max(0, user.score - p); 
+                user.history.push({ activity: `Thất bại NV ${q.taskType}: Quá giờ (-${p}đ)` });
+                user.quests.splice(i, 1);
+                continue;
+            }
+            // 2. Cộng tiến độ
+            if (performance.isWin) {
+                q.progress += 1;
+                if (q.progress >= q.target) {
+                    user.score += q.reward;
+                    user.history.push({ activity: `🎉 Xong NV ${q.taskType}: +${q.reward}đ` });
+                    user.quests.splice(i, 1);
+                }
             }
         }
     }
 }
-// --- 7. API GAME WIN (LƯU ĐIỂM VÀO DB) ---
-
-// --- 5. API GAME WIN (Đã tích hợp Nhiệm vụ & Fix lỗi) ---
 async function handleWin(req, res, gameKey, points = 10, taskName = '') {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa login' });
+    
     try {
         const user = await User.findOne({ username: req.session.user.username });
-        if (!user) return res.status(404);
+        
+        // CHỖ CẦN SỬA: Kiểm tra nếu không tìm thấy user
+        if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
 
-        // 1. Cộng điểm & Tăng cấp
+        // 1. Cộng điểm & Tăng cấp độ
         user.score += points;
         user[gameKey] = (user[gameKey] || 1) + 1;
-        user.history.push({ activity: `Thắng game (${taskName || gameKey})`, timestamp: new Date() });
 
-        // 2. KIỂM TRA NHIỆM VỤ (Logic mới thêm)
-        // Lấy thời gian chơi từ Client gửi lên (nếu có), mặc định 0
-        const timeTaken = req.body.timeTaken || 0; 
-        // Gọi hàm updateQuestProgress vừa viết ở trên
-        updateQuestProgress(user, taskName, { timeTaken: timeTaken, isWin: true });
-
+        // 2. Cập nhật tiến độ nhiệm vụ (Daily + Admin assign)
+        // Lưu ý: performance cần cả isWin: true
+        updateQuestProgress(user, taskName, { timeTaken: req.body.timeTaken || 0, isWin: true });
         // 3. Lưu vào Database
-        user.markModified('activeQuest'); // Bắt buộc dòng này để lưu thay đổi trong Object Mixed
+        user.markModified('quests');
         await user.save();
 
-        res.json({ message: 'Lưu thành công', newLevel: user[gameKey], newScore: user.score });
+        // 4. Trả về kết quả cho Client
+        res.json({ 
+            message: 'Chiến thắng!', 
+            newScore: user.score, 
+            newLevel: user[gameKey],
+            taskHandled: taskName 
+        });
+
     } catch (e) { 
-        console.error(e);
-        res.status(500).json({ message: 'Lỗi lưu điểm' }); 
+        console.error("Lỗi tại handleWin:", e);
+        res.status(500).send("Lỗi hệ thống: " + e.message); 
     }
 }
 // Cập nhật các dòng gọi API để truyền thêm Tên Nhiệm Vụ (Tham số thứ 3)

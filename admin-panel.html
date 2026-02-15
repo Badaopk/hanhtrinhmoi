@@ -199,6 +199,7 @@
                     <th style="width: 8%;">Vai trò</th>
                     <th style="width: 7%;">Điểm</th>
                     <th style="width: 25%;">Cấp Độ (Cờ, Car, GH, OC, LN)</th>
+                    <th style="width: 15%;">Nhiệm vụ đang có</th> <th style="width: 10%;">Thời Gian</th>
                     <th style="width: 15%;">Thời Gian Chơi</th>
                     <th style="width: 30%;">Hành động</th>
                 </tr>
@@ -294,69 +295,81 @@
                 row.id = `user-${user.username}`;
                 
                 const isChild = user.role === 'child';
-                const isAdmin = user.role === 'admin';
-                const isSuspended = user.isSuspended === 1;
-                const disabled = (isChild || isAdmin) ? '' : 'disabled'; 
-                const isNotDeletableAdmin = user.username === 'Admin';
+                const disabled = isChild ? '' : 'disabled'; 
+                const isSuspended = user.isSuspended === true;
                 const suspendClass = isSuspended ? 'role-suspended' : '';
                 const suspendBtnText = isSuspended ? 'Mở Khóa' : 'Khóa';
                 const suspendBtnClass = isSuspended ? 'active' : '';
+
+                // --- Tóm tắt danh sách nhiệm vụ ---
+                const questsSummary = user.quests && user.quests.length > 0 
+                    ? user.quests.map(q => `
+                        <div style="font-size:0.75rem; border-bottom:1px solid #eee; padding:2px 0;">
+                            <strong>${q.isDaily ? '📅' : '🌟'} ${q.taskType}</strong>: ${q.progress}/${q.target}
+                        </div>`).join('')
+                    : '<span style="color:#bdc3c7; font-size:0.8rem;">Trống</span>';
 
                 row.innerHTML = `
                     <td><strong class="${suspendClass}">${user.username}</strong></td>
                     <td><span class="role-${user.role} ${suspendClass}">${user.role}</span></td>
                     <td><input type="number" id="score-${user.username}" value="${user.score}" ${disabled}></td>
                     <td>
-                        <input type="number" id="chessLevel-${user.username}" value="${user.chessLevel || 1}" ${disabled} title="Cờ Vua" style="width:45px;">
-                        <input type="number" id="caroLevel-${user.username}" value="${user.caroLevel || 1}" ${disabled} title="Caro" style="width:45px;">
-                        <input type="number" id="memoryLevel-${user.username}" value="${user.memoryLevel || 1}" ${disabled} title="Ghép Hình" style="width:45px;">
-                        <input type="number" id="crosswordLevel-${user.username}" value="${user.crosswordLevel || 1}" ${disabled} title="Ô Chữ" style="width:45px;">
-                        <input type="number" id="speechLevel-${user.username}" value="${user.speechLevel || 1}" ${disabled} title="Luyện Nói" style="width:45px;">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+                            <input type="number" id="chess-${user.username}" value="${user.chessLevel || 1}" title="Cờ Vua">
+                            <input type="number" id="caro-${user.username}" value="${user.caroLevel || 1}" title="Caro">
+                            <input type="number" id="mem-${user.username}" value="${user.memoryLevel || 1}" title="Ghép Hình">
+                            <input type="number" id="cross-${user.username}" value="${user.crosswordLevel || 1}" title="Ô Chữ">
+                            <input type="number" id="speech-${user.username}" value="${user.englishSpeechLevel || 1}" title="L.Nói">
+                            <input type="number" id="det-${user.username}" value="${user.detectiveLevel || 1}" title="Thám Tử">
+                            <input type="number" id="go-${user.username}" value="${user.goLevel || 1}" title="Cờ Vây">
+                            <input type="number" id="oth-${user.username}" value="${user.othelloLevel || 1}" title="P.Kích">
+                            <input type="number" id="story-${user.username}" value="${user.storyLevel || 1}" title="Sáng Tác">
+                            <input type="number" id="shape-${user.username}" value="${user.shapeLevel || 1}" title="Tạo Hình">
+                            <input type="number" id="build-${user.username}" value="${user.buildLevel || 1}" title="Xây Dựng">
+                        </div>
+                    </td>
+                    <td><div style="max-height: 100px; overflow-y: auto; background: #fcfcfc; padding: 5px; border-radius: 5px; border: 1px inset #eee;">${questsSummary}</div></td>
+                    <td>
+                        <input type="number" id="playtimeLimit-${user.username}" value="${user.playtimeLimitMinutes || 0}" ${disabled} style="width:50px;">
+                        <br><small>${isChild ? (user.playtimeUsedToday || 0) + 'm' : 'N/A'}</small>
                     </td>
                     <td>
-                        <input type="number" id="playtimeLimitMinutes-${user.username}" value="${user.playtimeLimitMinutes || 0}" ${disabled} min="0" title="Giới hạn (phút)">
-                        <span>${isChild ? (user.playtimeUsedToday || 0) : 'N/A'} (đã chơi)</span>
-                    </td>
-                    <td style="white-space: normal;">
                         <button class="action-btn save-btn" onclick="saveUser('${user.username}')" ${disabled}>Lưu</button>
-                        <button class="action-btn notify-btn" style="background:#8e44ad" onclick="assignCustomQuest('${user.username}')">Giao NV</button>
-                        <button class="action-btn delete-btn" onclick="deleteUser('${user.username}', '${user.role}')" ${isNotDeletableAdmin ? 'disabled' : ''}>Xóa</button>
-                        ${isChild ? `<button class="action-btn notify-btn" onclick="sendNotification('${user.username}')">Gửi TB</button>` : ''}
-                        <button class="action-btn suspend-btn ${suspendBtnClass}" onclick="toggleSuspend('${user.username}')" ${isNotDeletableAdmin ? 'disabled' : ''}>${suspendBtnText}</button>
-                        <button class="action-btn reset-pw-btn" onclick="resetPassword('${user.username}')" ${isNotDeletableAdmin ? 'disabled' : ''}>Reset PW</button>
-                        ${isChild ? `<button class="action-btn transfer-btn" onclick="transferParent('${user.username}')">Chuyển PH</button>` : ''}
+                        <button class="action-btn notify-btn" style="background:#8e44ad" onclick="assignCustomQuest('${user.username}')" ${disabled}>Giao NV</button>
+                        <button class="action-btn suspend-btn ${suspendBtnClass}" onclick="toggleSuspend('${user.username}')">${suspendBtnText}</button>
+                        <button class="action-btn delete-btn" onclick="deleteUser('${user.username}', '${user.role}')">Xóa</button>
                     </td>
                 `;
                 userTableBody.appendChild(row);
             });
         }
-
         // --- CÁC HÀM XỬ LÝ (SAVE, DELETE, NOTIFY...) ---
         async function saveUser(username) {
-            const dataToSave = {
+            const data = {
                 username: username,
                 score: document.getElementById(`score-${username}`).value,
-                chessLevel: document.getElementById(`chessLevel-${username}`).value,
-                caroLevel: document.getElementById(`caroLevel-${username}`).value,
-                memoryLevel: document.getElementById(`memoryLevel-${username}`).value,
-                crosswordLevel: document.getElementById(`crosswordLevel-${username}`).value,
-                speechLevel: document.getElementById(`speechLevel-${username}`).value,
-                playtimeLimitMinutes: document.getElementById(`playtimeLimitMinutes-${username}`).value
-            };
-            try {
-                const response = await fetch('/api/admin/update-user', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(dataToSave)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message);
-                showMessage(`Đã cập nhật thành công cho ${username}!`);
-            } catch (error) {
-                showMessage(`Lỗi: ${error.message}`, true);
-            }
-        }
-        
+                // PHẢI THÊM ĐỦ CÁC DÒNG DƯỚI ĐÂY:
+                chessLevel: document.getElementById(`chess-${username}`).value,
+                caroLevel: document.getElementById(`caro-${username}`).value,
+                memoryLevel: document.getElementById(`mem-${username}`).value,
+                crosswordLevel: document.getElementById(`cross-${username}`).value,
+                englishSpeechLevel: document.getElementById(`speech-${username}`).value,
+                detectiveLevel: document.getElementById(`det-${username}`).value,
+                goLevel: document.getElementById(`go-${username}`).value,
+                othelloLevel: document.getElementById(`oth-${username}`).value,
+                storyLevel: document.getElementById(`story-${username}`).value,
+                shapeLevel: document.getElementById(`shape-${username}`).value,
+                buildLevel: document.getElementById(`build-${username}`).value,
+                playtimeLimitMinutes: document.getElementById(`playtimeLimit-${username}`).value
+           };
+    
+           const res = await fetch('/api/admin/update-user', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(data)
+           });
+    if(res.ok) showMessage("✅ Đã cập nhật thành công 11 cấp độ!");
+}
         async function deleteUser(username, role) {
             if (username === 'Admin') return;
             const confirmMsg = role === 'parent' 

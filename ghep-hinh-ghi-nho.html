@@ -238,24 +238,26 @@
         }
         
         function endGame(isWin) {
-            if (isWin) {
-                // --- THAY ĐỔI: Báo cáo an toàn ---
-                // const points = currentLevel * 5 + Math.max(0, timeLeft); // <-- ĐÃ XÓA
-                // addScore(points, `Hoàn thành Ghép Hình cấp ${currentLevel}`); // <-- ĐÃ XÓA
-                reportGameWin(currentLevel, timeLeft);
+    if (isWin) {
+        // TÍNH THỜI GIAN ĐÃ CHƠI (Time Taken)
+        // Lấy tổng thời gian của cấp độ đó (config.timeLimit) trừ đi số giây còn dư (timeLeft)
+        const totalLimit = levels[currentLevel - 1].timeLimit;
+        const timeSpent = totalLimit - timeLeft; 
 
-                alert(`🎉 Chúc mừng! Bạn đã hoàn thành cấp độ ${currentLevel}!`);
-                
-                if (currentLevel === unlockedLevel && unlockedLevel < 60) {
-                    unlockedLevel++; // Tăng ở client để mở khóa nút ngay
-                }
-                showLevelSelection();
-            } else {
-                alert(`😭 Hết giờ rồi! Hãy thử lại nhé!`);
-                showLevelSelection();
-            }
-        }
+        // Gửi "thời gian đã chơi" lên server thay vì "thời gian còn lại"
+        reportGameWin(currentLevel, timeSpent);
+
+        alert(`🎉 Chúc mừng! Bạn đã hoàn thành cấp độ ${currentLevel}!`);
         
+        if (currentLevel === unlockedLevel && unlockedLevel < 60) {
+            unlockedLevel++; 
+        }
+        showLevelSelection();
+    } else {
+        alert(`😭 Hết giờ rồi! Hãy thử lại nhé!`);
+        showLevelSelection();
+    }
+}        
         function showLevelSelection() {
             gameArea.style.display = 'none';
             levelSelectionArea.style.display = 'block';
