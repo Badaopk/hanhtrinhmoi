@@ -48,7 +48,9 @@ const userSchema = new mongoose.Schema({
     detectiveLevel: { type: Number, default: 1 },
     mathLevel: { type: Number, default: 1 },
     shapeLevel: { type: Number, default: 1 },
-    buildLevel: { type: Number, default: 1 }
+    buildLevel: { type: Number, default: 1 },
+    memoryLevel: { type: Number, default: 1 }, // <--- THÊM MỚI
+    monopolyLevel: { type: Number, default: 1 }
 });
 const User = mongoose.model('User', userSchema);
 
@@ -83,7 +85,7 @@ app.get('/api/leaderboard', async (req, res) => {
         const topPlayers = await User.find({ role: 'child' })
             .sort({ score: -1 }) // Sắp xếp điểm giảm dần
             .limit(10)           // Chỉ lấy 10 người đứng đầu
-            .select('username score'); // Chỉ lấy tên và điểm để bảo mật
+            .select('username score chessLevel'); // Chỉ lấy tên và điểm để bảo mật
         res.json(topPlayers);
     } catch (e) {
         res.status(500).json({ message: 'Lỗi khi tải bảng xếp hạng' });
@@ -290,7 +292,10 @@ app.post('/api/game/othello-win', (req, res) => handleWin(req, res, 'othelloLeve
 app.post('/api/game/shape-win', (req, res) => handleWin(req, res, 'shapeLevel', 20));
 app.post('/api/game/build-win', (req, res) => handleWin(req, res, 'buildLevel', 30));
 app.post('/api/game/chess-win-level', (req, res) => handleWin(req, res, 'chessLevel', 50));
-
+app.post('/api/game/caro-win', (req, res) => handleWin(req, res, 'caroLevel', 20));
+app.post('/api/game/go-win', (req, res) => handleWin(req, res, 'goLevel', 30));
+// Thêm API nhận kết quả thắng game Ghép hình
+app.post('/api/game/memory-win', (req, res) => handleWin(req, res, 'memoryLevel', 15));
 app.post('/api/submit-test', async (req, res) => {
     const { answers } = req.body; 
     let score = Math.floor(Math.random() * 10) + 1; 
@@ -456,7 +461,28 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('gameLog', [`👉 Lượt của ${nextP.username}`]);
         }
     });
-
+    // Thêm sự kiện khi có người thắng Cờ Tỷ Phú
+    socket.on('monopolyWin', async ({ roomId, winnerId }) => {
+    const game = monopolyGames[roomId];
+    if (game && socket.id === winnerId) {
+        try {
+            const user = await User.findOne({ username: socket.request.session.user.username });
+            if (user) {
+                user.score += 100; 
+                user.monopolyLevel = (user.monopolyLevel || 1) + 1; // <--- DÒNG QUAN TRỌNG: Tăng cấp độ
+                user.history.push({ activity: `Thắng Cờ Tỷ Phú - Lên cấp ${user.monopolyLevel}`, timestamp: new Date() });
+                await user.save();
+                // Gửi thông báo về cho Client kèm cấp độ mới
+                io.to(roomId).emit('monopolyGameOver', { 
+                    winner: user.username, 
+                    newScore: user.score, 
+                    newLevel: user.monopolyLevel 
+                });
+            }
+        } catch (e) { console.error("Lỗi lưu điểm Monopoly:", e); }
+        delete monopolyGames[roomId];
+    }
+});
     // --- DISCONNECT ---
     socket.on('disconnecting', () => {
         // Xóa khỏi hàng chờ

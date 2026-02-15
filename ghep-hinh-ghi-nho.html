@@ -109,22 +109,21 @@
 
         // --- THAY ĐỔI: Thêm hàm báo cáo an toàn ---
         async function reportGameWin(level, time) {
-            try {
-                // Gọi API an toàn đã có trong server.js
-                const response = await fetch('/api/game/memory-win', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ level, time }) 
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Lỗi báo cáo chiến thắng:', errorData.message);
-                }
-            } catch (error) {
-                console.error('Lỗi khi gửi báo cáo chiến thắng:', error);
-            }
-        }
+    try {
+        const response = await fetch('/api/game/memory-win', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ level, time })
+        });
         
+        if (response.ok) {
+            const data = await response.json();
+            unlockedLevel = data.newLevel; // Cập nhật biến mở khóa ngay lập tức
+            alert(`🎉 Chúc mừng! Bé đã lên Cấp ${data.newLevel}!`);
+            showLevelSelection(); // Vẽ lại các nút chọn cấp độ
+        }
+    } catch (error) { console.error('Lỗi lưu điểm:', error); }
+}        
         // --- THAY ĐỔI: Thêm hàm lấy cấp độ từ server ---
         async function fetchProgress() {
             try {

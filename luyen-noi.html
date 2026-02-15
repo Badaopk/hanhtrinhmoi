@@ -172,6 +172,42 @@
             resultText.textContent = "Nhấn micro để bắt đầu...";
             nextBtn.style.display = 'none';
         }
+        // 1. Tự động tải cấp độ khi vào trang
+window.onload = async () => {
+    try {
+        const res = await fetch('/api/user/progress');
+        const data = await res.json();
+        console.log("Cấp độ luyện nói hiện tại:", data.englishSpeechLevel);
+        // Ở đây bạn có thể thêm logic hiển thị cấp độ lên màn hình nếu muốn
+    } catch(e) {}
+};
+
+// 2. Sửa lại hàm checkResult để báo công với Server khi đọc đúng
+// (Tìm hàm checkResult cũ và thay thế đoạn xử lý đúng bằng đoạn này)
+function checkResult(spokenText) {
+    const target = phrases[currentIndex];
+    const cleanSpoken = spokenText.toLowerCase().replace(/[.,!?;]/g, '').trim();
+    const cleanTarget = target.toLowerCase().replace(/[.,!?;]/g, '').trim();
+
+    if (cleanSpoken.includes(cleanTarget) || cleanTarget.includes(cleanSpoken)) {
+        scoreArea.innerHTML = "<h3 style='color:#27ae60; margin:0;'>🎉 CHÍNH XÁC! 🎉</h3>";
+        nextBtn.style.display = 'block';
+        
+        // --- THÊM ĐOẠN NÀY ĐỂ LƯU ĐIỂM ---
+        // --- SỬA THÀNH: GỌI API CHUNG ĐỂ CHỈ CỘNG ĐIỂM (KHÔNG TĂNG CẤP TIẾNG ANH) ---
+        fetch('/api/submit-test', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: ['dung'] }) // Gửi dữ liệu giả để server nhận
+        })
+        .then(res => res.json())
+        .then(data => console.log("Đã cộng điểm luyện tập:", data.message));
+        // -------------------------------------------------------------------------
+        // ---------------------------------
+    } else {
+        scoreArea.innerHTML = "<h3 style='color:#e74c3c; margin:0;'>Thử lại nhé! 💪</h3>";
+    }
+}
     </script>
 </body>
 </html>

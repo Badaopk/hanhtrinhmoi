@@ -80,6 +80,7 @@
                         <button class="btn-action" id="btn-roll" disabled>Gieo Xúc Xắc</button>
                         <button class="btn-action" id="btn-end-turn" style="background: #e74c3c; display:none;">Kết Thúc Lượt</button>
                         <button class="btn-action" id="btn-start" style="background:#2ecc71; display:none;">Bắt Đầu Game</button>
+                        <button class="btn-action" style="background:#8e44ad; font-size: 0.9rem; margin-top:5px;" onclick="claimWin()">🏆 Nhận Thua/Thắng</button>
                         <div id="status-msg" style="font-weight:bold; color:white; font-size:1.1rem; text-align:center;"></div>
                     </div>
                 </div>
@@ -212,6 +213,44 @@
             document.getElementById('buy-modal').style.display = 'none';
             socket.emit('confirmBuy', { roomId: myCurrentRoom, confirm: choice });
         }
+        socket.on('monopolyGameOver', (data) => {
+    let msg = `🏆 CHÚC MỪNG ${data.winner} ĐÃ CHIẾN THẮNG!`;
+    if (data.newLevel) {
+        msg += `\n🆙 Cấp độ mới: ${data.newLevel}\n💰 Tổng điểm: ${data.newScore}`;
+    }
+    alert(msg);
+    window.location.reload(); // Tải lại trang để cập nhật dữ liệu mới
+});
+        // Hàm gửi lệnh thắng lên Server để nhận điểm và lên cấp
+function claimWin() {
+    if (!myCurrentRoom) return alert("Bạn chưa vào phòng nào!");
+    // Gửi lệnh: "Tôi (socket.id) là người thắng phòng này"
+    socket.emit('monopolyWin', { roomId: myCurrentRoom, winnerId: socket.id });
+}
+// --- BỔ SUNG HÀM TÍNH ĐIỂM CỜ VÂY (Dán vào cuối script) ---
+async function endGameCalculated() {
+    // Tính điểm quân tù binh (captures)
+    let scoreB = captures[1];
+    let scoreW = captures[2] + 6.5; // Cộng điểm Komi 6.5 cho trắng
+    
+    let winner = scoreB > scoreW ? "Đen" : "Trắng";
+    alert(`🏁 KẾT THÚC VÁN CỜ!\n⚫ Đen: ${scoreB}\n⚪ Trắng: ${scoreW}\n🏆 Người thắng: ${winner}`);
+
+    // Chỉ người thắng mới gửi báo cáo về Server
+    // (Quy định: 1 là Đen, 2 là Trắng)
+    let myRoleNum = myColor; 
+    if ((winner === "Đen" && myRoleNum === 1) || (winner === "Trắng" && myRoleNum === 2)) {
+        try {
+            await fetch('/api/game/go-win', { 
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ level: userLevel }) 
+            });
+            alert("✅ Đã cộng điểm và lưu cấp độ!");
+        } catch(e) { console.error(e); }
+    }
+    location.reload(); // Tải lại trang
+}
     </script>
 </body>
 </html>

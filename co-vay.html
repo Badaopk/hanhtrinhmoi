@@ -385,18 +385,63 @@
             document.getElementById('capture-b').textContent = captures[1];
             document.getElementById('capture-w').textContent = captures[2];
         }
+        // Biến đếm số lần bỏ lượt liên tiếp
+let passCount = 0;
 
-        function passTurn() {
-            if(!gameActive) return;
-            if(isOnline) socket.emit('goPass', { room: currentRoom });
-            
-            currentColor = currentColor === 1 ? 2 : 1;
-            statusEl.textContent = `Đối thủ đã Bỏ lượt. Đến lượt ${currentColor === 1 ? 'Đen' : 'Trắng'}`;
-            
-            if(isAiMode && currentColor === 2) setTimeout(makeAiMove, 500);
-        }
+function passTurn() {
+    if(!gameActive) return;
+    passCount++;
+    
+    if(isOnline) socket.emit('goPass', { room: currentRoom });
+    
+    // Nếu cả 2 cùng bỏ lượt (passCount >= 2) -> Kết thúc game
+    if (passCount >= 2) {
+        endGameCalculated();
+    } else {
+        currentColor = currentColor === 1 ? 2 : 1;
+        statusEl.textContent = `Bạn đã bỏ lượt. Đến lượt đối thủ.`;
+        if(isAiMode && currentColor === 2) setTimeout(makeAiMove, 500);
+    }
+}
 
-        // --- 4. AI MODE (100 LEVEL) ---
+// Xử lý khi đối thủ bỏ lượt
+socket.on('opponentPassed', () => {
+    passCount++;
+    if (passCount >= 2) {
+        endGameCalculated();
+    } else {
+        currentColor = myColor;
+        statusEl.textContent = "Đối thủ bỏ lượt. Đến lượt bạn!";
+        alert("Đối thủ đã bỏ lượt! Nếu bạn bỏ lượt nữa, ván cờ sẽ kết thúc.");
+    }
+});
+
+// Hàm tính điểm và lưu về Server (CẦN THÊM HÀM NÀY)
+async function endGameCalculated() {
+    gameActive = false;
+    // Tính điểm đơn giản dựa trên quân bắt được (hoặc đất vây được nếu có thuật toán)
+    let scoreB = captures[1];
+    let scoreW = captures[2] + 6.5; // Komi cho trắng
+    
+    let winner = scoreB > scoreW ? 1 : 2;
+    let msg = winner === 1 ? "Đen Thắng!" : "Trắng Thắng!";
+    
+    alert(`🏁 KẾT THÚC!\n⚫ Đen: ${scoreB}\n⚪ Trắng: ${scoreW}\n👉 ${msg}`);
+
+    // Gửi điểm về Server nếu mình là người thắng
+    if ((winner === 1 && myColor === 1) || (winner === 2 && myColor === 2)) {
+        try {
+            await fetch('/api/game/go-win', { 
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ level: userLevel }) 
+            });
+            alert("✅ Đã lưu điểm và cấp độ Cờ Vây!");
+        } catch(e) {}
+    }
+    location.reload();
+}
+                // --- 4. AI MODE (100 LEVEL) ---
         function startAiGame() {
             isAiMode = true; isOnline = false;
             myColor = 1; // Người chơi là Đen
