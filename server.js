@@ -7,7 +7,7 @@ const { Server } = require("socket.io");
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
-
+const MongoStore = require('connect-mongo');
 // --- CẤU HÌNH DATABASE (THAY CHUỖI KẾT NỐI CỦA BẠN VÀO ĐÂY) ---
 const MONGO_URI = 'mongodb+srv://admin:Quoc2007%40@cluster0.fme5rgw.mongodb.net/?appName=Cluster0'; 
 
@@ -56,10 +56,13 @@ const User = mongoose.model('User', userSchema);
 const sessionMiddleware = session({
     secret: 'hanh-tinh-mo-uoc-vinh-cuu-merged-2026',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } 
+    saveUninitialized: false, // Đổi thành false để tiết kiệm database
+    store: MongoStore.create({ mongoUrl: MONGO_URI }), // <--- QUAN TRỌNG: Dòng này giúp lưu phiên đăng nhập vào MongoDB
+    cookie: { 
+        secure: false, // Nếu sau này bạn có https xịn thì đổi thành true
+        maxAge: 24 * 60 * 60 * 1000 // Lưu đăng nhập trong 24 giờ
+    } 
 });
-
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 app.use(express.json());
