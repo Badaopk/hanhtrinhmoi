@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Speaking Master - 100 Levels</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+            font-family: 'Baloo 2', cursive;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+            margin: 0; padding: 20px; box-sizing: border-box;
+        }
+
+        /* Tiêu đề chính */
+        h1 {
+            color: #fff; text-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+            font-size: 2.8rem; margin: 10px 0 20px; text-align: center;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 30px; border-radius: 50px;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Khung chính (Glassmorphism) */
+        .container {
+            width: 100%; max-width: 800px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 30px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 4px solid #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* --- MÀN HÌNH CHỌN LEVEL --- */
+        #level-selection-area h2 { color: #2c3e50; margin-bottom: 20px; font-size: 1.8rem; }
+        
+        .level-grid {
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 15px; 
+            max-height: 60vh; overflow-y: auto; padding: 10px;
+            /* Thanh cuộn đẹp */
+            scrollbar-width: thin; scrollbar-color: #74b9ff #f1f2f6;
+        }
+        
+        .level-btn {
+            width: 100%; aspect-ratio: 1;
+            border-radius: 20px; border: none; 
+            font-weight: 800; font-size: 1.2rem; cursor: pointer;
+            background: #dfe6e9; color: #b2bec3; 
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 5px 0 #b2bec3;
+            font-family: inherit;
+        }
+
+        /* Level đã mở */
+        .level-btn.unlocked { 
+            background: linear-gradient(to bottom, #74b9ff, #0984e3); 
+            color: white; 
+            box-shadow: 0 5px 0 #06528d;
+        }
+        
+        /* Level hiện tại */
+        .level-btn.current {
+            background: linear-gradient(to bottom, #ffeaa7, #fab1a0);
+            color: #d35400;
+            transform: scale(1.1);
+            box-shadow: 0 5px 0 #e17055;
+            border: 3px solid #fff;
+        }
+
+        .level-btn:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+        .level-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+
+        /* --- MÀN HÌNH GAME --- */
+        #game-area { display: none; animation: fadeIn 0.5s; }
+        
+        /* Thẻ từ vựng */
+        .sentence-card {
+            background: #fff; 
+            border-radius: 25px;
+            padding: 30px 20px; 
+            margin: 20px auto; 
+            box-shadow: 0 10px 25px rgba(108, 92, 231, 0.15);
+            border-bottom: 6px solid #dfe6e9;
+            position: relative;
+        }
+        .sentence-text {
+            font-size: 2.5rem; color: #2d3436; margin: 0; font-weight: 800;
+            line-height: 1.2;
+        }
+        .translation {
+            font-size: 1.2rem; color: #636e72; margin-top: 10px; font-weight: 500;
+            background: #f1f2f6; display: inline-block; padding: 5px 15px; border-radius: 20px;
+        }
+
+        /* Nút Micro & Hiệu ứng sóng */
+        .mic-container {
+            position: relative; height: 120px; display: flex; justify-content: center; align-items: center; margin: 20px 0;
+        }
+        .mic-btn {
+            width: 90px; height: 90px; border-radius: 50%; border: none;
+            background: linear-gradient(135deg, #0984e3, #74b9ff); 
+            color: white; font-size: 2.5rem;
+            cursor: pointer; 
+            box-shadow: 0 10px 20px rgba(9, 132, 227, 0.3);
+            z-index: 2; transition: 0.3s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        
+        /* Hiệu ứng khi đang ghi âm */
+        .mic-btn.recording { 
+            background: linear-gradient(135deg, #ff7675, #d63031);
+            transform: scale(1.1);
+        }
+        .pulse-ring {
+            position: absolute; width: 90px; height: 90px; border-radius: 50%;
+            background: rgba(214, 48, 49, 0.2); z-index: 1;
+            opacity: 0;
+        }
+        .mic-btn.recording + .pulse-ring { animation: pulse-animation 1.5s infinite; }
+        .mic-btn.recording + .pulse-ring::before {
+            content: ''; position: absolute; top:0; left:0; width:100%; height:100%;
+            border-radius: 50%; background: rgba(214, 48, 49, 0.2);
+            animation: pulse-animation 1.5s infinite 0.5s;
+        }
+
+        @keyframes pulse-animation {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        /* Khu vực kết quả */
+        .result-box { 
+            min-height: 80px; padding: 15px; 
+            border-radius: 15px; margin-top: 10px;
+            transition: 0.3s;
+        }
+        .score-text { font-size: 1.8rem; font-weight: bold; margin-top: 5px; text-shadow: 1px 1px 0 rgba(0,0,0,0.1); }
+        
+        /* Các nút điều hướng */
+        .btn-action {
+            display: inline-block; padding: 12px 25px; border-radius: 30px;
+            font-weight: bold; text-decoration: none; font-size: 1rem;
+            margin-top: 20px; cursor: pointer; border: none;
+            transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+            font-family: inherit;
+        }
+        .btn-home { background: #636e72; color: white; }
+        .btn-back { background: #a29bfe; color: white; }
+        .btn-home:hover, .btn-back:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-home:active, .btn-back:active { transform: translateY(2px); box-shadow: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1>🇬🇧 English Master 🇬🇧</h1>
+
+    <div class="container">
+        <div id="level-selection-area">
+            <h2>🏆 Chọn Cấp Độ (Select Level)</h2>
+            <div id="login-warning" style="display:none; background:#ff7675; color:white; padding:10px; border-radius:10px; margin-bottom:15px;">
+                ⚠️ Bạn chưa đăng nhập. Kết quả sẽ không được lưu!
+            </div>
+            <div class="level-grid" id="level-buttons">
+                </div>
+            <a href="index.html" class="btn-action btn-home">🏠 Về Trang Chủ</a>
+        </div>
+
+        <div id="game-area">
+            <h3 id="level-title" style="color: #0984e3; margin-top: 0;">LEVEL 1</h3>
+            
+            <div class="sentence-card">
+                <p id="text-to-read" class="sentence-text">Hello world</p>
+                <p id="text-translation" class="translation">Xin chào thế giới</p>
+            </div>
+
+            <div class="mic-container">
+                <button id="record-btn" class="mic-btn">🎙️</button>
+                <div class="pulse-ring"></div>
+            </div>
+            
+            <div class="result-box" id="result-container">
+                <p id="result-text" style="color: #636e72; font-style: italic; font-size: 1.1rem;">Nhấn vào micro và đọc to nhé!</p>
+                <div id="score-display" class="score-text"></div>
+            </div>
+
+            <div id="speech-error-warning" style="display:none; color:#d63031; margin-top:10px; font-weight:bold; background:#fab1a0; padding:10px; border-radius:10px;">
+                ⚠️ Trình duyệt không hỗ trợ nhận diện giọng nói. Hãy dùng Google Chrome trên máy tính hoặc Android.
+            </div>
+
+            <button id="back-to-levels-btn" class="btn-action btn-back">⬅️ Chọn bài khác</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. KIỂM TRA TRÌNH DUYỆT ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US'; // Tiếng Anh Mỹ
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+        } else {
+            document.getElementById('speech-error-warning').style.display = 'block';
+        }
+
+        // --- 2. KHO DỮ LIỆU 100 CẤP ĐỘ ---
+        const levels = [
+            // Level 1-10: Từ đơn giản
+            { id: 1, text: 'Cat', trans: 'Con mèo' },
+            { id: 2, text: 'Dog', trans: 'Con chó' },
+            { id: 3, text: 'Apple', trans: 'Quả táo' },
+            { id: 4, text: 'Ball', trans: 'Quả bóng' },
+            { id: 5, text: 'Hello', trans: 'Xin chào' },
+            { id: 6, text: 'Red', trans: 'Màu đỏ' },
+            { id: 7, text: 'Blue', trans: 'Màu xanh dương' },
+            { id: 8, text: 'Run', trans: 'Chạy' },
+            { id: 9, text: 'Jump', trans: 'Nhảy' },
+            { id: 10, text: 'Happy', trans: 'Vui vẻ' },
+            // Level 11-20: Cụm từ ngắn
+            { id: 11, text: 'A big cat', trans: 'Một con mèo lớn' },
+            { id: 12, text: 'My red pen', trans: 'Cây bút đỏ của tôi' },
+            { id: 13, text: 'Good morning', trans: 'Chào buổi sáng' },
+            { id: 14, text: 'Thank you', trans: 'Cảm ơn bạn' },
+            { id: 15, text: 'I like milk', trans: 'Tôi thích sữa' },
+            // ... (Tự động sinh các level còn lại cho đủ 100)
+        ];
+
+        // Sinh dữ liệu giả lập cho đủ 100 cấp nếu thiếu
+        while(levels.length < 100) {
+            let nextId = levels.length + 1;
+            levels.push({ 
+                id: nextId, 
+                text: nextId % 2 === 0 ? 'I can speak English' : 'Learning is fun', 
+                trans: nextId % 2 === 0 ? 'Tôi có thể nói tiếng Anh' : 'Học tập thật vui' 
+            });
+        }
+
+        // --- 3. DOM & BIẾN ---
+        let unlockedLevel = 1;
+        let currentLevel = 1;
+        const levelArea = document.getElementById('level-selection-area');
+        const gameArea = document.getElementById('game-area');
+        const levelList = document.getElementById('level-buttons');
+        const recordBtn = document.getElementById('record-btn');
+        const resultText = document.getElementById('result-text');
+        const scoreDisplay = document.getElementById('score-display');
+        const resultContainer = document.getElementById('result-container');
+
+        // --- 4. KHỞI TẠO ---
+        async function init() {
+            try {
+                const res = await fetch('/api/user/progress');
+                if (res.status === 401) {
+                    document.getElementById('login-warning').style.display = 'block';
+                } else {
+                    const data = await res.json();
+                    unlockedLevel = data.englishSpeechLevel || 1;
+                }
+            } catch(e) {}
+            renderLevels();
+        }
+
+        function renderLevels() {
+            levelList.innerHTML = '';
+            levels.forEach(lvl => {
+                const btn = document.createElement('button');
+                // Thêm icon khóa hoặc số
+                const icon = lvl.id <= unlockedLevel ? lvl.id : '🔒';
+                btn.innerHTML = `<span>${icon}</span>`;
+                
+                btn.className = 'level-btn';
+                if (lvl.id <= unlockedLevel) {
+                    btn.classList.add('unlocked');
+                    if (lvl.id === unlockedLevel) btn.classList.add('current'); // Level đang chơi
+                    btn.onclick = () => startGame(lvl.id);
+                } else {
+                    btn.disabled = true;
+                }
+                levelList.appendChild(btn);
+            });
+        }
+
+        function startGame(id) {
+            currentLevel = id;
+            const data = levels.find(l => l.id === id);
+            
+            levelArea.style.display = 'none';
+            gameArea.style.display = 'block';
+            
+            document.getElementById('level-title').textContent = `LEVEL ${id}`;
+            document.getElementById('text-to-read').textContent = data.text;
+            document.getElementById('text-translation').textContent = data.trans;
+            
+            resetGameUI();
+        }
+
+        function resetGameUI() {
+            resultText.textContent = "Nhấn vào micro và đọc to nhé!";
+            scoreDisplay.textContent = "";
+            recordBtn.classList.remove('recording');
+            resultContainer.style.background = "transparent";
+        }
+
+        // --- 5. XỬ LÝ GHI ÂM ---
+        recordBtn.addEventListener('click', () => {
+            if (!recognition) return alert("Trình duyệt không hỗ trợ!");
+            
+            if (recordBtn.classList.contains('recording')) {
+                recognition.stop();
+                recordBtn.classList.remove('recording');
+            } else {
+                try {
+                    recognition.start();
+                    recordBtn.classList.add('recording');
+                    resultText.textContent = "Đang nghe... Bé đọc đi nào!";
+                    resultText.style.color = "#d63031";
+                    scoreDisplay.textContent = "";
+                    resultContainer.style.background = "transparent";
+                } catch(e) {
+                    console.log("Mic busy");
+                }
+            }
+        });
+
+        if (recognition) {
+            recognition.onresult = (event) => {
+                recordBtn.classList.remove('recording');
+                const spoken = event.results[0][0].transcript;
+                resultText.textContent = `Bé đã nói: "${spoken}"`;
+                resultText.style.color = "#2d3436";
+                checkResult(spoken);
+            };
+
+            recognition.onerror = (e) => {
+                recordBtn.classList.remove('recording');
+                resultText.textContent = "Không nghe rõ, bé thử lại nhé! 👂";
+                resultText.style.color = "#e17055";
+            };
+            
+            recognition.onspeechend = () => {
+                recordBtn.classList.remove('recording');
+            };
+        }
+
+        function checkResult(spoken) {
+            const target = levels.find(l => l.id === currentLevel).text;
+            
+            // So sánh chuỗi (bỏ dấu câu)
+            const cleanSpoken = spoken.toLowerCase().replace(/[.,!?]/g, '').trim();
+            const cleanTarget = target.toLowerCase().replace(/[.,!?]/g, '').trim();
+
+            if (cleanSpoken === cleanTarget) {
+                // ĐÚNG
+                scoreDisplay.innerHTML = "🎉 CHÍNH XÁC! TUYỆT VỜI! 🎉";
+                scoreDisplay.style.color = "#27ae60";
+                resultContainer.style.background = "#dff9fb"; // Nền xanh nhạt
+                saveWin();
+            } else if (cleanTarget.includes(cleanSpoken) && cleanSpoken.length > 2) {
+                // GẦN ĐÚNG
+                scoreDisplay.innerHTML = "Gần đúng rồi, cố lên bé ơi! 💪";
+                scoreDisplay.style.color = "#f39c12";
+            } else {
+                // SAI
+                scoreDisplay.innerHTML = "Chưa đúng, thử lại nhé! 😅";
+                scoreDisplay.style.color = "#d63031";
+                resultContainer.style.background = "#ffeaa7"; // Nền vàng nhạt
+            }
+        }
+
+        async function saveWin() {
+            if (currentLevel === unlockedLevel && unlockedLevel < 100) {
+                unlockedLevel++;
+            }
+            
+            try {
+                const res = await fetch('/api/game/english-speech-win', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ level: currentLevel, score: 10 })
+                });
+                const d = await res.json();
+                if(d.newLevel) unlockedLevel = d.newLevel;
+                
+                setTimeout(() => {
+                    // Tự động quay lại menu sau 2s
+                    document.getElementById('back-to-levels-btn').click();
+                }, 2000);
+            } catch(e) { console.error(e); }
+        }
+
+        // Nút quay lại
+        document.getElementById('back-to-levels-btn').addEventListener('click', () => {
+            gameArea.style.display = 'none';
+            levelArea.style.display = 'block';
+            renderLevels(); // Vẽ lại để cập nhật khóa
+        });
+
+        init();
+    </script>
+</body>
+</html>

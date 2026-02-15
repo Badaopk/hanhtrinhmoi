@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hành Tinh Mơ Ước</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .user-access {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .auth-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            background-color: #ff6347;
+            color: white;
+            font-family: 'Baloo 2', cursive;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .auth-btn:hover {
+            background-color: #e5533d;
+        }
+        .auth-btn.secondary {
+            background-color: #1E90FF;
+        }
+         .auth-btn.secondary:hover {
+            background-color: #1c80e3;
+        }
+        /* Style cho nút Admin */
+        .auth-btn.admin {
+            background-color: #8e44ad;
+        }
+        .auth-btn.admin:hover {
+            background-color: #732d91;
+        }
+        .user-greeting {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-access" id="auth-container">
+        </div>
+
+    <h1 class="header-title">Hành Tinh Mơ Ước</h1>
+    <p style="font-size: 1.5rem; color: #555;">Hãy chọn một nơi để khám phá nào!</p>
+
+    <div class="planet-container">
+        <a href="thanh-pho-sang-tao.html" class="planet planet-creative">🎨<br>Thành Phố Sáng Tạo</a>
+        <a href="thu-vien-tri-thuc.html" class="planet planet-knowledge">📚<br>Thư Viện Tri Thức</a>
+        
+        <a href="nhiem-vu.html" class="planet" style="border-color: #e67e22;">🏆<br>Nhiệm Vụ Hàng Ngày</a>
+        
+        <a href="dau-truong-thu-thach.html" class="planet planet-challenge">🎯<br>Đấu Trường Thử Thách</a>
+        <a href="choi-co.html" class="planet" style="border-color: #8e44ad;">🎲<br>Đấu Trường Cờ</a>
+        <a href="bai-kiem-tra.html" class="planet" style="border-color: #f39c12;">📝<br>Bài Kiểm Tra</a>
+        <a href="ngoi-nha-cua-be.html" class="planet planet-home">🏡<br>Ngôi Nhà Của Bé</a>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script src="global-client.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const authContainer = document.getElementById('auth-container');
+            
+            try {
+                const response = await fetch('/api/me');
+                if (!response.ok) {
+                    authContainer.innerHTML = `<a href="login.html"><button class="auth-btn">Đăng Nhập / Đăng Ký</button></a>`;
+                    return;
+                }
+
+                const user = await response.json();
+                
+                // Cần thiết để global-client.js biết user là ai
+                localStorage.setItem('currentUser', user.username);
+                let specialButton = '';
+
+                // Phân quyền nút đặc biệt
+                if (user.role === 'parent') {
+                    specialButton = `<a href="phu-huynh.html"><button class="auth-btn secondary">👤 Bảng Phụ Huynh</button></a>`;
+                } else if (user.role === 'admin') {
+                    specialButton = `<a href="admin-panel.html"><button class="auth-btn admin">⚙️ Bảng Admin</button></a>`;
+                }
+
+                authContainer.innerHTML = `
+                    <span class="user-greeting">Chào, ${user.username}!</span>
+                    ${specialButton}
+                    <button id="logout-btn" class="auth-btn">Đăng Xuất</button>
+                `;
+
+                document.getElementById('logout-btn').addEventListener('click', async () => {
+                    await fetch('/api/logout', { method: 'POST' });
+                    // Cần thiết để global-client.js ngừng hoạt động
+                    localStorage.removeItem('currentUser');
+                    window.location.href = '/login.html';
+                });
+
+            } catch (error) {
+                console.error('Lỗi kiểm tra trạng thái đăng nhập:', error);
+                authContainer.innerHTML = `<a href="login.html"><button class="auth-btn">Đăng Nhập / Đăng Ký</button></a>`;
+            }
+        });
+    </script>
+</body>
+</html>

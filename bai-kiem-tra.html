@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Bài Kiểm Tra Tổng Hợp</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .test-container { max-width: 800px; margin: 20px auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .control-panel { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-bottom: 30px; }
+        select, button { padding: 10px 15px; border-radius: 10px; border: 1px solid #ccc; font-family: 'Baloo 2'; font-size: 1rem; }
+        button { background: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2980b9; }
+        
+        .question-card { background: #f9f9f9; padding: 20px; margin-bottom: 20px; border-radius: 10px; text-align: left; border-left: 5px solid #e67e22; }
+        .question-text { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .option-label { display: block; background: white; padding: 10px; border-radius: 5px; cursor: pointer; border: 1px solid #eee; transition: 0.2s; }
+        .option-label:hover { background: #eef; border-color: #3498db; }
+        input[type="radio"] { margin-right: 10px; }
+
+        #result-area { display: none; text-align: center; margin-top: 30px; }
+        .score-big { font-size: 3rem; color: #e74c3c; font-weight: bold; display: block; }
+    </style>
+</head>
+<body class="knowledge-library-bg">
+
+    <h1 class="page-header header-knowledge">📝 Phòng Thi Trắc Nghiệm 📝</h1>
+
+    <div class="test-container">
+        <div class="control-panel" id="selection-area">
+            <select id="subject-select">
+                <option value="toan">🧮 Toán Học</option>
+                <option value="tieng-viet">📚 Tiếng Việt</option>
+                <option value="tieng-anh">🇬🇧 Tiếng Anh</option>
+                <option value="khoa-hoc">🔬 Khoa Học</option>
+                <option value="lich-su">🛡️ Lịch Sử</option>
+                <option value="dia-ly">🌏 Địa Lý</option>
+            </select>
+            <select id="grade-select">
+                <option value="1">Lớp 1</option>
+                <option value="2">Lớp 2</option>
+                <option value="3">Lớp 3</option>
+                <option value="4">Lớp 4</option>
+                <option value="5">Lớp 5</option>
+            </select>
+            <select id="difficulty-select">
+                <option value="easy">Dễ</option>
+                <option value="medium">Trung Bình</option>
+                <option value="hard">Khó</option>
+            </select>
+            <button onclick="startTest()">Bắt Đầu Làm Bài</button>
+        </div>
+
+        <div id="quiz-area" style="display: none;">
+            <h2 id="test-title">Đề thi...</h2>
+            <div id="questions-list"></div>
+            <button onclick="submitTest()" style="width: 100%; margin-top: 20px; background: #2ecc71;">NỘP BÀI</button>
+        </div>
+
+        <div id="result-area">
+            <h2>Kết Quả Của Bạn</h2>
+            <span class="score-big" id="final-score">0/10</span>
+            <p id="feedback-msg"></p>
+            <button onclick="location.reload()">Làm Bài Khác</button>
+            <a href="index.html" class="btn" style="background:#95a5a6">Về Trang Chủ</a>
+        </div>
+    </div>
+
+    <script>
+        let currentQuestions = [];
+
+        async function startTest() {
+            const subject = document.getElementById('subject-select').value;
+            const grade = document.getElementById('grade-select').value;
+            const diff = document.getElementById('difficulty-select').value;
+
+            // Gọi API lấy câu hỏi từ server
+            try {
+                const res = await fetch(`/api/test?subject=${subject}&grade=${grade}&difficulty=${diff}`);
+                const data = await res.json();
+
+                if (res.status !== 200) {
+                    alert(data.message || "Chưa có đề thi cho lựa chọn này.");
+                    return;
+                }
+
+                currentQuestions = data;
+                renderQuestions(data);
+                
+                document.getElementById('selection-area').style.display = 'none';
+                document.getElementById('quiz-area').style.display = 'block';
+                document.getElementById('test-title').textContent = `Môn: ${subject.toUpperCase()} - Lớp ${grade}`;
+            } catch (e) {
+                console.error(e);
+                alert("Lỗi kết nối server!");
+            }
+        }
+
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-list');
+            container.innerHTML = '';
+
+            questions.forEach((q, index) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                
+                let html = `<div class="question-text">Câu ${index + 1}: ${q.q}</div>`;
+                html += `<div class="options-grid">`;
+                
+                q.a.forEach(opt => {
+                    html += `
+                        <label class="option-label">
+                            <input type="radio" name="q_${q.id}" value="${opt}"> ${opt}
+                        </label>
+                    `;
+                });
+                
+                html += `</div>`;
+                card.innerHTML = html;
+                container.appendChild(card);
+            });
+        }
+
+        async function submitTest() {
+            const answers = {};
+            currentQuestions.forEach(q => {
+                const selected = document.querySelector(`input[name="q_${q.id}"]:checked`);
+                if (selected) {
+                    answers[q.id] = selected.value;
+                }
+            });
+
+            // Gửi đáp án lên server chấm
+            try {
+                const res = await fetch('/api/submit-test', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ answers: answers })
+                });
+                const result = await res.json();
+
+                // Hiển thị kết quả
+                document.getElementById('quiz-area').style.display = 'none';
+                document.getElementById('result-area').style.display = 'block';
+                document.getElementById('final-score').textContent = `${result.score}/${currentQuestions.length}`;
+                document.getElementById('feedback-msg').textContent = result.message;
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Ngôi Nhà Của Bé - Thành Tích & Xếp Hạng</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .profile-container {
+            max-width: 1000px; margin: 20px auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        
+        .header-info { text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 20px; margin-bottom: 30px; }
+        .avatar { font-size: 5rem; display: block; margin-bottom: 10px; animation: bounce 2s infinite; }
+        .username { color: #e67e22; margin: 0; font-size: 2.5rem; text-shadow: 2px 2px 0 #f1c40f; }
+        .score-tag { background: #2ecc71; color: white; padding: 5px 20px; border-radius: 20px; font-weight: bold; font-size: 1.2rem; display: inline-block; margin-top: 10px; box-shadow: 0 3px 0 #27ae60; }
+
+        .trophy-section { margin-bottom: 40px; }
+        .trophy-section h2 { 
+            text-align: left; color: #2c3e50; border-left: 5px solid #3498db; 
+            padding-left: 15px; margin-bottom: 15px; font-size: 1.8rem;
+        }
+        
+        .trophy-shelf {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .trophy-item {
+            background: #f1f2f6; border: 2px solid #bdc3c7;
+            border-radius: 12px; padding: 10px; text-align: center;
+            opacity: 0.5; filter: grayscale(100%); transition: all 0.3s ease;
+            position: relative; overflow: hidden;
+        }
+        
+        .trophy-item.unlocked {
+            opacity: 1; filter: grayscale(0%);
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); 
+            border-color: #f1c40f;
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(241, 196, 15, 0.3);
+        }
+
+        .trophy-icon { font-size: 3rem; display: block; margin-bottom: 5px; }
+        .trophy-title { font-weight: bold; color: #333; font-size: 0.9rem; margin-bottom: 3px; }
+        .trophy-req { font-size: 0.75rem; color: #7f8c8d; }
+
+        /* Style Bảng Xếp Hạng */
+        .leaderboard-section {
+            background: #fffbe6; padding: 25px; border-radius: 15px;
+            border: 3px solid #f1c40f; margin-top: 50px;
+        }
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 10px; overflow: hidden; }
+        .leaderboard-table th { background: #f1c40f; color: #333; padding: 12px; }
+        .leaderboard-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; }
+        .top-1 { color: #d35400; background: #fff4d1; }
+        .rank-medal { font-size: 1.5rem; }
+
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    </style>
+</head>
+<body class="my-home-bg">
+
+    <h1 class="page-header header-home">🏰 Ngôi Nhà Của Bé 🏰</h1>
+
+    <div class="profile-container">
+        <div class="header-info">
+            <div class="avatar">🤴</div>
+            <h2 class="username" id="display-name">Đang tải...</h2>
+            <div class="score-tag">Tổng điểm tích lũy: <span id="display-score">0</span></div>
+        </div>
+
+        <div class="trophy-section">
+            <h2>♟️ Tủ Cúp Cờ Vua</h2>
+            <div class="trophy-shelf" id="shelf-chess"></div>
+        </div>
+
+        <div class="trophy-section">
+            <h2>⭕❌ Tủ Cúp Cờ Caro</h2>
+            <div class="trophy-shelf" id="shelf-caro"></div>
+        </div>
+
+        <div class="trophy-section">
+            <h2>🎨 Tủ Cúp Sáng Tạo</h2>
+            <div class="trophy-shelf" id="shelf-shape"></div>
+        </div>
+
+        <div class="leaderboard-section">
+            <h2 style="text-align: center; color: #d35400; margin: 0;">🏆 BẢNG VÀNG CỦA HÀNH TINH 🏆</h2>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Hạng</th>
+                        <th>Tên Bé</th>
+                        <th>Điểm Số</th>
+                        <th>Cấp Cờ Vua</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                    <tr><td colspan="4">Đang tính toán thứ hạng...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="index.html" class="back-button" style="padding: 15px 40px; font-size: 1.2rem;">Về Trang Chủ</a>
+        </div>
+    </div>
+
+    <script>
+        // Dữ liệu danh hiệu
+        const trophiesData = {
+            chess: [ { lvl: 10, name: "Tân Binh", icon: "🥉" }, { lvl: 30, name: "Chiến Binh", icon: "🥈" }, { lvl: 60, name: "Kiện Tướng", icon: "🥇" }, { lvl: 100, name: "Vua Cờ", icon: "👑" } ],
+            caro: [ { lvl: 10, name: "Tập Sự", icon: "🌱" }, { lvl: 25, name: "Cao Thủ", icon: "⚔️" }, { lvl: 50, name: "Bất Bại", icon: "🏆" } ],
+            shape: [ { lvl: 5, name: "Bé Tập Vẽ", icon: "🖍️" }, { lvl: 20, name: "Kiến Trúc Sư", icon: "🏰" }, { lvl: 50, name: "Sáng Tạo", icon: "✨" } ]
+            detective: [{ lvl: 10, name: "Thám Tử Tập Sự", icon: "🕵️‍♂️" },{ lvl: 40, name: "Thám Tử Tài Ba", icon: "🔍" },{ lvl: 80, name: "Siêu Thám Tử", icon: "🕶️" },{ lvl: 100, name: "Huyền Thoại Thám Tử", icon: "💎" }]
+        };
+
+        async function loadAllData() {
+            try {
+                // 1. Tải Tiến trình cá nhân
+                const resProgress = await fetch('/api/user/progress');
+                if (resProgress.status === 401) {
+                    document.getElementById('display-name').textContent = "Khách (Chưa đăng nhập)";
+                    return;
+                }
+                const data = await resProgress.json();
+                
+                document.getElementById('display-score').textContent = (data.score || 0).toLocaleString();
+                document.getElementById('display-name').textContent = localStorage.getItem('currentUser') || "Bé Ngoan";
+
+                renderShelf('shelf-chess', trophiesData.chess, data.chessLevel || 1);
+                renderShelf('shelf-caro', trophiesData.caro, data.caroLevel || 1);
+                renderShelf('shelf-shape', trophiesData.shape, data.shapeLevel || 1);
+
+                // 2. Tải Bảng xếp hạng [MỚI]
+                const resLeaderboard = await fetch('/api/leaderboard');
+                const topUsers = await resLeaderboard.json();
+                renderLeaderboard(topUsers);
+
+            } catch (err) { console.error(err); }
+        }
+
+        function renderShelf(elementId, list, currentLevel) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            list.forEach(t => {
+                const isUnlocked = currentLevel >= t.lvl;
+                const div = document.createElement('div');
+                div.className = `trophy-item ${isUnlocked ? 'unlocked' : ''}`;
+                div.innerHTML = `
+                    <span class="trophy-icon">${t.icon}</span>
+                    <div class="trophy-title">${t.name}</div>
+                    <div class="trophy-req">${isUnlocked ? 'Đã nhận!' : `Cần cấp ${t.lvl}`}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderLeaderboard(users) {
+            const body = document.getElementById('leaderboard-body');
+            body.innerHTML = '';
+            users.forEach((user, index) => {
+                const row = document.createElement('tr');
+                if (index === 0) row.className = 'top-1';
+                
+                let rankIcon = index + 1;
+                if (index === 0) rankIcon = '<span class="rank-medal">🥇</span>';
+                if (index === 1) rankIcon = '<span class="rank-medal">🥈</span>';
+                if (index === 2) rankIcon = '<span class="rank-medal">🥉</span>';
+
+                row.innerHTML = `
+                    <td>${rankIcon}</td>
+                    <td>${user.username}</td>
+                    <td style="color: #27ae60;">${user.score.toLocaleString()}</td>
+                    <td>Cấp ${user.chessLevel}</td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        loadAllData();
+    </script>
+</body>
+</html>

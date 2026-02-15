@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Luyện Nói Cùng Bé</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
+            font-family: 'Baloo 2', cursive;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+        
+        .mic-container {
+            position: relative;
+            margin: 30px auto;
+            width: 100px; height: 100px;
+        }
+
+        .mic-btn {
+            width: 100%; height: 100%;
+            border-radius: 50%; border: none;
+            background: #3498db; color: white; font-size: 3rem;
+            cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: 0.3s;
+            position: relative; z-index: 2;
+        }
+
+        /* Hiệu ứng sóng âm khi đang nghe */
+        .listening-ring {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; background: rgba(52, 152, 219, 0.5);
+            z-index: 1; opacity: 0;
+        }
+        .mic-btn.active + .listening-ring { animation: ripple 1.5s infinite; }
+        .mic-btn.active { background: #e74c3c; transform: scale(1.1); }
+
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        .sentence-card {
+            background: white; padding: 20px 40px; border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 20px;
+            border: 3px solid #f1c40f;
+        }
+
+        .nav-btn {
+            padding: 10px 25px; border-radius: 30px; border: none; font-weight: bold;
+            font-size: 1.1rem; cursor: pointer; color: white; font-family: inherit;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: 0.2s;
+        }
+        .nav-btn:active { transform: translateY(3px); box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <h1 style="color: #2c3e50; text-shadow: 2px 2px 0 white; font-size: 3rem; margin-top: 20px;">🎤 Họa Mi Tập Hót 🎤</h1>
+    
+    <div style="text-align: center; max-width: 600px; padding: 20px;">
+        
+        <div class="sentence-card">
+            <p style="color: #7f8c8d; font-size: 1.1rem; margin:0;">Hãy đọc to câu này:</p>
+            <h2 id="target-phrase" style="color: #d35400; font-size: 2.2rem; margin: 10px 0;">"Con mèo trèo cây cau"</h2>
+        </div>
+        
+        <div class="mic-container">
+            <button id="record-btn" class="mic-btn">🎙️</button>
+            <div class="listening-ring"></div>
+        </div>
+        
+        <p id="result-text" style="font-size: 1.3rem; color: #34495e; min-height: 30px; font-style: italic;">Nhấn micro để bắt đầu...</p>
+        <div id="score-area" style="min-height: 40px;"></div>
+        
+        <div style="margin-top: 30px; display: flex; gap: 20px; justify-content: center;">
+            <button onclick="window.location.href='index.html'" class="nav-btn" style="background: #95a5a6;">🏠 Về Nhà</button>
+            <button id="next-btn" class="nav-btn" style="background: #2ecc71; display: none;" onclick="nextSentence()">Câu Tiếp Theo ➡️</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DANH SÁCH CÂU LUYỆN TẬP ---
+        const phrases = [
+            "Con mèo trèo cây cau",
+            "Bà đi chợ mua rau",
+            "Trời hôm nay rất đẹp",
+            "Em yêu trường em",
+            "Cây bàng lá xanh",
+            "Mẹ đi làm từ sáng sớm",
+            "Bé tập tô màu"
+        ];
+        
+        let currentIndex = 0;
+
+        // KIỂM TRA TRÌNH DUYỆT
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const btn = document.getElementById('record-btn');
+        const resultText = document.getElementById('result-text');
+        const scoreArea = document.getElementById('score-area');
+        const targetEl = document.getElementById('target-phrase');
+        const nextBtn = document.getElementById('next-btn');
+
+        if (!SpeechRecognition) {
+            alert("Trình duyệt này chưa hỗ trợ giọng nói. Hãy dùng Google Chrome hoặc Edge nhé!");
+            btn.disabled = true;
+            resultText.textContent = "Thiết bị không hỗ trợ 😢";
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'vi-VN';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            btn.onclick = () => {
+                try {
+                    recognition.start();
+                    btn.classList.add('active');
+                    resultText.textContent = "Đang nghe... bé nói đi!";
+                    resultText.style.color = "#e67e22";
+                    scoreArea.innerHTML = "";
+                    nextBtn.style.display = 'none';
+                } catch(e) {
+                    console.log("Mic đang bật rồi");
+                }
+            };
+
+            recognition.onend = () => {
+                btn.classList.remove('active');
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                resultText.textContent = `Bé nói: "${text}"`;
+                resultText.style.color = "#34495e";
+                checkResult(text);
+            };
+
+            recognition.onerror = (event) => {
+                btn.classList.remove('active');
+                resultText.textContent = "Không nghe rõ, thử lại nhé! 👂";
+            };
+        }
+
+        function checkResult(spokenText) {
+            const target = phrases[currentIndex];
+            
+            // Xử lý chuỗi (bỏ dấu chấm phẩy, viết thường) để so sánh dễ hơn
+            const cleanSpoken = spokenText.toLowerCase().replace(/[.,!?;]/g, '').trim();
+            const cleanTarget = target.toLowerCase().replace(/[.,!?;]/g, '').trim();
+
+            if (cleanSpoken.includes(cleanTarget) || cleanTarget.includes(cleanSpoken)) {
+                scoreArea.innerHTML = "<h3 style='color:#27ae60; margin:0;'>🎉 TUYỆT VỜI! CHÍNH XÁC! 🎉</h3>";
+                nextBtn.style.display = 'block'; // Hiện nút câu tiếp theo
+                
+                // (Tùy chọn) Gửi điểm về server nếu muốn
+                // fetch('/api/update-score', ...); 
+            } else {
+                scoreArea.innerHTML = "<h3 style='color:#e74c3c; margin:0;'>Gần đúng rồi, thử lại nhé! 💪</h3>";
+            }
+        }
+
+        function nextSentence() {
+            currentIndex = (currentIndex + 1) % phrases.length;
+            targetEl.textContent = `"${phrases[currentIndex]}"`;
+            targetEl.style.animation = 'none';
+            targetEl.offsetHeight; /* trigger reflow */
+            targetEl.style.animation = null; 
+            
+            scoreArea.innerHTML = "";
+            resultText.textContent = "Nhấn micro để bắt đầu...";
+            nextBtn.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

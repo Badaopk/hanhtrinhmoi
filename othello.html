@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Vua Phục Kích - 100 Cấp Độ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { background: radial-gradient(circle, #27ae60, #1e8449); color: white; min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Baloo 2', cursive; }
+        .game-layout { display: flex; gap: 30px; justify-content: center; padding: 20px; flex-wrap: wrap; }
+        
+        .board-container { background: #145a32; padding: 15px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 8px solid #0b3d21; }
+        .othello-grid { display: grid; grid-template-columns: repeat(8, 50px); grid-template-rows: repeat(8, 50px); background: #0b3d21; gap: 2px; }
+        
+        .cell { width: 50px; height: 50px; background: #2ecc71; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+        .cell:hover { background: #27ae60; }
+        .cell.valid-move::after { content: ''; width: 10px; height: 10px; background: rgba(0,0,0,0.2); border-radius: 50%; }
+
+        .piece { width: 40px; height: 40px; border-radius: 50%; transition: transform 0.4s, background-color 0.4s; box-shadow: 0 4px 5px rgba(0,0,0,0.3); }
+        .piece.black { background: #222; transform: rotateY(0deg); }
+        .piece.white { background: #fff; transform: rotateY(180deg); }
+
+        .sidebar { width: 320px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); padding: 25px; border-radius: 20px; text-align: center; }
+        .level-badge { background: linear-gradient(45deg, #f1c40f, #e67e22); padding: 15px; border-radius: 15px; margin-bottom: 20px; }
+        .status-box { background: white; color: #333; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
+        .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-family: inherit; font-weight: bold; cursor: pointer; margin-bottom: 10px; color: white; transition: 0.2s; }
+        .score-row { display: flex; justify-content: space-around; font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-shadow: 3px 3px 0 #000; margin: 20px 0;">🟢 VUA PHỤC KÍCH (OTHELLO) 🟢</h1>
+
+    <div class="game-layout">
+        <div class="board-container">
+            <div id="othello-board" class="othello-grid"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="level-badge">
+                <div>CẤP ĐỘ</div>
+                <span id="lvl-display" style="font-size:3rem; font-weight:bold;">1</span>
+            </div>
+
+            <div class="score-row">
+                <span style="color:#000">⚫ <span id="score-b">2</span></span>
+                <span style="color:#fff">⚪ <span id="score-w">2</span></span>
+            </div>
+
+            <div id="status" class="status-box">Chào mừng bé!</div>
+
+            <div id="menu-area">
+                <select id="ai-level" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-family:inherit; font-weight:bold;"></select>
+                <button class="btn-game" style="background:#2ecc71" onclick="startAiGame()">🤖 Đấu Với Máy</button>
+                <button class="btn-game" style="background:#9b59b6" onclick="findMatch()">🌐 Tìm Trận Online</button>
+            </div>
+            
+            <button class="btn-game" style="background:#7f8c8d; margin-top:20px;" onclick="window.location.href='choi-co.html'">🏠 Về Sảnh Cờ</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const boardEl = document.getElementById('othello-board');
+        const statusEl = document.getElementById('status');
+        let socket = io();
+
+        let board = Array(8).fill(0).map(() => Array(8).fill(0));
+        let turn = 1; // 1: Đen, 2: Trắng
+        let userLevel = 1;
+        let isOnline = false;
+        let myRole = 1; 
+
+        // --- 1. KHỞI TẠO BÀN CỜ ---
+        async function init() {
+            try {
+                const res = await fetch('/api/user/progress');
+                const data = await res.json();
+                userLevel = data.othelloLevel || 1;
+            } catch(e) {}
+            document.getElementById('lvl-display').textContent = userLevel;
+            renderAiLevels();
+            resetBoard();
+        }
+
+        function renderAiLevels() {
+            const select = document.getElementById('ai-level');
+            for(let i=1; i<=100; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Thử Thách Cấp ${i} ${i > userLevel ? '(Khóa)' : ''}`;
+                if(i > userLevel) opt.disabled = true;
+                select.appendChild(opt);
+            }
+            select.value = userLevel;
+        }
+
+        function resetBoard() {
+            board = Array(8).fill(0).map(() => Array(8).fill(0));
+            // 4 quân trung tâm mặc định
+            board[3][3] = 2; board[4][4] = 2;
+            board[3][4] = 1; board[4][3] = 1;
+            turn = 1;
+            renderBoard();
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const validMoves = getValidMoves(turn);
+            
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if(validMoves.some(m => m.r === r && m.c === c)) cell.classList.add('valid-move');
+                    
+                    if(board[r][c] !== 0) {
+                        const piece = document.createElement('div');
+                        piece.className = `piece ${board[r][c] === 1 ? 'black' : 'white'}`;
+                        cell.appendChild(piece);
+                    }
+                    
+                    cell.onclick = () => handleCellClick(r, c);
+                    boardEl.appendChild(cell);
+                }
+            }
+            updateScores();
+        }
+
+        // --- 2. LOGIC KẸP QUÂN (QUAN TRỌNG) ---
+        function getPiecesToFlip(r, c, color) {
+            if (board[r][c] !== 0) return [];
+            const opponent = color === 1 ? 2 : 1;
+            let toFlip = [];
+            const directions = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+
+            for (let [dr, dc] of directions) {
+                let currentLine = [];
+                let nr = r + dr, nc = c + dc;
+                
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === opponent) {
+                    currentLine.push({r: nr, c: nc});
+                    nr += dr; nc += dc;
+                }
+                
+                // Nếu kết thúc đường thẳng bằng quân của mình -> Kẹp thành công
+                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === color && currentLine.length > 0) {
+                    toFlip = toFlip.concat(currentLine);
+                }
+            }
+            return toFlip;
+        }
+
+        function getValidMoves(color) {
+            let moves = [];
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    if(getPiecesToFlip(r, c, color).length > 0) moves.push({r, c});
+                }
+            }
+            return moves;
+        }
+
+        function handleCellClick(r, c) {
+            if(isOnline && turn !== myRole) return;
+            
+            const flipList = getPiecesToFlip(r, c, turn);
+            if(flipList.length === 0) return;
+
+            // Đặt quân và lật các quân bị kẹp
+            board[r][c] = turn;
+            flipList.forEach(p => board[p.r][p.c] = turn);
+
+            if(isOnline) socket.emit('move', { room: currentRoom, move: {r, c} });
+            
+            nextTurn();
+        }
+
+        function nextTurn() {
+            turn = turn === 1 ? 2 : 1;
+            renderBoard();
+
+            // Kiểm tra xem lượt mới có nước đi không
+            if(getValidMoves(turn).length === 0) {
+                turn = turn === 1 ? 2 : 1; // Bỏ lượt, quay lại người cũ
+                if(getValidMoves(turn).length === 0) return endGame(); // Cả 2 đều ko có nước -> Kết thúc
+                statusEl.textContent = "Một người bị hết đường đi! Bỏ lượt.";
+            }
+
+            if(!isOnline && turn === 2) setTimeout(makeAiMove, 600);
+        }
+
+        // --- 3. AI & GAME END ---
+        function makeAiMove() {
+            const moves = getValidMoves(2);
+            if(moves.length === 0) { nextTurn(); return; }
+            
+            // AI cấp độ bé: Ưu tiên lật nhiều quân nhất (Greedy)
+            let bestMove = moves[0];
+            let maxFlip = -1;
+            moves.forEach(m => {
+                let flips = getPiecesToFlip(m.r, m.c, 2).length;
+                if(flips > maxFlip) { maxFlip = flips; bestMove = m; }
+            });
+            
+            handleCellClick(bestMove.r, bestMove.c);
+        }
+
+        async function endGame() {
+            const b = document.getElementById('score-b').textContent;
+            const w = document.getElementById('score-w').textContent;
+            let msg = b > w ? "Bé thắng (Đen)!" : "Máy thắng (Trắng)!";
+            if(b === w) msg = "Hòa cờ!";
+            
+            alert(`KẾT THÚC!\nĐen: ${b} - Trắng: ${w}\n${msg}`);
+            
+            if(b > w) {
+                confetti();
+                await fetch('/api/game/othello-win', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({level: userLevel}) });
+            }
+            location.reload();
+        }
+
+        function updateScores() {
+            let b=0, w=0;
+            board.forEach(row => row.forEach(cell => { if(cell===1) b++; if(cell===2) w++; }));
+            document.getElementById('score-b').textContent = b;
+            document.getElementById('score-w').textContent = w;
+            statusEl.textContent = `Lượt: ${turn === 1 ? 'Đen' : 'Trắng'}`;
+        }
+
+        init();
+    </script>
+</body>
+</html>

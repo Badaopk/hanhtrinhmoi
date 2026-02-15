@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giai Điệu Vui</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #fff5e1; }
+         <div id="personalized-greeting" class="personalized-greeting" style="position: absolute; top: 10px; left: 10px; font-size: 1rem; font-weight: bold;"></div>
+        .piano-container { display: flex; justify-content: center; margin-top: 30px; }
+        .piano { display: flex; position: relative; }
+        .key { height: 250px; width: 60px; border: 2px solid #333; border-radius: 0 0 5px 5px; cursor: pointer; background: white; transition: background-color 0.1s; }
+        .key.black { height: 150px; width: 40px; background: #333; position: absolute; margin-left: -20px; }
+        .key:hover { background-color: #eee; }
+        .key.black:hover { background-color: #555; }
+        .key.playing { background-color: #ffc107; transform: scale(0.98); }
+        .instructions { margin-top: 20px; font-size: 1.2rem; color: #555; }
+    </style>
+</head>
+<body class="creative-city-bg">
+    <h1 class="page-header header-creative">🎵 Giai Điệu Vui 🎵</h1>
+    <p class="instructions">Sử dụng chuột hoặc các phím (A, S, D, F, G, H, J) và (W, E, T, Y, U) để chơi đàn!</p>
+    <div class="piano-container">
+        <div class="piano">
+            <div class="key" data-key="a" data-note="C4"></div>
+            <div class="key black" data-key="w" data-note="Db4" style="left: 40px;"></div>
+            <div class="key" data-key="s" data-note="D4"></div>
+            <div class="key black" data-key="e" data-note="Eb4" style="left: 100px;"></div>
+            <div class="key" data-key="d" data-note="E4"></div>
+            <div class="key" data-key="f" data-note="F4"></div>
+            <div class="key black" data-key="t" data-note="Gb4" style="left: 220px;"></div>
+            <div class="key" data-key="g" data-note="G4"></div>
+            <div class="key black" data-key="y" data-note="Ab4" style="left: 280px;"></div>
+            <div class="key" data-key="h" data-note="A4"></div>
+            <div class="key black" data-key="u" data-note="Bb4" style="left: 340px;"></div>
+            <div class="key" data-key="j" data-note="B4"></div>
+        </div>
+    </div>
+    <a href="thanh-pho-sang-tao.html" class="back-button">Về Thành Phố Sáng Tạo</a>
+    <script>
+        const keys = document.querySelectorAll('.key');
+        let audioContext;
+
+        const noteFrequencies = {
+            'C4': 261.63, 'Db4': 277.18, 'D4': 293.66, 'Eb4': 311.13, 'E4': 329.63, 'F4': 349.23,
+            'Gb4': 369.99, 'G4': 392.00, 'Ab4': 415.30, 'A4': 440.00, 'Bb4': 466.16, 'B4': 493.88
+        };
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(note, keyElement) {
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(noteFrequencies[note], audioContext.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
+            oscillator.stop(audioContext.currentTime + 0.5);
+
+            keyElement.classList.add('playing');
+            setTimeout(() => keyElement.classList.remove('playing'), 200);
+        }
+
+        keys.forEach(key => {
+            key.addEventListener('click', () => {
+                initAudio();
+                playSound(key.dataset.note, key);
+            });
+        });
+
+        window.addEventListener('keydown', (e) => {
+            const keyElement = document.querySelector(`.key[data-key="${e.key.toLowerCase()}"]`);
+            if (keyElement && !e.repeat) {
+                initAudio();
+                playSound(keyElement.dataset.note, keyElement);
+            }
+        });
+    </script>
+<script>
+    window.addEventListener('load', function() {
+        const currentUserName = localStorage.getItem('currentUser');
+        if (currentUserName) {
+            document.getElementById('personalized-greeting').innerHTML = `Xin chào bé <span class="user-name">${currentUserName}</span>!`;
+        }
+    });
+</script>
+</body>
+</html>

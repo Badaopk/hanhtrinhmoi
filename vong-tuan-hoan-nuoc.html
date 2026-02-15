@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khám Phá: Vòng Tuần Hoàn Của Nước</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="knowledge-library-bg">
+    <div id="personalized-greeting" class="personalized-greeting"></div>
+
+    <div class="story-container">
+        <h1 class="story-title" style="color: #3498db;">💧 Vòng Tuần Hoàn Của Nước 💧</h1>
+        <img src="https://i.imgur.com/5qG3i1P.jpg" alt="Vòng tuần hoàn của nước" class="story-image"> <div class="story-content">
+            <p>Nước trên Trái Đất luôn di chuyển theo một vòng tròn khép kín, gọi là vòng tuần hoàn của nước. Hãy cùng xem nó diễn ra như thế nào nhé!</p>
+            <p><strong>1. Bốc hơi:</strong> Mặt trời chiếu xuống sông, hồ và biển, làm nước nóng lên. Nước biến thành hơi nước, một loại khí nhẹ bay lên trời.</p>
+            <p><strong>2. Ngưng tụ:</strong> Khi hơi nước bay lên cao, không khí lạnh hơn làm chúng tụ lại thành những đám mây nhỏ li ti.</p>
+            <p><strong>3. Giáng thủy (Mưa):</strong> Khi các đám mây chứa đầy nước, chúng sẽ trở nên nặng và rơi xuống mặt đất dưới dạng mưa, tuyết hoặc mưa đá.</p>
+            <p><strong>4. Tụ lại:</strong> Nước mưa rơi xuống sẽ chảy ra sông, hồ, biển hoặc ngấm xuống lòng đất, và vòng tuần hoàn lại bắt đầu từ đầu!</p>
+        </div>
+    </div>
+    <a href="thu-vien-tri-thuc.html" class="back-button">Về Thư Viện</a>
+
+    <script>
+        window.addEventListener('load', function() {
+            const currentUserName = localStorage.getItem('currentUser');
+            if (currentUserName) {
+                document.getElementById('personalized-greeting').innerHTML = `Xin chào bé <span class="user-name">${currentUserName}</span>! Hãy cùng khám phá kiến thức nhé!`;
+            }
+        });
+    </script>
+</body>
+</html>

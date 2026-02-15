@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhiệm Vụ Hàng Ngày</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background-color: #f1f2f6;
+        }
+        .quest-container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        #quest-list {
+            margin-top: 30px;
+            display: grid;
+            gap: 20px;
+        }
+        .quest-item {
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-left: 5px solid #3498db;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .quest-item.completed { /* (Sẽ dùng trong tương lai) */
+             border-left-color: #2ecc71;
+             opacity: 0.7;
+        }
+        .quest-description {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #34495e;
+            margin: 0;
+        }
+        .quest-progress-bar {
+            width: 100%;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+            height: 20px;
+        }
+        .quest-progress {
+            height: 100%;
+            background-color: #2ecc71;
+            width: 0%; /* Sẽ được set bằng JS */
+            transition: width 0.5s ease;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            line-height: 20px;
+        }
+        .quest-details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        .quest-reward { color: #27ae60; font-weight: bold; }
+        .quest-penalty { color: #c0392b; font-weight: bold; }
+        .quest-timer { font-weight: bold; }
+        
+        #loading-quests {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="quest-container">
+        <h1>Nhiệm Vụ Của Bé</h1>
+        <p style="text-align: center;">Hoàn thành các nhiệm vụ dưới đây để nhận điểm thưởng. Nếu hết hạn mà chưa làm, bé có thể bị trừ điểm!</p>
+        
+        <div id="quest-list">
+            <p id="loading-quests">Đang tải nhiệm vụ...</p>
+            </div>
+    </div>
+
+    <a href="index.html" class="back-button" style="display: block; width: 200px; margin: 20px auto; text-align: center;">Về Trang Chủ</a>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="global-client.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const questList = document.getElementById('quest-list');
+            const loadingText = document.getElementById('loading-quests');
+
+            try {
+                // Gọi API mới để lấy nhiệm vụ
+                const response = await fetch('/api/quests/my-quests');
+                
+                if (response.status === 401) {
+                    loadingText.textContent = 'Bạn cần đăng nhập để xem nhiệm vụ.';
+                    loadingText.style.color = 'red';
+                    setTimeout(() => window.location.href = 'login.html', 2000);
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Không thể tải nhiệm vụ.');
+                }
+
+                const data = await response.json();
+
+                if (data.quests.length === 0) {
+                    loadingText.textContent = 'Bé chưa có nhiệm vụ nào. Hãy quay lại sau nhé!';
+                    return;
+                }
+
+                loadingText.style.display = 'none'; // Ẩn text "Đang tải"
+                questList.innerHTML = ''; // Xóa sạch
+
+                data.quests.forEach(quest => {
+                    const questElement = document.createElement('div');
+                    questElement.className = 'quest-item';
+
+                    const progressPercent = (quest.progress / quest.target_count) * 100;
+                    const timeLeft = quest.expires_at - Date.now();
+                    
+                    questElement.innerHTML = `
+                        <p class="quest-description">${quest.description}</p>
+                        <div class="quest-progress-bar">
+                            <div class="quest-progress" style="width: ${progressPercent}%;">
+                                ${quest.progress} / ${quest.target_count}
+                            </div>
+                        </div>
+                        <div class="quest-details">
+                            <span>
+                                Thưởng: <span class="quest-reward">+${quest.reward_points} điểm</span> | 
+                                Phạt: <span class="quest-penalty">-${quest.penalty_points} điểm</span>
+                            </span>
+                            <span class="quest-timer">Hết hạn sau: ${formatTimeLeft(timeLeft)}</span>
+                        </div>
+                    `;
+                    questList.appendChild(questElement);
+                });
+
+            } catch (error) {
+                loadingText.textContent = `Lỗi: ${error.message}`;
+                loadingText.style.color = 'red';
+            }
+        });
+
+        function formatTimeLeft(ms) {
+            if (ms <= 0) return 'Đã hết hạn';
+            
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (hours > 0) {
+                return `${hours} giờ ${minutes} phút`;
+            } else if (minutes > 0) {
+                return `${minutes} phút`;
+            } else {
+                return 'Sắp hết hạn';
+            }
+        }
+    </script>
+<script src="/socket.io/socket.io.js"></script>
+    <script src="global-client.js"></script>
+</body>
+</html>

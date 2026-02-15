@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thư Viện Tri Thức</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .bookshelf { max-width: 800px; margin: 0 auto; padding: 20px; background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png'); background-color: #deb887; border: 10px solid #8B4513; border-radius: 10px; }
+        .book { background: #4682B4; color: white; padding: 20px; margin: 15px 0; border-radius: 5px 10px 10px 5px; font-size: 1.5rem; text-align: left; cursor: pointer; box-shadow: inset 5px 0 15px rgba(0,0,0,0.2), 3px 3px 5px rgba(0,0,0,0.2); position: relative; transition: transform 0.2s ease; }
+        .book:hover { transform: translateX(10px); }
+        .book::before { content: ''; position: absolute; left: -10px; top: 0; width: 10px; height: 100%; background: #d2b48c; border-radius: 5px 0 0 5px; }
+        .book.science { background: #2E8B57; }
+    </style>
+</head>
+<body class="knowledge-library-bg">
+    <h1 class="page-header header-knowledge">📚 Chào mừng tới Thư Viện Tri Thức 📚</h1>
+
+    <div class="bookshelf">
+        <a href="doc-truyen.html" style="color: white;"><div class="book">📖 Sự tích Bánh chưng, Bánh giầy</div></a>
+        <a href="cay-tre-tram-dot.html" style="color: white;"><div class="book">📖 Cây tre trăm đốt</div></a>
+        <a href="con-cao-va-chum-nho.html" style="color: white;"><div class="book">📖 Con Cáo và Chùm Nho</div></a>
+        <a href="rua-va-tho.html" style="color: white;"><div class="book">📖 Rùa và Thỏ</div></a>
+        <a href="bai-viet-1.html" style="color: white;"><div class="book science">🔬 Tại sao bầu trời màu xanh?</div></a>
+        <a href="bai-viet-2.html" style="color: white;"><div class="book science">🌈 Tại sao lại có cầu vồng?</div></a>
+         <a href="vong-tuan-hoan-nuoc.html" style="color: white;"><div class="book science">🌈 Nước được tuần hoàn như thế nào?</div></a>
+    </div>
+    
+    <a href="index.html" class="back-button">Về Hành Tinh</a>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đấu Trường Thử Thách</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%);
+            font-family: 'Baloo 2', cursive;
+            min-height: 100vh;
+            margin: 0;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 20px;
+        }
+
+        /* Header nổi bật */
+        .header-section {
+            text-align: center; margin-bottom: 40px;
+            animation: fadeInDown 0.8s;
+        }
+        .main-title {
+            font-size: 3.5rem; color: #fff; margin: 0;
+            text-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+            -webkit-text-stroke: 2px #fff; 
+            color: #ff6b6b;
+        }
+        .subtitle {
+            font-size: 1.4rem; color: #fff; font-weight: bold;
+            background: rgba(0,0,0,0.1); padding: 5px 20px; border-radius: 20px;
+            display: inline-block; margin-top: 10px;
+        }
+
+        /* Lưới Game */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            width: 100%; max-width: 1000px;
+            margin-bottom: 40px;
+        }
+
+        /* Thẻ Game */
+        .game-card {
+            background: white; border-radius: 25px;
+            padding: 25px; text-align: center; text-decoration: none;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center;
+            border: 4px solid transparent;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        /* Icon Game */
+        .card-icon {
+            width: 80px; height: 80px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 1.6rem; margin: 0; font-weight: 800; color: #2d3436;
+        }
+        .card-desc {
+            color: #636e72; font-size: 1rem; margin-top: 5px; line-height: 1.4;
+        }
+
+        /* Màu sắc riêng cho từng thẻ */
+        .theme-crossword .card-icon { background: #ffeaa7; color: #d35400; }
+        .theme-crossword:hover { border-color: #ffeaa7; }
+
+        .theme-detective .card-icon { background: #81ecec; color: #00b894; }
+        .theme-detective:hover { border-color: #81ecec; }
+
+        .theme-speak-vn .card-icon { background: #ff7675; color: #d63031; }
+        .theme-speak-vn:hover { border-color: #ff7675; }
+
+        .theme-math .card-icon { background: #74b9ff; color: #0984e3; }
+        .theme-math:hover { border-color: #74b9ff; }
+
+        .theme-speak-en .card-icon { background: #a29bfe; color: #6c5ce7; }
+        .theme-speak-en:hover { border-color: #a29bfe; }
+
+        /* Nút quay lại */
+        .back-home-btn {
+            background: #fff; color: #e17055;
+            padding: 12px 30px; border-radius: 50px;
+            font-weight: bold; text-decoration: none; font-size: 1.2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: 0.2s;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .back-home-btn:hover { background: #e17055; color: white; transform: translateY(-3px); }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Tag Mới */
+        .new-badge {
+            position: absolute; top: 15px; right: 15px;
+            background: #e17055; color: white;
+            font-size: 0.8rem; font-weight: bold;
+            padding: 5px 10px; border-radius: 20px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-section">
+        <h1 class="main-title">🏰 Đấu Trường Thử Thách 🏰</h1>
+        <div class="subtitle">Nơi bé rèn luyện trí tuệ & tranh tài cùng bạn bè!</div>
+    </div>
+
+    <div class="games-grid">
+        
+        <a href="o-chu.html" class="game-card theme-crossword">
+            <div class="card-icon">🧩</div>
+            <h3 class="card-title">Vua Ô Chữ</h3>
+            <p class="card-desc">Khám phá từ vựng bí ẩn qua các hàng ngang và dọc.</p>
+        </a>
+
+        <a href="tim-diem-khac-biet.html" class="game-card theme-detective">
+            <div class="card-icon">🔍</div>
+            <h3 class="card-title">Thám Tử Nhí</h3>
+            <p class="card-desc">Rèn luyện đôi mắt tinh tường với 5 chủ đề thế giới.</p>
+        </a>
+
+        <a href="toan-hoc.html" class="game-card theme-math">
+            <div class="card-icon">⚡</div>
+            <h3 class="card-title">Toán Siêu Tốc</h3>
+            <p class="card-desc">Thách đấu tính nhẩm nhanh với bạn bè online.</p>
+        </a>
+
+        <a href="luyen-noi.html" class="game-card theme-speak-vn">
+            <div class="card-icon">🎤</div>
+            <h3 class="card-title">Họa Mi Tập Hót</h3>
+            <p class="card-desc">Luyện phát âm Tiếng Việt tròn vành rõ chữ.</p>
+        </a>
+
+        <a href="luyen-noi-tieng-anh.html" class="game-card theme-speak-en">
+            <span class="new-badge">MỚI!</span>
+            <div class="card-icon">🇬🇧</div>
+            <h3 class="card-title">English Master</h3>
+            <p class="card-desc">Chinh phục 100 cấp độ Tiếng Anh chuẩn bản xứ.</p>
+        </a>
+
+        <a href="sang-tac-truyen-vui.html" class="game-card" style="border-color: #fdcb6e;">
+            <div class="card-icon" style="background:#fdcb6e; color:white;">✍️</div>
+            <h3 class="card-title">Nhà Văn Nhí</h3>
+            <p class="card-desc">Sáng tác truyện cười và chia sẻ với mọi người.</p>
+        </a>
+
+        <a href="caro.html" class="game-card" style="border-color: #636e72;">
+            <div class="card-icon" style="background:#2d3436; color:white;">⭕❌</div>
+            <h3 class="card-title">Cờ Caro</h3>
+            <p class="card-desc">Đấu trí 1vs1 hoặc loạn đấu 8 người cực vui.</p>
+        </a>
+
+    </div>
+
+    <a href="index.html" class="back-home-btn">🏠 Quay Về Hành Tinh Mơ Ước</a>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="global-client.js"></script>
+
+</body>
+</html>

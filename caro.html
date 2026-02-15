@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Cờ Caro Thử Thách - 100 Cấp Độ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { background: radial-gradient(circle, #3498db, #2980b9); color: white; min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        .game-layout { display: flex; gap: 30px; justify-content: center; padding: 20px; flex-wrap: wrap; }
+        
+        /* Bàn cờ */
+        .board-container { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .caro-grid { display: grid; background: #bdc3c7; border: 2px solid #2c3e50; transition: opacity 0.3s; }
+        .caro-grid.game-over { pointer-events: none; opacity: 0.8; }
+        
+        .cell { width: 32px; height: 32px; background: white; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; transition: 0.1s; color: #333; border: 1px solid #ddd; }
+        .cell:hover { background: #f1f2f6; }
+        .cell.X { color: #3498db; }
+        .cell.O { color: #e74c3c; }
+        .cell.last-move { background: #fff9c4; }
+        .cell.win { background: #2ecc71 !important; color: white; animation: pulse 0.5s infinite; }
+
+        /* Bảng thông tin sidebar */
+        .sidebar { width: 320px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 25px; border-radius: 20px; border: 2px solid rgba(255,255,255,0.2); text-align: center; display: flex; flex-direction: column; }
+        .level-badge { background: linear-gradient(45deg, #f1c40f, #e67e22); padding: 15px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .level-num { font-size: 3.5rem; font-weight: bold; display: block; line-height: 1; }
+        
+        .status-box { background: white; color: #333; padding: 12px; border-radius: 10px; margin-bottom: 20px; font-weight: bold; min-height: 24px; }
+        .mode-selection-ui select { padding: 10px; border-radius: 10px; margin-bottom: 10px; width: 100%; font-family: 'Baloo 2'; font-weight: bold; }
+        
+        .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-family: 'Baloo 2'; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-bottom: 10px; color: white; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+        .btn-new { background: #2ecc71; }
+        .btn-online { background: #9b59b6; }
+        .btn-undo { background: #f39c12; }
+        .btn-exit { background: #e74c3c; }
+        .btn-game:active { transform: translateY(2px); box-shadow: none; }
+        .btn-game:disabled { background: #95a5a6; cursor: not-allowed; }
+
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        
+        /* Menu ẩn hiện */
+        #menu-area { display: block; }
+        #play-area { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-shadow: 3px 3px 0 #2c3e50; font-size: 3rem; margin: 20px 0;">⭕❌ ĐẤU TRƯỜNG CARO ❌⭕</h1>
+
+    <div class="game-layout">
+        <div class="board-container" id="play-area">
+            <div id="caro-board" class="caro-grid"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="level-badge">
+                <div>CẤP ĐỘ</div>
+                <span id="lvl-display" class="level-num">1</span>
+                <div id="lvl-name" style="font-weight:bold; margin-top:5px;">Tân Binh</div>
+            </div>
+
+            <div id="status" class="status-box">Chào mừng bé!</div>
+
+            <div id="menu-area" class="mode-selection-ui">
+                <h3>Đấu với Máy</h3>
+                <select id="ai-level-select"></select>
+                <select id="board-size-select">
+                    <option value="15">Bàn 15x15</option>
+                    <option value="20" selected>Bàn 20x20</option>
+                </select>
+                <button class="btn-game btn-new" onclick="startAiGame()">🔥 Bắt Đầu</button>
+                <hr style="width: 100%; border: 0.5px solid rgba(255,255,255,0.3); margin: 15px 0;">
+                <button class="btn-game btn-online" id="play-online-btn">🌐 Tìm Trận Online</button>
+            </div>
+
+            <div id="control-area" style="display:none;">
+                <button class="btn-game btn-undo" id="undo-btn" onclick="undoMove()">↩️ Đi Lại</button>
+                <button class="btn-game btn-exit" onclick="backToMenu()">🚪 Thoát Menu</button>
+            </div>
+            
+            <button class="btn-game" style="background:#636e72; margin-top: auto;" onclick="window.location.href='choi-co.html'">🏠 Về Sảnh</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const boardEl = document.getElementById('caro-board');
+        const statusEl = document.getElementById('status');
+        const levelDisplay = document.getElementById('lvl-display');
+        const levelNameEl = document.getElementById('lvl-name');
+        const aiLevelSelect = document.getElementById('ai-level-select');
+        
+        let size = 15;
+        let board = [];
+        let gameOver = false;
+        let history = [];
+        let currentLevel = 1;
+        let isOnlineMode = false;
+        let socket = null;
+        let roomName = '';
+        let playerSymbol = 'X';
+        let aiSymbol = 'O';
+        let isMyTurn = true;
+
+        // --- 1. KHỞI TẠO & TẢI DỮ LIỆU ---
+        async function init() {
+            try {
+                const res = await fetch('/api/user/progress');
+                if (res.ok) {
+                    const data = await res.json();
+                    currentLevel = data.caroLevel || 1;
+                }
+            } catch (e) { console.log("Offline mode active."); }
+            
+            updateLevelDisplay();
+            renderLevelOptions();
+        }
+
+        function updateLevelDisplay() {
+            levelDisplay.textContent = currentLevel;
+            let name = "Tân Binh";
+            if (currentLevel > 20) name = "Kỳ Thủ Nhí";
+            if (currentLevel > 50) name = "Cao Thủ Học Đường";
+            if (currentLevel > 80) name = "Kiện Tướng Caro";
+            levelNameEl.textContent = name;
+        }
+
+        function renderLevelOptions() {
+            aiLevelSelect.innerHTML = '';
+            for (let i = 1; i <= 100; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Cấp ${i} ${i > currentLevel ? '(Khóa)' : ''}`;
+                if (i > currentLevel) opt.disabled = true;
+                aiLevelSelect.appendChild(opt);
+            }
+            aiLevelSelect.value = currentLevel;
+        }
+
+        // --- 2. LOGIC GAME (AI) ---
+        function startAiGame() {
+            isOnlineMode = false;
+            playerSymbol = 'X'; aiSymbol = 'O';
+            size = parseInt(document.getElementById('board-size-select').value);
+            resetGameState();
+            document.getElementById('menu-area').style.display = 'none';
+            document.getElementById('play-area').style.display = 'block';
+            document.getElementById('control-area').style.display = 'block';
+            document.getElementById('undo-btn').style.display = 'block';
+            statusEl.textContent = "Đến lượt bé (X)";
+        }
+
+        function resetGameState() {
+            board = Array(size).fill(null).map(() => Array(size).fill(null));
+            history = [];
+            gameOver = false;
+            isMyTurn = true;
+            boardEl.innerHTML = '';
+            boardEl.style.gridTemplateColumns = `repeat(${size}, 32px)`;
+            boardEl.classList.remove('game-over');
+            
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.r = r; cell.dataset.c = c;
+                    cell.onclick = () => handleMove(r, c);
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function handleMove(r, c) {
+            if (gameOver || !isMyTurn || board[r][c]) return;
+
+            makeMove(r, c, playerSymbol);
+
+            if (isOnlineMode) {
+                socket.emit('move', { room: roomName, move: { row: r, col: c, symbol: playerSymbol } });
+                isMyTurn = false;
+                statusEl.textContent = "Chờ đối thủ...";
+            } else if (!gameOver) {
+                isMyTurn = false;
+                statusEl.textContent = "Máy đang nghĩ...";
+                setTimeout(aiMove, 500);
+            }
+        }
+
+        function makeMove(r, c, symbol) {
+            board[r][c] = symbol;
+            const cell = boardEl.querySelector(`[data-r='${r}'][data-c='${c}']`);
+            cell.textContent = symbol;
+            cell.classList.add(symbol);
+            
+            document.querySelectorAll('.cell').forEach(el => el.classList.remove('last-move'));
+            cell.classList.add('last-move');
+            history.push({ r, c, symbol });
+
+            const winPath = checkWin(r, c, symbol);
+            if (winPath) {
+                endGame(symbol, winPath);
+            }
+        }
+
+        function aiMove() {
+            if (gameOver) return;
+            
+            const level = parseInt(aiLevelSelect.value);
+            // Càng cấp thấp máy càng dễ đi sai ngẫu nhiên
+            const errorRate = Math.max(0, 95 - level) / 100;
+            
+            let move;
+            if (Math.random() < errorRate && level < 40) {
+                move = getRandomMove();
+            } else {
+                move = findBestMove();
+            }
+
+            makeMove(move.r, move.c, aiSymbol);
+            if (!gameOver) {
+                isMyTurn = true;
+                statusEl.textContent = "Đến lượt bé (X)";
+            }
+        }
+
+        // AI Logic: Chặn và Tấn công (heuristic đơn giản)
+        function findBestMove() {
+            let bestScore = -Infinity;
+            let move = { r: Math.floor(size/2), c: Math.floor(size/2) };
+
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (!board[r][c]) {
+                        // Chấm điểm cho AI (O) và Người (X)
+                        let score = evaluateCell(r, c, aiSymbol) * 1.2 + evaluateCell(r, c, playerSymbol);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            move = { r, c };
+                        }
+                    }
+                }
+            }
+            return move;
+        }
+
+        function evaluateCell(r, c, symbol) {
+            let score = 0;
+            const directions = [[0,1],[1,0],[1,1],[1,-1]];
+            for (let [dr, dc] of directions) {
+                let count = 0;
+                // Kiểm tra 4 ô xung quanh
+                for(let i=1; i<5; i++) {
+                    let nr = r + dr*i, nc = c + dc*i;
+                    if (nr>=0 && nr<size && nc>=0 && nc<size && board[nr][nc] === symbol) count++; else break;
+                }
+                for(let i=1; i<5; i++) {
+                    let nr = r - dr*i, nc = c - dc*i;
+                    if (nr>=0 && nr<size && nc>=0 && nc<size && board[nr][nc] === symbol) count++; else break;
+                }
+                score += Math.pow(10, count);
+            }
+            return score;
+        }
+
+        function getRandomMove() {
+            let r, c;
+            do { r = Math.floor(Math.random()*size); c = Math.floor(Math.random()*size); } while (board[r][c]);
+            return { r, c };
+        }
+
+        function checkWin(r, c, p) {
+            const directions = [[0,1],[1,0],[1,1],[1,-1]];
+            for (let [dr, dc] of directions) {
+                let path = [{r, c}];
+                for (let i=1; i<5; i++) {
+                    let nr = r+dr*i, nc = c+dc*i;
+                    if (nr>=0 && nr<size && nc>=0 && nc<size && board[nr][nc] === p) path.push({r: nr, c: nc}); else break;
+                }
+                for (let i=1; i<5; i++) {
+                    let nr = r-dr*i, nc = c-dc*i;
+                    if (nr>=0 && nr<size && nc>=0 && nc<size && board[nr][nc] === p) path.push({r: nr, c: nc}); else break;
+                }
+                if (path.length >= 5) return path;
+            }
+            return null;
+        }
+
+        async function endGame(winner, winPath) {
+            gameOver = true;
+            boardEl.classList.add('game-over');
+            winPath.forEach(pos => {
+                const cell = boardEl.querySelector(`[data-r='${pos.r}'][data-c='${pos.c}']`);
+                cell.classList.add('win');
+            });
+
+            if (winner === playerSymbol) {
+                statusEl.textContent = "🎉 BÉ THẮNG RỒI!";
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                
+                const levelToReport = isOnlineMode ? 0 : parseInt(aiLevelSelect.value);
+                const res = await fetch('/api/game/caro-win', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ type: isOnlineMode ? 'online' : 'ai', level: levelToReport })
+                });
+
+                if (res.ok && !isOnlineMode && levelToReport === currentLevel) {
+                    currentLevel++;
+                    updateLevelDisplay();
+                    renderLevelOptions();
+                    setTimeout(() => alert("Bé đã mở khóa cấp độ tiếp theo!"), 500);
+                }
+            } else {
+                statusEl.textContent = "😢 MÁY THẮNG RỒI! Cố lên bé nhé!";
+            }
+        }
+
+        // --- 3. ONLINE MODE (Socket.io) ---
+        document.getElementById('play-online-btn').onclick = () => {
+            isOnlineMode = true;
+            statusEl.textContent = "Đang tìm đối thủ...";
+            if (socket) socket.disconnect();
+            socket = io();
+
+            socket.on('matchFound', (data) => {
+                roomName = data.room;
+                playerSymbol = (data.role === 'w') ? 'X' : 'O';
+                aiSymbol = (playerSymbol === 'X') ? 'O' : 'X';
+                isMyTurn = (playerSymbol === 'X');
+                size = 20;
+                resetGameState();
+                document.getElementById('menu-area').style.display = 'none';
+                document.getElementById('play-area').style.display = 'block';
+                document.getElementById('control-area').style.display = 'block';
+                document.getElementById('undo-btn').style.display = 'none'; // Online ko được undo
+                statusEl.textContent = isMyTurn ? "Đến lượt bạn" : "Chờ đối thủ...";
+            });
+
+            socket.on('opponentMove', (move) => {
+                makeMove(move.row, move.col, aiSymbol);
+                if (!gameOver) { isMyTurn = true; statusEl.textContent = "Đến lượt bạn"; }
+            });
+
+            socket.on('opponentLeft', () => {
+                if (gameOver) return;
+                gameOver = true;
+                statusEl.textContent = "Đối thủ đã thoát. Bé thắng!";
+                confetti({ particleCount: 100 });
+            });
+
+            socket.emit('findMatch', 'caro');
+        };
+
+        // --- 4. HÀM TIỆN ÍCH ---
+        function undoMove() {
+            if (gameOver || isOnlineMode || history.length < 2) return;
+            // Xóa 2 nước (Máy và Người)
+            for (let i = 0; i < 2; i++) {
+                const last = history.pop();
+                board[last.r][last.c] = null;
+                const cell = boardEl.querySelector(`[data-r='${last.r}'][data-c='${last.c}']`);
+                cell.textContent = '';
+                cell.classList.remove('X', 'O', 'last-move');
+            }
+            statusEl.textContent = "Đã quay lại 1 nước.";
+        }
+
+        function backToMenu() {
+            if (isOnlineMode && socket) socket.disconnect();
+            document.getElementById('menu-area').style.display = 'block';
+            document.getElementById('play-area').style.display = 'none';
+            document.getElementById('control-area').style.display = 'none';
+            statusEl.textContent = "Chào mừng bé!";
+        }
+
+        init();
+    </script>
+</body>
+</html>
