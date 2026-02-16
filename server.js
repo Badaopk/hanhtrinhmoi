@@ -22,35 +22,6 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 // --- 2. KẾT NỐI MONGODB ---
-mongoose.connect(MONGO_URI)
-    .then(async () => {
-        console.log("✅ Đã kết nối MongoDB thành công!");
-
-        // --- TỰ ĐỘNG KHỞI TẠO ADMIN NẾU CHƯA CÓ ---
-        try {
-            const adminExists = await User.findOne({ username: 'Admin' });
-            if (!adminExists) {
-                const hashedPassword = await bcrypt.hash('Quoc2007@', 10);
-                // Tìm đoạn này trong server.js và thay bằng:
-const admin = new User({
-    username: 'Admin',
-    password: hashedPassword,
-    role: 'admin',
-    // Cấp ngay 100 cấp độ cho Admin để test toàn bộ tính năng
-    chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
-    detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
-    shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
-    vietSpeechLevel: 100, englishSpeechLevel: 100,
-    score: 9999
-});
-                await admin.save();
-                console.log("🚀 Đã tự động tạo tài khoản Admin mặc định (Quoc2007@).");
-            }
-        } catch (error) {
-            console.error("❌ Lỗi khi kiểm tra/tạo Admin:", error);
-        }
-    })
-    .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
 // Schema User (Đầy đủ trường dữ liệu cũ)
 const userSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
@@ -126,6 +97,36 @@ const SHOP_ITEMS = [
 ];
 const Tournament = mongoose.model('Tournament', tournamentSchema);
 const User = mongoose.model('User', userSchema);
+mongoose.connect(MONGO_URI)
+    .then(async () => {
+        console.log("✅ Đã kết nối MongoDB thành công!");
+
+        // --- TỰ ĐỘNG KHỞI TẠO ADMIN NẾU CHƯA CÓ ---
+        try {
+            const adminExists = await User.findOne({ username: 'Admin' });
+            if (!adminExists) {
+                const hashedPassword = await bcrypt.hash('Quoc2007@', 10);
+                // Tìm đoạn này trong server.js và thay bằng:
+const admin = new User({
+    username: 'Admin',
+    password: hashedPassword,
+    role: 'admin',
+    // Cấp ngay 100 cấp độ cho Admin để test toàn bộ tính năng
+    chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
+    detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
+    shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
+    vietSpeechLevel: 100, englishSpeechLevel: 100,
+    score: 9999
+});
+                await admin.save();
+                console.log("🚀 Đã tự động tạo tài khoản Admin mặc định (Quoc2007@).");
+            }
+        } catch (error) {
+            console.error("❌ Lỗi khi kiểm tra/tạo Admin:", error);
+        }
+    })
+    .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
+
 // --- 3. CẤU HÌNH MIDDLEWARE ---
 const sessionMiddleware = session({
     secret: 'hanh-tinh-mo-uoc-vinh-cuu-merged-2026',
@@ -1284,7 +1285,33 @@ async function autoCheckForfeit() {
         io.emit('tournamentUpdated'); 
     }
 }
+async function sendMatchReminders() {
+    const now = new Date();
+    const tourney = await Tournament.findOne({ status: 'playing' });
+    if (!tourney) return;
 
+    tourney.brackets.forEach(match => {
+        if (!match.winner && match.startTime) {
+            const startTime = new Date(match.startTime);
+            const diffInMinutes = (startTime - now) / (1000 * 60);
+
+            // Nếu còn đúng 5 phút nữa là bắt đầu
+            if (diffInMinutes > 4 && diffInMinutes <= 5) {
+                [match.p1, match.p2].forEach(username => {
+                    const socketId = onlineUsers[username];
+                    if (socketId) {
+                        io.to(socketId).emit('matchNotice', {
+                            title: "🔔 NHẮC HẸN THI ĐẤU",
+                            message: `Trận đấu môn ${tourney.gameType.toUpperCase()} của bé sắp bắt đầu vào lúc ${startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}!`,
+                            type: 'warning'
+                        });
+                    }
+                });
+            }
+        }
+    });
+}
+setInterval(sendMatchReminders, 60000); // Kiểm tra mỗi phút
 // Cứ mỗi 1 phút, Server sẽ tự thực hiện kiểm tra 1 lần
 setInterval(autoCheckForfeit, 60000);
 server.listen(PORT, () => {
