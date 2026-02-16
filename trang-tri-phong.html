@@ -7,30 +7,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --primary: #3498db; --bg: #1e272e; --wall-l: #dfe6e9; --wall-r: #b2bec3; --floor: #f5f6fa; }
+        :root { --primary: #3498db; --bg: #1e272e; --wall-l: #b2bec3; --wall-r: #dfe6e9; --floor: #f5f6fa; }
         body { margin: 0; font-family: 'Baloo 2', cursive; background: var(--bg); overflow: hidden; color: #333; }
         
-        /* --- KHUNG NHÌN 3D --- */
+        /* --- KHUNG NHÌN 3D (ĐÃ SỬA LỖI) --- */
         .viewport {
             width: 100vw; height: 100vh;
             display: flex; justify-content: center; align-items: center;
-            perspective: 1500px; /* Tạo chiều sâu */
+            perspective: 2000px; /* Tăng chiều sâu để đỡ bị méo */
             overflow: hidden;
         }
 
         .world {
             position: relative;
             width: 600px; height: 600px;
-            transform-style: preserve-3d;
+            transform-style: preserve-3d; /* QUAN TRỌNG: Giữ không gian 3D cho con */
             transition: transform 0.1s;
             transform: rotateX(60deg) rotateZ(45deg) translateZ(-100px);
         }
 
-        /* --- CẤU TRÚC NHÀ --- */
-        .room-surface { position: absolute; box-shadow: inset 0 0 50px rgba(0,0,0,0.1); }
-        
+        /* --- CẤU TRÚC NHÀ (ĐÃ CĂN CHỈNH LẠI TỌA ĐỘ) --- */
         /* Sàn nhà */
         .floor {
+            position: absolute; top: 0; left: 0;
             width: 600px; height: 600px;
             background: 
                 linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc),
@@ -38,24 +37,36 @@
             background-color: var(--floor);
             background-size: 40px 40px;
             background-position: 0 0, 20px 20px;
-            transform: translateZ(0);
+            transform-style: preserve-3d; /* Để đồ vật đứng lên được */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* Tường Trái */
-        .wall-left {
-            width: 20px; height: 600px;
-            background: var(--wall-l);
-            transform: rotateY(-90deg) translateZ(10px) translateX(-10px);
-            transform-origin: left center;
-            border-right: 2px solid #95a5a6;
+        /* Tường (Dùng kỹ thuật dựng vách) */
+        .wall {
+            position: absolute;
+            background-size: 20px 20px;
+            opacity: 0.9;
+            backface-visibility: hidden; /* Ẩn mặt sau để đỡ rối */
         }
-        /* Tường Phải */
+
+        /* Tường Trái (Dựng bên cạnh trái sàn) */
+        .wall-left {
+            width: 600px; height: 300px; /* Chiều cao tường */
+            background: var(--wall-l);
+            transform-origin: left bottom;
+            transform: rotateX(90deg) rotateY(-90deg);
+            bottom: 0; left: 0;
+            border-right: 2px solid #7f8c8d;
+        }
+
+        /* Tường Phải (Dựng bên cạnh trên sàn) */
         .wall-right {
-            width: 600px; height: 20px;
+            width: 600px; height: 300px;
             background: var(--wall-r);
-            transform: rotateX(-90deg) translateZ(10px) translateY(-10px);
-            transform-origin: top center;
-            border-bottom: 2px solid #95a5a6;
+            transform-origin: left top;
+            transform: rotateX(90deg);
+            top: 0; left: 0;
+            border-bottom: 2px solid #7f8c8d;
         }
 
         /* --- ĐỒ VẬT & NHÂN VẬT --- */
@@ -63,33 +74,39 @@
             position: absolute;
             transform-style: preserve-3d;
             cursor: grab;
-            transition: top 0.1s, left 0.1s;
+            width: 40px; height: 40px;
+            display: flex; justify-content: center; align-items: center;
         }
+        .object-3d:active { cursor: grabbing; }
+        
+        /* Hình ảnh đồ vật dựng đứng */
         .object-3d span {
-            display: block; font-size: 3.5rem;
-            transform: rotateX(-90deg) rotateY(45deg) rotateZ(0deg) translateY(-30px); /* Dựng đứng hình ảnh */
-            filter: drop-shadow(5px 10px 5px rgba(0,0,0,0.4));
+            display: block; font-size: 4rem;
+            /* Logic xoay: Dựng đứng vuông góc với sàn, và xoay ngược lại góc camera */
+            transform: rotateX(-90deg) rotateY(45deg) translateY(-30px); 
+            filter: drop-shadow(5px 5px 5px rgba(0,0,0,0.3));
+            pointer-events: none; /* Để click xuyên qua vào div cha */
+            transition: transform 0.1s;
         }
 
         .avatar {
             position: absolute; width: 40px; height: 40px;
             z-index: 1000; transition: top 0.2s linear, left 0.2s linear;
-            pointer-events: none; /* Để không bị click nhầm */
+            pointer-events: none;
+            transform-style: preserve-3d;
         }
         .avatar-body {
-            font-size: 3rem; 
+            font-size: 3.5rem; 
             transform: rotateX(-90deg) rotateY(45deg) translateY(-40px);
-            filter: drop-shadow(0 15px 10px rgba(0,0,0,0.5));
-            animation: bounce 0.5s infinite alternate;
+            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.4));
+            transition: transform 0.1s;
         }
-        @keyframes bounce { from { transform: rotateX(-90deg) rotateY(45deg) translateY(-40px); } to { transform: rotateX(-90deg) rotateY(45deg) translateY(-50px); } }
 
-        /* --- UI PANEL --- */
+        /* --- UI PANEL (GIỮ NGUYÊN) --- */
         .ui-controls {
             position: fixed; top: 20px; left: 20px; z-index: 2000;
             background: rgba(255,255,255,0.9); padding: 15px;
-            border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            width: 250px;
+            border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 250px;
         }
         .control-row { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
         input[type=range] { width: 60%; }
@@ -105,7 +122,6 @@
         .item-card:hover { border-color: var(--primary); transform: translateY(-3px); }
         .save-btn { padding: 15px; background: #e74c3c; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
-        /* Thông báo */
         .notif { position: fixed; top: 20px; right: 340px; background: white; padding: 15px; border-radius: 10px; border-left: 5px solid #f1c40f; animation: slideIn 0.5s; z-index: 9999;}
         @keyframes slideIn { from{transform: translateX(100%);} to{transform: translateX(0);} }
     </style>
@@ -148,15 +164,15 @@
 
 <div class="viewport">
     <div class="world" id="world">
-        <div class="wall-left"></div>
-        <div class="wall-right"></div>
-        <div class="floor" id="floor-area"></div>
-        
-        <div class="avatar" id="player" style="top:300px; left:300px;">
-            <div class="avatar-body">🏃</div>
-        </div>
-
-        </div>
+        <div class="floor" id="floor-area">
+            <div class="wall-left"></div>
+            <div class="wall-right"></div>
+            
+            <div class="avatar" id="player" style="top:300px; left:300px;">
+                <div class="avatar-body">🏃</div>
+            </div>
+            </div>
+    </div>
 </div>
 
 <script>
@@ -180,72 +196,142 @@
             
             // Load đồ đã đặt
             if(data.houseData) {
-                data.houseData.forEach(item => spawnItemVisual(item.id, item.x, item.y, item.uniqueId));
+                // Delay một chút để đảm bảo DOM đã sẵn sàng
+                setTimeout(() => {
+                    data.houseData.forEach(item => spawnItemVisual(item.id, item.x, item.y, item.uniqueId));
+                }, 100);
             }
 
-            // Lắng nghe di chuyển nhân vật
             window.addEventListener('keydown', movePlayer);
-
         } catch(e) { console.error(e); }
     }
 
-    // --- 2. HỆ THỐNG DI CHUYỂN (WALKING) ---
+    // --- 2. LOGIC DI CHUYỂN & KÉO THẢ (Sửa lỗi tọa độ) ---
     function movePlayer(e) {
         const player = document.getElementById('player');
-        let t = parseInt(player.style.top);
-        let l = parseInt(player.style.left);
+        // Lấy tọa độ hiện tại (nếu chưa có thì mặc định giữa sàn)
+        let t = parseInt(player.style.top) || 300;
+        let l = parseInt(player.style.left) || 300;
         const step = 20;
 
-        // Xử lý hướng đi dựa trên góc xoay camera để đi "thẳng" theo mắt nhìn
-        // (Ở đây làm đơn giản: Mũi tên tương ứng hướng sàn nhà)
+        // Xử lý hướng đi theo góc nhìn Isometric
         if(e.key === 'ArrowUp') { t -= step; l -= step; }
         else if(e.key === 'ArrowDown') { t += step; l += step; }
-        else if(e.key === 'ArrowLeft') { l -= step; t += step; } // Iso logic
+        else if(e.key === 'ArrowLeft') { l -= step; t += step; }
         else if(e.key === 'ArrowRight') { l += step; t -= step; }
         
-        // Giới hạn trong sàn 600x600
+        // Giới hạn trong sàn 600x600 (trừ biên 40px)
         if(t < 0) t = 0; if(t > 560) t = 560;
         if(l < 0) l = 0; if(l > 560) l = 560;
 
         player.style.top = t + 'px';
         player.style.left = l + 'px';
         
-        // Hiệu ứng bước đi
+        // Cập nhật Z-index để nhân vật đi ra sau/trước đồ vật
+        player.style.zIndex = Math.floor(t + l); 
+        
         player.querySelector('.avatar-body').innerText = (t+l)%40 === 0 ? '🚶' : '🏃';
     }
 
-    // --- 3. CAMERA CONTROL ---
+    function spawnItemVisual(id, x, y, uid) {
+        const item = shopItems.find(i => i.id === id);
+        if (!item) return; // Bảo vệ nếu item không tồn tại
+
+        const el = document.createElement('div');
+        el.className = 'object-3d';
+        el.id = uid;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.zIndex = Math.floor(x + y); // Sắp xếp lớp 3D
+
+        const img = document.createElement('span');
+        img.innerText = item.icon;
+        // Xoay ảnh để luôn đối diện camera
+        img.style.transform = `rotateX(-90deg) rotateY(-${currentRotation}deg) rotateZ(0deg) translateY(-30px)`;
+        
+        el.appendChild(img);
+        
+        el.onmousedown = function(e) {
+            e.stopPropagation();
+            dragElement(el, e);
+        };
+
+        el.oncontextmenu = function(e) {
+            e.preventDefault();
+            el.remove();
+            houseState.inventory.push(id);
+            houseState.items = houseState.items.filter(i => i.uniqueId != uid);
+            updateUI();
+        };
+
+        document.getElementById('floor-area').appendChild(el);
+        houseState.items.push({ id, uniqueId: uid, el });
+    }
+
+    // Hàm kéo thả đã sửa lỗi trượt
+    function dragElement(elmnt, eStart) {
+        eStart.preventDefault();
+        let startX = eStart.clientX;
+        let startY = eStart.clientY;
+        let startLeft = elmnt.offsetLeft;
+        let startTop = elmnt.offsetTop;
+
+        document.onmousemove = elementDrag;
+        document.onmouseup = closeDragElement;
+
+        function elementDrag(e) {
+            e.preventDefault();
+            // Tính toán độ lệch chuột
+            let dx = e.clientX - startX;
+            let dy = e.clientY - startY;
+
+            // Vì sàn xoay 45 độ, nên chuột di chuyển ngang/dọc sẽ tác động chéo lên sàn
+            // Công thức đơn giản hóa cho trải nghiệm tốt hơn:
+            let newLeft = startLeft + dx;
+            let newTop = startTop + dy;
+
+            // Giới hạn
+            if(newLeft < 0) newLeft = 0; if(newLeft > 560) newLeft = 560;
+            if(newTop < 0) newTop = 0; if(newTop > 560) newTop = 560;
+
+            elmnt.style.left = newLeft + "px";
+            elmnt.style.top = newTop + "px";
+            elmnt.style.zIndex = Math.floor(newLeft + newTop); // Cập nhật độ sâu
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    // --- 3. CAMERA & UI ---
     function rotateWorld(deg) {
         currentRotation = deg;
         document.getElementById('world').style.transform = `rotateX(60deg) rotateZ(${deg}deg) translateZ(-100px)`;
-        // Xoay ngược các đồ vật để chúng luôn đứng thẳng
-        document.querySelectorAll('.object-3d span, .avatar-body').forEach(el => {
-            el.style.transform = `rotateX(-90deg) rotateY(-${deg}deg) rotateZ(0deg) translateY(-40px)`;
-        });
+        // Xoay ngược tất cả đồ vật và nhân vật
+        const transformString = `rotateX(-90deg) rotateY(-${deg}deg) rotateZ(0deg) translateY(-30px)`;
+        document.querySelectorAll('.object-3d span').forEach(el => el.style.transform = transformString);
+        document.querySelector('.avatar-body').style.transform = transformString;
     }
 
     function zoomWorld(scale) {
         document.getElementById('world').style.zoom = scale;
     }
 
-    // --- 4. QUẢN LÝ ĐỒ VẬT ---
     function updateUI() {
         document.getElementById('score').innerText = houseState.score.toLocaleString();
         
-        // Shop
         const sGrid = document.getElementById('grid-shop');
         sGrid.innerHTML = '';
         shopItems.forEach(i => {
             sGrid.innerHTML += `
                 <div class="item-card" onclick="buyItem('${i.id}')">
                     <div style="font-size:2rem">${i.icon}</div>
-                    <b>${i.name}</b><br>
-                    <small style="color:#e67e22">${i.price} 💎</small>
-                </div>
-            `;
+                    <b>${i.name}</b><br><small style="color:#e67e22">${i.price} 💎</small>
+                </div>`;
         });
 
-        // Inventory
         const iGrid = document.getElementById('grid-inv');
         iGrid.innerHTML = '';
         const counts = {};
@@ -257,18 +343,15 @@
                 iGrid.innerHTML += `
                     <div class="item-card" style="border-style:dashed" onclick="placeFromInventory('${id}')">
                         <div style="font-size:2rem">${item.icon}</div>
-                        <b>${item.name}</b><br>
-                        <small>x${count}</small>
-                    </div>
-                `;
+                        <b>${item.name}</b><br><small>x${count}</small>
+                    </div>`;
             }
         }
     }
 
     async function buyItem(id) {
         const res = await fetch('/api/house/buy', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({itemId: id})
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: id})
         });
         const d = await res.json();
         if(res.ok) {
@@ -288,98 +371,35 @@
         const idx = houseState.inventory.indexOf(id);
         if(idx > -1) {
             houseState.inventory.splice(idx, 1);
-            spawnItemVisual(id, 300, 300, Date.now());
+            spawnItemVisual(id, 300, 300, 'item-' + Date.now());
             updateUI();
-        }
-    }
-
-    function spawnItemVisual(id, x, y, uid) {
-        const item = shopItems.find(i => i.id === id);
-        const el = document.createElement('div');
-        el.className = 'object-3d';
-        el.id = uid;
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        
-        // Tạo thẻ span chứa hình ảnh để có thể xoay lập thể
-        const img = document.createElement('span');
-        img.innerText = item.icon;
-        // Chỉnh góc xoay ban đầu cho khớp camera
-        img.style.transform = `rotateX(-90deg) rotateY(-${currentRotation}deg) rotateZ(0deg) translateY(-30px)`;
-        
-        el.appendChild(img);
-        
-        // Sự kiện Kéo thả
-        el.onmousedown = function(e) {
-            e.stopPropagation(); // Không cho kéo sàn
-            dragElement(el);
-        };
-
-        // Chuột phải để thu hồi
-        el.oncontextmenu = function(e) {
-            e.preventDefault();
-            el.remove();
-            houseState.inventory.push(id);
-            houseState.items = houseState.items.filter(i => i.uniqueId != uid);
-            updateUI();
-        };
-
-        document.getElementById('floor-area').appendChild(el);
-        houseState.items.push({ id, uniqueId: uid, el });
-    }
-
-    function dragElement(elmnt) {
-        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        document.onmousemove = elementDrag;
-        document.onmouseup = closeDragElement;
-
-        function elementDrag(e) {
-            e.preventDefault();
-            // Tính toán vị trí chuột trong không gian 3D tương đối khó
-            // Ta dùng movementX/Y để dịch chuyển
-            elmnt.style.top = (elmnt.offsetTop + e.movementY) + "px";
-            elmnt.style.left = (elmnt.offsetLeft + e.movementX) + "px";
-        }
-
-        function closeDragElement() {
-            document.onmouseup = null;
-            document.onmousemove = null;
         }
     }
 
     async function saveHouse() {
-        // Cập nhật tọa độ mới nhất từ DOM
         const itemsToSave = houseState.items.map(i => {
             const el = document.getElementById(i.uniqueId);
             return {
-                id: i.id,
-                uniqueId: i.uniqueId,
-                x: el ? el.offsetLeft : 0,
-                y: el ? el.offsetTop : 0
+                id: i.id, uniqueId: i.uniqueId,
+                x: el ? el.offsetLeft : 0, y: el ? el.offsetTop : 0
             };
         });
-
         await fetch('/api/house/save', {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ items: itemsToSave, inventory: houseState.inventory })
         });
-        
-        // Hiệu ứng thông báo đẹp
         const n = document.createElement('div');
-        n.className = 'notif';
-        n.innerHTML = "✅ Đã lưu ngôi nhà 3D của bé!";
-        document.body.appendChild(n);
-        setTimeout(()=>n.remove(), 3000);
+        n.className = 'notif'; n.innerHTML = "✅ Đã lưu ngôi nhà 3D!";
+        document.body.appendChild(n); setTimeout(()=>n.remove(), 3000);
     }
 
-    // --- SOCKET NOTIFICATION (Copy từ file cũ qua để không mất tính năng) ---
+    // --- SOCKET NOTIFICATION ---
     socket.on('matchNotice', (data) => {
         const notif = document.createElement('div');
         notif.className = 'notif';
-        notif.style.borderLeftColor = '#f1c40f';
         notif.innerHTML = `<b>🔔 ${data.title}</b><br>${data.message}`;
         document.body.appendChild(notif);
-        setTimeout(()=>notif.remove(), 15000);
+        setTimeout(()=>notif.remove(), 30000);
     });
     
     socket.on('adminNotification', (data) => {
