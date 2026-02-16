@@ -114,7 +114,9 @@
         <h1 class="header-title">♟️ VUA CỜ ♟️</h1>
         <div style="width: 50px;"></div>
     </div>
-
+    <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none;">
+    ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span> để suy nghĩ!
+</div>
     <div class="game-layout">
         <div id="myBoard"></div>
 
@@ -164,6 +166,8 @@
         let myRole = 'w'; 
         let currentRoom = null;
         let gameStartTime;
+        let matchTimer = null;    // <--- THÊM DÒNG NÀY
+        let secondsLeft = 600;
         // Biến xử lý Click (Thay cho Drag)
         let selectedSquare = null; 
 
@@ -188,7 +192,37 @@
             const hash = {'wP':'4/45','wN':'7/70','wB':'b/b1','wR':'7/72','wQ':'1/15','wK':'4/42','bP':'c/c7','bN':'e/ef','bB':'9/98','bR':'f/ff','bQ':'4/47','bK':'f/f0'}[piece];
             return `https://upload.wikimedia.org/wikipedia/commons/${hash}/Chess_${code}.svg`;
         }
+function startTournamentTimer(mins) {
+    clearInterval(matchTimer);
+    secondsLeft = mins * 60;
+    // Kiểm tra nếu có box timer thì hiện lên
+    if(document.getElementById('tourney-timer')) {
+        document.getElementById('tourney-timer').style.display = 'block';
+    }
 
+    matchTimer = setInterval(() => {
+        // Chỉ đếm ngược khi đang đánh Online (PVP) và đúng lượt của mình
+        const isMyTurn = (currentMode === 'pvp' && game.turn() === myRole);
+
+        if (isMyTurn && isGameActive) {
+            secondsLeft--;
+            const m = Math.floor(secondsLeft / 60);
+            const s = secondsLeft % 60;
+            const display = document.getElementById('time-left');
+            if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+
+            if (secondsLeft <= 0) {
+                clearInterval(matchTimer);
+                // Gửi lệnh xử thua lên Server
+                socket.emit('timeoutLoss', { 
+                    room: currentRoom, 
+                    loserUsername: localStorage.getItem('currentUser'),
+                    gameType: 'Cờ Vua'
+                });
+            }
+        }
+    }, 1000);
+}
         // --- 1. KHỞI TẠO ---
         async function init() {
             try {
@@ -209,6 +243,11 @@
 
             // Gắn sự kiện Click cho bàn cờ (Sử dụng jQuery vì chessboard.js dùng nó)
             $('#myBoard').on('click', '.square-55d63', onSquareClick);
+            const tourRoom = localStorage.getItem('joinTournamentRoom');
+            if (tourRoom) {
+               socket.emit('joinChessRoom', tourRoom); // Tự động vào phòng
+               localStorage.removeItem('joinTournamentRoom'); // Xóa sau khi dùng
+            }
         }
 
         // --- XỬ LÝ CLICK (TAP TO MOVE) ---
@@ -397,13 +436,22 @@
             board.orientation(myRole === 'w' ? 'white' : 'black');
             document.getElementById('pvp-room-info').textContent = "Đang thi đấu";
             document.getElementById('pvp-status').textContent = myRole === 'w' ? "Bạn đi trước" : "Bạn đi sau";
+            startTournamentTimer(data.matchDuration || 10);
         });
 
         socket.on('move', (move) => {
              game.move(move); board.position(game.fen()); updateStatus();
         });
         socket.on('opponentLeft', () => { alert("Đối thủ thoát!"); location.reload(); });
-
+socket.on('gameOver', (data) => {
+    isGameActive = false;
+    clearInterval(matchTimer);
+    if(data.reason === 'timeout') {
+        const isMe = data.loser === localStorage.getItem('currentUser');
+        alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
+    }
+    location.href = 'giai-dau.html'; // Quay lại trang giải đấu
+});
         async function updateStatus() {
             let statusEl = document.getElementById(currentMode === 'pve' ? 'pve-status' : 'pvp-status');
             if (game.in_checkmate()) {
@@ -419,6 +467,7 @@
                                 body: JSON.stringify({ 
                                     playedLevel: currentPlayingLevel,
                                     timeTaken: timeSpent // <--- THÊM BIẾN NÀY VÀO ĐÂY
+                                    tournamentRoomId: currentRoom
                                 })                            
                             });
                             const d = await res.json();

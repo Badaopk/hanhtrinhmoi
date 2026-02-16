@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Sân Vận Động Hành Tinh</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .match-card { background: white; border-radius: 15px; padding: 15px; margin: 10px; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border-left: 8px solid #f1c40f; text-align: left; }
+        .match-header { font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .vs-box { display: flex; align-items: center; justify-content: space-around; font-size: 1.2rem; }
+        .btn-play { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        .status-open { color: #2ecc71; } .status-playing { color: #e67e22; }
+    </style>
+</head>
+<body class="tournament-bg">
+    <h1>🏆 TRUNG TÂM GIẢI ĐẤU 🏆</h1>
+
+    <div class="container" id="info-box">
+        <h2 id="game-title">Đang kiểm tra giải đấu...</h2>
+        <p id="tour-status-text"></p>
+        <button id="join-btn" class="auth-btn" style="display:none" onclick="joinTourney()">ĐĂNG KÝ NGAY</button>
+    </div>
+
+    <div class="container" id="bracket-view" style="display:none">
+        <h3>📅 LỊCH THI ĐẤU CỦA BÉ</h3>
+        <div id="match-list"></div>
+    </div>
+
+    <script>
+        let currentUser = localStorage.getItem('currentUser');
+
+        async function loadTourney() {
+            const res = await fetch('/api/tournament/status');
+            const tour = await res.json();
+            
+            const infoBox = document.getElementById('info-box');
+            const gameTitle = document.getElementById('game-title');
+            const statusText = document.getElementById('tour-status-text');
+            const joinBtn = document.getElementById('join-btn');
+
+            if (tour.status === 'none') {
+                gameTitle.textContent = "Hiện chưa có giải đấu nào";
+                return;
+            }
+
+            gameTitle.textContent = `Môn thi: ${tour.gameType.toUpperCase()}`;
+            
+            if (tour.status === 'open') {
+                statusText.innerHTML = `Trạng thái: <span class="status-open">Đang mở đăng ký</span><br>Số người: ${tour.participants.length}`;
+                joinBtn.style.display = 'inline-block';
+            } else if (tour.status === 'playing') {
+                statusText.innerHTML = `Trạng thái: <span class="status-playing">Đang thi đấu</span>`;
+                joinBtn.style.display = 'none';
+                renderBrackets(tour);
+            }
+        }
+function enterMatch(gameType, matchId) {
+    // Lưu mã phòng giải đấu để file game tự đọc
+    localStorage.setItem('joinTournamentRoom', matchId);
+    
+    const gameFiles = { 
+        'chess': 'co-vua.html', 
+        'caro': 'caro.html', 
+        'go': 'co-vay.html', 
+        'othello': 'othello.html' 
+    };
+    location.href = gameFiles[gameType];
+}
+function renderBrackets(tour) {
+            const view = document.getElementById('bracket-view');
+            const list = document.getElementById('match-list');
+            view.style.display = 'block';
+            list.innerHTML = '';
+
+            // --- MẢNH VÁ QUAN TRỌNG: XỬ LÝ CẢ VÒNG BẢNG VÀ KNOCKOUT ---
+            let allMatches = [];
+            
+            if (tour.format === 'group') {
+                // Nếu là Vòng Bảng: Lôi hết trận đấu từ trong các bảng (Bảng A, B...) ra ngoài
+                if (tour.brackets) {
+                    tour.brackets.forEach(group => {
+                        if (group.matches) allMatches.push(...group.matches);
+                    });
+                }
+            } else {
+                // Nếu là Knockout: Dùng luôn danh sách
+                allMatches = tour.brackets || [];
+            }
+            // ----------------------------------------------------------
+
+            if (allMatches.length === 0) {
+                list.innerHTML = '<div style="color:white; text-align:center;">Chưa có lịch thi đấu.</div>';
+                return;
+            }
+
+            allMatches.forEach((m, index) => {
+                // Kiểm tra xem bé có trong trận này không
+                const isMyMatch = (m.p1 === currentUser || m.p2 === currentUser);
+                
+                const card = document.createElement('div');
+                card.className = 'match-card';
+                if (isMyMatch) card.style.borderColor = '#2ecc71';
+
+                // Hiển thị người thắng nếu có
+                let statusHtml = '';
+                if (m.winner) {
+                    statusHtml = `<div style="color:#27ae60; font-weight:bold; margin-top:5px;">🏆 Thắng: ${m.winner}</div>`;
+                } else if (isMyMatch) {
+                    // Nếu chưa ai thắng và là trận của mình -> Hiện nút VÀO ĐẤU
+                    statusHtml = `<button class="btn-play" onclick="enterMatch('${tour.gameType}', '${m.matchId}')">VÀO ĐẤU</button>`;
+                } else {
+                    statusHtml = `<span style="color:#7f8c8d; font-size:0.9rem;">Đang diễn ra...</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="match-header">
+                        Trận ${index + 1} <span style="font-size:0.8rem; background:#eee; padding:2px 6px; border-radius:4px;">⏱️ ${tour.matchDuration}p</span>
+                    </div>
+                    <div class="vs-box">
+                        <span style="${m.winner === m.p1 ? 'color:#e67e22; font-weight:bold;' : ''}">${m.p1}</span>
+                        <span style="color:#e74c3c; font-size:0.9rem; margin:0 5px;">VS</span>
+                        <span style="${m.winner === m.p2 ? 'color:#e67e22; font-weight:bold;' : ''}">${m.p2}</span>
+                    </div>
+                    <div style="text-align:center; margin-top:10px;">
+                        ${statusHtml}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+        async function joinTourney() {
+            const res = await fetch('/api/tournament/join', { method: 'POST' });
+            const d = await res.json();
+            alert(d.message);
+            loadTourney();
+        }
+
+        loadTourney();
+    </script>
+</body>
+</html>

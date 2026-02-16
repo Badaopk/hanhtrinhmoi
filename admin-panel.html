@@ -172,7 +172,41 @@
                 </form>
             </div>
         </div>
-
+        <div class="admin-create-form" style="margin-top: 10px; border-color: #f1c40f;">
+    <h3>📊 Theo Dõi Đăng Ký</h3>
+    <p>Số lượng: <strong id="reg-count" style="color: #e74c3c; font-size: 1.2rem;">0</strong> bé</p>
+    <div id="reg-list" style="background: #eee; padding: 10px; border-radius: 5px; color: #333;">Đang chờ...</div>
+</div>
+        <div class="admin-create-form" style="background: #eef2f7; border: 2px solid #3498db; grid-column: 1/-1;">
+    <h2>🏆 QUẢN LÝ GIẢI ĐẤU HÀNH TINH</h2>
+    <div class="admin-forms-container">
+        <div class="form-group">
+            <label>Môn thi đấu:</label>
+            <select id="tour-game">
+                <option value="chess">Cờ Vua</option>
+                <option value="caro">Cờ Caro</option>
+                <option value="go">Cờ Vây</option>
+                <option value="othello">Vua Phục Kích</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Thể thức:</label>
+            <select id="tour-format">
+                <option value="knockout">Loại trực tiếp</option>
+                <option value="group">Vòng bảng + Loại</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Thời gian (phút/trận):</label>
+            <input type="number" id="tour-time" value="10" min="1">
+        </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <button class="create-btn" onclick="apiCall('/api/admin/create-tournament', 'POST', getTourData())" style="background:#2ecc71">1. Mở Đăng Ký</button>
+        <button class="create-btn" onclick="apiCall('/api/admin/start-tournament', 'POST', {})" style="background:#e74c3c">2. Chốt & Chia Bảng</button>
+        <button class="create-btn" onclick="finishTourney()" style="background:#f1c40f; color:#333;">3. Trao Thưởng & Kết Thúc</button>
+    </div>
+</div>
         <div class="admin-create-form" style="background: #fffbe6;">
             <h2>Công Cụ Chung</h2>
             <form id="broadcast-form">
@@ -180,6 +214,11 @@
                     <label for="broadcast-message">Gửi Toàn Server:</label>
                     <textarea id="broadcast-message" rows="3" placeholder="Gõ thông báo... (vd: Server sẽ bảo trì trong 5 phút!)"></textarea>
                 </div>
+                <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+                    <div class="form-group">
+                    <label style="color:red;">⚠️ VÙNG NGUY HIỂM:</label>
+                    <button type="button" class="create-btn delete-btn" onclick="resetAllServerLevels()">🔄 RESET TOÀN BỘ CẤP ĐỘ</button>
+            </div>
                 <button type="submit" id="broadcast-btn" class="create-btn broadcast-btn">Gửi Broadcast</button>
             </form>
             <hr style="margin: 20px 0;">
@@ -264,8 +303,77 @@
         const broadcastBtn = document.getElementById('broadcast-btn');
         const maintenanceToggleBtn = document.getElementById('maintenance-toggle-btn');
         const maintenanceStatusText = document.getElementById('maintenance-status');
+// Đặt hàm này vào vùng script chính
+async function finishTourney() {
+    const top1 = prompt("Nhập Username người giải NHẤT (Cộng 500đ):");
+    if(!top1) return;
+    const top2 = prompt("Nhập Username người giải NHÌ (Cộng 300đ):");
+    const top3 = prompt("Nhập Username người giải BA (Cộng 100đ):");
 
-        // --- HÀM TẢI USER ---
+    await apiCall('/api/admin/finish-tournament', 'POST', { top1, top2, top3 });
+}
+async function updateAdminTourInfo() {
+    try {
+        const res = await fetch('/api/tournament/status');
+        const tour = await res.json();
+        if(tour.participants) {
+            // Kiểm tra xem thẻ HTML có tồn tại không trước khi gán
+            const countEl = document.getElementById('reg-count');
+            const listEl = document.getElementById('reg-list');
+            if (countEl) countEl.textContent = tour.participants.length;
+            if (listEl) listEl.textContent = tour.participants.length > 0 ? tour.participants.join(', ') : "Chưa có ai đăng ký";
+        }
+    } catch(e) {}
+}
+
+// Gọi lặp lại mỗi 3 giây (Xóa dấu / thừa đi)
+setInterval(updateAdminTourInfo, 3000);
+        // --- HÀM TẢI USER --- 
+function getTourData() {
+    return {
+        gameType: document.getElementById('tour-game').value,
+        format: document.getElementById('tour-format').value,
+        matchDuration: parseInt(document.getElementById('tour-time').value) || 10
+    };
+}
+
+async function apiCall(url, method, data) {
+    const res = await fetch(url, {
+        method, headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    alert(result.message);
+}
+
+// Sửa lại đoạn setInterval bị lỗi ở cuối file:
+setInterval(updateAdminTourInfo, 3000);
+// --- HÀM RESET TOÀN BỘ SERVER (MỚI) ---
+        async function resetAllServerLevels() {
+            // Hỏi lần 1 để tránh bấm nhầm
+            if (!confirm("⚠️ CẢNH BÁO: Bạn có chắc chắn muốn đưa cấp độ của TẤT CẢ các bé về 1 không?")) return;
+            
+            // Hỏi lần 2 để chắc chắn 100%
+            const confirmation = prompt("❗ Hành động này KHÔNG THỂ khôi phục! Nhập chữ 'RESET' để xác nhận:");
+            if (confirmation !== 'RESET') return alert("Đã hủy thao tác.");
+
+            try {
+                const res = await fetch('/api/admin/reset-all-levels', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    alert(data.message);
+                    fetchUsers(); // Tải lại bảng danh sách để thấy kết quả
+                } else {
+                    alert("Lỗi: " + data.message);
+                }
+            } catch (e) {
+                alert("Lỗi kết nối server!");
+            }
+        }
         async function fetchUsers() {
             try {
                 const response = await fetch('/api/admin/all-users');
@@ -517,7 +625,7 @@
                 showMessage(`Lỗi: ${error.message}`, true);
             }
         }
-
+        
         // --- TÍNH NĂNG MỚI (CHUYỂN PHỤ HUYNH & BẢO TRÌ) ---
         async function transferParent(childUsername) {
             const newParentCode = prompt(`Nhập MÃ PHỤ HUYNH mới cho '${childUsername}':`);

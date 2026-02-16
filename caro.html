@@ -37,6 +37,9 @@
     </style>
 </head>
 <body>
+    <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none; position:fixed; top:10px; right:10px; z-index:100;">
+    ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
+</div>
     <h1 style="text-shadow: 2px 2px 0 #2c3e50; margin: 15px 0;">⭕ CARO ĐẠI CHIẾN ❌</h1>
 
     <div class="game-layout">
@@ -81,7 +84,37 @@
         let size = 15, board = [], gameOver = false, history = [], isOnline = false, socket, playerSym = 'X', aiSym = 'O', isMyTurn = true;
         let aiLevel = 1;
         let gameStartTime;
+        let matchTimer = null;
+        let secondsLeft = 600;
 
+function startTournamentTimer(mins) {
+    clearInterval(matchTimer);
+    secondsLeft = mins * 60;
+    if(document.getElementById('tourney-timer')) {
+        document.getElementById('tourney-timer').style.display = 'block';
+    }
+
+    matchTimer = setInterval(() => {
+        // Chỉ đếm ngược khi là Online và đến lượt mình
+        if (isOnline && isMyTurn && !gameOver) {
+            secondsLeft--;
+            const m = Math.floor(secondsLeft / 60);
+            const s = secondsLeft % 60;
+            const display = document.getElementById('time-left');
+            if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+
+            if (secondsLeft <= 0) {
+                clearInterval(matchTimer);
+                // Gửi lệnh xử thua
+                socket.emit('timeoutLoss', { 
+                    room: roomName, 
+                    loserUsername: localStorage.getItem('currentUser'),
+                    gameType: 'Cờ Caro'
+                });
+            }
+        }
+    }, 1000);
+}
         // --- 1. KHỞI TẠO ---
         async function init() {
             try {
@@ -91,6 +124,12 @@
                 document.getElementById('lvl-display').textContent = aiLevel;
                 renderLevelOpts(aiLevel);
             } catch(e) {}
+            const tourRoom = localStorage.getItem('joinTournamentRoom');
+            if (tourRoom) {
+               connectSocket(); // Phải kết nối trước
+               socket.emit('joinCaroRoom', tourRoom); 
+               localStorage.removeItem('joinTournamentRoom');
+            }
         }
 
         function renderLevelOpts(maxLvl) {
@@ -273,6 +312,7 @@
                         body: JSON.stringify({ 
                             level: parseInt(document.getElementById('ai-level-select').value),
                             timeTaken: timeSpent 
+                            tournamentRoomId: roomName
                         }) 
                     });
                     setTimeout(() => alert(`Thắng trong ${timeSpent} giây!`), 500);

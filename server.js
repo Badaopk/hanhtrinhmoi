@@ -37,7 +37,8 @@ const userSchema = new mongoose.Schema({
     history: [{ activity: String, timestamp: { type: Date, default: Date.now } }], 
     quests: { type: Array, default: [] }, 
     playtimeLimitMinutes: { type: Number, default: 0 },
-    
+    inventory: { type: Array, default: [] }, // Danh sách ID đồ đã mua: ['bed_1', 'table_2']
+    houseData: { type: Array, default: [] },
     // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
     paintingLevel: { type: Number, default: 1 },      // Xưởng vẽ
     memoryLevel: { type: Number, default: 1 },        // Ghép hình
@@ -54,6 +55,25 @@ const userSchema = new mongoose.Schema({
     monopolyLevel: { type: Number, default: 1 },      // Cờ Tỷ Phú
     othelloLevel: { type: Number, default: 1 }        // Othello
 });
+const tournamentSchema = new mongoose.Schema({
+    gameType: String, // 'chess', 'caro', 'go', 'othello'
+    format: String,   // 'knockout' (loại trực tiếp) hoặc 'group' (vòng bảng)
+    status: { type: String, default: 'open' }, // open (đăng ký), playing (đang đấu), finished
+    matchDuration: Number, // Số phút mỗi trận
+    participants: [String], // Danh sách tên các bé tham gia
+    brackets: { type: Array, default: [] }, // Sơ đồ trận đấu/bảng đấu
+    winners: { top1: String, top2: String, top3: String }
+});
+const SHOP_ITEMS = [
+    { id: 'bed_red', name: 'Giường Đỏ', price: 200, type: 'furniture', icon: '🛏️' },
+    { id: 'sofa_blue', name: 'Sofa Xanh', price: 150, type: 'furniture', icon: '🛋️' },
+    { id: 'plant_1', name: 'Cây Cảnh', price: 50, type: 'decor', icon: '🪴' },
+    { id: 'tv_set', name: 'Tivi Xịn', price: 300, type: 'electronic', icon: '📺' },
+    { id: 'rug_bear', name: 'Thảm Gấu', price: 80, type: 'floor', icon: '🐻' },
+    { id: 'lamp_stand', name: 'Đèn Ngủ', price: 60, type: 'decor', icon: '💡' },
+    { id: 'bookshelf', name: 'Kệ Sách', price: 120, type: 'furniture', icon: '📚' }
+];
+const Tournament = mongoose.model('Tournament', tournamentSchema);
 const User = mongoose.model('User', userSchema);
 // --- 3. CẤU HÌNH MIDDLEWARE ---
 const sessionMiddleware = session({
@@ -221,6 +241,73 @@ app.get('/api/user/progress', async (req, res) => {
 });
 
 // --- 6. API ADMIN (ĐÃ KHÔI PHỤC ĐẦY ĐỦ) ---
+app.post('/api/admin/create-tournament', async (req, res) => {
+    const { gameType, format, matchDuration } = req.body;
+    await Tournament.deleteMany({ status: { $ne: 'finished' } }); // Xóa giải cũ chưa xong
+    const newTourney = new Tournament({ gameType, format, matchDuration });
+    await newTourney.save();
+    io.emit('adminNotification', { title: '🏆 GIẢI ĐẤU MỚI', message: `Môn ${gameType.toUpperCase()} đã mở đăng ký!` });
+    res.json({ message: "Đã mở giải thành công!" });
+});
+app.post('/api/admin/finish-tournament', async (req, res) => {
+    const { top1, top2, top3 } = req.body;
+    if (top1) await User.updateOne({ username: top1 }, { $inc: { score: 500 } }); // Nhất: 500đ
+    if (top2) await User.updateOne({ username: top2 }, { $inc: { score: 300 } }); // Nhì: 300đ
+    if (top3) await User.updateOne({ username: top3 }, { $inc: { score: 100 } }); // Ba: 100đ
+    
+    await Tournament.updateOne({ status: 'playing' }, { $set: { status: 'finished', winners: { top1, top2, top3 } } });
+    io.emit('adminNotification', { title: '🏁 GIẢI KẾT THÚC', message: `Chúc mừng quán quân: ${top1}!` });
+    res.json({ message: "Đã trao thưởng thành công!" });
+});
+// Admin chốt danh sách và chia bảng
+app.post('/api/admin/start-tournament', async (req, res) => {
+    const tourney = await Tournament.findOne({ status: 'open' });
+    if (!tourney || tourney.participants.length < 2) return res.status(400).json({ message: "Không đủ người thi đấu!" });
+
+    const players = [...tourney.participants].sort(() => Math.random() - 0.5);
+    let brackets = [];
+
+    if (tourney.format === 'knockout') {
+        // Chia cặp loại trực tiếp
+        for (let i = 0; i < players.length; i += 2) {
+            brackets.push({ 
+                matchId: 'TOUR-' + Math.random().toString(36).substr(2, 5), // Tạo mã phòng ngẫu nhiên
+                p1: players[i], 
+                p2: players[i+1] || "BYE (Miễn đấu)", 
+                winner: players[i+1] ? null : players[i] 
+            });
+        }
+    } else {
+        // CHIA VÒNG BẢNG (Mỗi bảng 4 người, đấu vòng tròn)
+        let groupCount = Math.ceil(players.length / 4);
+        for (let g = 0; g < groupCount; g++) {
+            let members = players.slice(g * 4, (g + 1) * 4);
+            let groupMatches = [];
+            
+            // Thuật toán tạo cặp đấu vòng tròn (Round-robin)
+            for (let i = 0; i < members.length; i++) {
+                for (let j = i + 1; j < members.length; j++) {
+                    groupMatches.push({
+                        matchId: `TOUR-G-${g}-${i}-${j}-` + Math.random().toString(36).substr(2, 3),
+                        p1: members[i],
+                        p2: members[j],
+                        winner: null
+                    });
+                }
+            }
+            brackets.push({ 
+                groupName: `Bảng ${String.fromCharCode(65 + g)}`, 
+                members: members, 
+                matches: groupMatches 
+            });
+        }
+    }
+    tourney.brackets = brackets;
+    tourney.status = 'playing';
+    await tourney.save();
+    io.emit('tournamentStarted', tourney);
+    res.json({ message: "Đã chia bảng và bắt đầu giải đấu!" });
+});
 app.post('/api/admin/update-user', async (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ message: 'Không có quyền' });
     
@@ -229,9 +316,10 @@ app.post('/api/admin/update-user', async (req, res) => {
     try {
         // Chuyển đổi các giá trị sang số để đảm bảo tính toán đúng
         for (let key in updateData) {
-            if (key !== 'username') updateData[key] = parseInt(updateData[key]);
+            if (key !== 'username' && !Array.isArray(updateData[key])) {
+               updateData[key] = parseInt(updateData[key]);
+            }
         }
-
         await User.updateOne({ username }, { $set: updateData });
         res.json({ message: 'Đã cập nhật đầy đủ 11 cấp độ cho ' + username });
     } catch(e) {
@@ -320,6 +408,26 @@ app.post('/api/admin/maintenance-toggle', (req, res) => {
     }
     res.json({ maintenanceMode });
 });
+// 1. Lấy thông tin giải đấu hiện tại
+app.get('/api/tournament/status', async (req, res) => {
+    const tourney = await Tournament.findOne({ status: { $ne: 'finished' } });
+    res.json(tourney || { status: 'none' });
+});
+
+// 2. Bé đăng ký tham gia
+app.post('/api/tournament/join', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Bé cần đăng nhập nhé!" });
+    const tourney = await Tournament.findOne({ status: 'open' });
+    if (!tourney) return res.status(404).json({ message: "Hiện không có giải nào mở đăng ký." });
+    
+    if (!tourney.participants.includes(req.session.user.username)) {
+        tourney.participants.push(req.session.user.username);
+        await tourney.save();
+        res.json({ message: "Đăng ký thành công! Hãy đợi Admin chia bảng." });
+    } else {
+        res.json({ message: "Bé đã đăng ký rồi mà!" });
+    }
+});
 // --- LOGIC NHIỆM VỤ (Đã sửa để khớp với Database) ---
 // --- 7. API GAME WIN (LƯU ĐIỂM VÀO DB) ---
 function updateQuestProgress(user, taskType, performance = { timeTaken: 0, isWin: true }) {
@@ -352,10 +460,22 @@ async function handleWin(req, res, gameKey, points = 10, taskName = '') {
     
     try {
         const user = await User.findOne({ username: req.session.user.username });
-        
-        // CHỖ CẦN SỬA: Kiểm tra nếu không tìm thấy user
         if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
 
+        // --- MẢNH VÁ GIẢI ĐẤU ---
+        const tourRoomId = req.body.tournamentRoomId; // Client phải gửi kèm mã này lên
+        if (tourRoomId && tourRoomId.startsWith('TOUR-')) {
+            await Tournament.updateOne(
+                { $or: [ { "brackets.matchId": tourRoomId }, { "brackets.matches.matchId": tourRoomId } ] },
+                { 
+                    $set: { 
+                        "brackets.$.winner": user.username,
+                        "brackets.$[].matches.$[m].winner": user.username 
+                    } 
+                },
+                { arrayFilters: [{ "m.matchId": tourRoomId }] }
+            );
+        }
         // 1. Cộng điểm & Tăng cấp độ
         user.score += points;
         user[gameKey] = (user[gameKey] || 1) + 1;
@@ -406,7 +526,71 @@ app.post('/api/submit-test', async (req, res) => {
     }
     res.json({ score, message: score > 5 ? 'Làm tốt lắm!' : 'Cố gắng hơn nhé!' });
 });
+// --- API MỚI: RESET TOÀN BỘ LEVEL ---
+app.post('/api/admin/reset-all-levels', async (req, res) => {
+    // 1. Chặn nếu không phải admin
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Không có quyền truy cập!' });
+    }
 
+    try {
+        // 2. Cập nhật tất cả user có vai trò là 'child'
+        await User.updateMany({ role: 'child' }, { 
+            $set: {
+                chessLevel: 1, caroLevel: 1, goLevel: 1, othelloLevel: 1, monopolyLevel: 1,
+                memoryLevel: 1, crosswordLevel: 1, detectiveLevel: 1, shapeLevel: 1,
+                buildLevel: 1, storyLevel: 1, paintingLevel: 1,
+                vietSpeechLevel: 1, englishSpeechLevel: 1
+            }
+        });
+        res.json({ message: '✅ Đã reset cấp độ của tất cả các bé về 1!' });
+    } catch (e) {
+        res.status(500).json({ message: 'Lỗi hệ thống: ' + e.message });
+    }
+});
+// --- API NGÔI NHÀ CỦA BÉ ---
+
+// 1. Lấy thông tin nhà và Shop
+app.get('/api/house/info', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
+    const user = await User.findOne({ username: req.session.user.username });
+    res.json({ 
+        score: user.score,
+        inventory: user.inventory,
+        houseData: user.houseData,
+        shopItems: SHOP_ITEMS
+    });
+});
+
+// 2. Mua đồ
+app.post('/api/house/buy', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
+    const { itemId } = req.body;
+    const item = SHOP_ITEMS.find(i => i.id === itemId);
+    const user = await User.findOne({ username: req.session.user.username });
+
+    if (!item) return res.status(400).json({ message: "Vật phẩm không tồn tại" });
+    if (user.score < item.price) return res.status(400).json({ message: "Bé không đủ điểm rồi!" });
+    
+    // Trừ điểm và thêm vào kho
+    user.score -= item.price;
+    user.inventory.push(itemId);
+    await user.save();
+
+    res.json({ message: `Đã mua ${item.name}!`, newScore: user.score });
+});
+
+// 3. Lưu vị trí đồ đạc
+app.post('/api/house/save', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
+    const { items, inventory } = req.body; // Nhận thêm inventory từ client gửi lên
+    
+    await User.updateOne(
+        { username: req.session.user.username }, 
+        { $set: { houseData: items, inventory: inventory } } // Lưu cả 2 cùng lúc
+    );
+    res.json({ message: "Đã lưu ngôi nhà và kho đồ!" });
+});
 // =================================================================
 // --- 8. SOCKET.IO (KHÔI PHỤC LOGIC CARO/CHESS CHI TIẾT) ---
 // =================================================================
@@ -456,6 +640,32 @@ io.on('connection', (socket) => {
             socket.emit('waiting', { message: 'Đang tìm đối thủ...' });
         }
     });
+// Tìm đoạn socket.on('timeoutLoss'...) và sửa lại thứ tự như sau:
+socket.on('timeoutLoss', async ({ room, loserUsername, gameType }) => {
+    const roomData = gameRooms[room];
+    if (roomData) {
+        const winnerId = roomData.players.find(id => id !== socket.id);
+        const winnerUsername = roomData.playerNames[winnerId];
+
+        // 1. Cập nhật kết quả Giải đấu (Lấy winnerUsername đã định nghĩa ở trên)
+        if (room.startsWith('TOUR-')) {
+    await Tournament.updateOne(
+        { $or: [ { "brackets.matchId": room }, { "brackets.matches.matchId": room } ] },
+        { 
+            $set: { 
+                "brackets.$.winner": winnerUsername, // Dành cho Knockout
+                "brackets.$[].matches.$[m].winner": winnerUsername // Dành cho Vòng Bảng
+            } 
+        },
+        { arrayFilters: [{ "m.matchId": room }] }
+    );
+}
+        // 2. Thông báo và cộng điểm như cũ
+        io.to(room).emit('gameOver', { winner: winnerUsername, reason: 'timeout', loser: loserUsername });
+        await User.updateOne({ username: winnerUsername }, { $inc: { score: 20 } });
+        delete gameRooms[room];
+    }
+});
     // --- BỔ SUNG: LOGIC TẠO PHÒNG & VÀO PHÒNG CỜ VUA ---
     
     // 1. Tạo phòng riêng
@@ -477,7 +687,14 @@ io.on('connection', (socket) => {
     // 2. Vào phòng bằng mã
     socket.on('joinChessRoom', (roomId) => {
         const room = gameRooms[roomId];
-        
+    if (!gameRooms[roomId]) {
+            gameRooms[roomId] = {
+                gameType: 'chess',
+                players: [],
+                playerNames: {},
+                turn: null
+            };
+        }
         // Kiểm tra phòng có tồn tại và chưa đầy không
         if (room && room.players.length < 2 && room.gameType === 'chess') {
             const opponentId = room.players[0];
@@ -528,6 +745,9 @@ io.on('connection', (socket) => {
 
     // 2. Vào phòng Caro
     socket.on('joinCaroRoom', (roomId) => {
+if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
+            gameRooms[roomId] = { gameType: 'caro', players: [], playerNames: {}, turn: null };
+        }
         const room = gameRooms[roomId];
         if (room && room.players.length < 2 && room.gameType === 'caro') {
             const opponentId = room.players[0];
@@ -592,6 +812,9 @@ io.on('connection', (socket) => {
 
     // 2. Vào phòng Cờ Vây
     socket.on('joinGoRoom', (roomId) => {
+if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
+            gameRooms[roomId] = { gameType: 'go', players: [], playerNames: {}, turn: null, size: 13 };
+        }
         const room = gameRooms[roomId];
         if (room && room.players.length < 2 && room.gameType === 'go') {
             const opponentId = room.players[0];
@@ -881,6 +1104,9 @@ io.on('connection', (socket) => {
 
     // 2. Vào phòng Othello
     socket.on('joinOthelloRoom', (roomId) => {
+if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
+            gameRooms[roomId] = { gameType: 'othello', players: [], playerNames: {}, turn: null };
+        }
         const room = gameRooms[roomId];
         if (room && room.players.length < 2 && room.gameType === 'othello') {
             const opponentId = room.players[0];

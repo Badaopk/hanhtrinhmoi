@@ -41,7 +41,9 @@
     </style>
 </head>
 <body>
-
+    <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none; position:fixed; top:10px; right:10px; z-index:100;">
+    ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
+</div>
     <h1 style="text-shadow: 3px 3px 0 #000; margin: 10px 0;">⚫ CỜ VÂY ⚪ <span class="btn-help" onclick="toggleHelp()">? Luật Chơi</span></h1>
 
     <div class="game-layout">
@@ -112,7 +114,40 @@
         const statusEl = document.getElementById('status');
         const aiLevelSelect = document.getElementById('ai-level-select');
         let socket = io();
+        let matchTimer = null;
+        let secondsLeft = 600;
 
+function startTournamentTimer(mins) {
+    clearInterval(matchTimer);
+    secondsLeft = mins * 60;
+    if(document.getElementById('tourney-timer')) {
+        document.getElementById('tourney-timer').style.display = 'block';
+    }
+
+    matchTimer = setInterval(() => {
+        // Chỉ đếm ngược khi là Online và đến lượt mình
+        // currentColor = 1 (Đen), 2 (Trắng). myColor cũng vậy.
+        const isMyTurn = (isOnline && currentColor === myColor);
+
+        if (isMyTurn) {
+            secondsLeft--;
+            const m = Math.floor(secondsLeft / 60);
+            const s = secondsLeft % 60;
+            const display = document.getElementById('time-left');
+            if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+
+            if (secondsLeft <= 0) {
+                clearInterval(matchTimer);
+                // Gửi lệnh xử thua
+                socket.emit('timeoutLoss', { 
+                    room: currentRoom, 
+                    loserUsername: localStorage.getItem('currentUser'),
+                    gameType: 'Cờ Vây'
+                });
+            }
+        }
+    }, 1000);
+}
         // Game State
         let size = 13;
         let board = []; 
@@ -140,6 +175,11 @@
             renderLevelOptions();
             resizeCanvas();
             drawBoard();
+            const tourRoom = localStorage.getItem('joinTournamentRoom');
+            if (tourRoom) {
+               socket.emit('joinGoRoom', tourRoom); // Gọi lệnh joinGoRoom
+               localStorage.removeItem('joinTournamentRoom');
+            }
         }
 
         function resizeCanvas() {
@@ -447,6 +487,7 @@
             
             initGame(data.size || 13);
             statusEl.textContent = myColor === 1 ? "Bạn cầm Đen (Đi trước)" : "Bạn cầm Trắng (Đi sau)";
+            startTournamentTimer(data.matchDuration || 10);
         });
         socket.on('opponentGoMove', (move) => {
             makeMove(move.r, move.c);
@@ -481,13 +522,23 @@
                 try {
                     await fetch('/api/game/go-win', { 
                         method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ level: userLevel }) 
+                        body: JSON.stringify({ 
+                              level: userLevel,
+                              tournamentRoomId: currentRoom // <--- QUAN TRỌNG: Thêm dòng này
+                        })
                     });
                 } catch(e) {}
             }
             location.reload();
         }
-
+        socket.on('gameOver', (data) => {
+    clearInterval(matchTimer);
+    if(data.reason === 'timeout') {
+        const isMe = data.loser === localStorage.getItem('currentUser');
+        alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
+    }
+    location.href = 'giai-dau.html';
+});
         init();
     </script>
 </body>

@@ -100,192 +100,238 @@
             </div>
         </div>
     </div>
+<script>
+    let currentLevel = 1;
+    let unlockedLevel = 1;
+    let hints = 3;
+    let gameStartTime;
 
-    <script>
-        let currentLevel = 1;
-        let unlockedLevel = 1;
-        let hints = 3;
+    // 1. KHO TỪ VỰNG CHO CÁC CẤP ĐỘ NGẪU NHIÊN (CẤP 6-100)
+    const vocab = [
+        {w:'MEO', h:'Con gì thích bắt chuột?'}, {w:'CHO', h:'Người bạn trung thành giữ nhà?'},
+        {w:'GA', h:'Con gì gáy ò ó o?'}, {w:'VIT', h:'Con gì kêu cạp cạp?'},
+        {w:'CA', h:'Con gì bơi dưới nước?'}, {w:'HEO', h:'Con gì ăn no lại nằm ngủ?'},
+        {w:'VOI', h:'Con gì có cái vòi rất dài?'}, {w:'HO', h:'Được mệnh danh là Chúa sơn lâm?'},
+        {w:'CAM', h:'Quả gì vỏ màu da cam, nhiều vitamin C?'}, {w:'TAO', h:'Quả gì mà Bạch Tuyết đã ăn?'},
+        {w:'XOAI', h:'Quả gì hạt to, khi chín màu vàng rất thơm?'}, {w:'NHO', h:'Quả gì mọc thành từng chùm tím hoặc xanh?'},
+        {w:'BAN', h:'Vật dùng để kê sách vở khi bé ngồi học?'}, {w:'GHE', h:'Vật dùng để bé ngồi vào bàn học?'},
+        {w:'BUT', h:'Vật bé dùng để viết bài vào vở?'}, {w:'SACH', h:'Kho tàng tri thức của bé?'}
+    ];
+
+    // 2. DỮ LIỆU 5 CẤP ĐỘ ĐẦU TIÊN CỐ ĐỊNH CỰC CHUẨN
+    const fixedLevels = [
+        { 
+            id: 1, size: 7, 
+            words: [
+                { d: 'a', r: 3, c: 1, w: 'MEO', h: 'Con gì thích bắt chuột?' }, 
+                { d: 'd', r: 1, c: 3, w: 'HEO', h: 'Con gì ăn no lại nằm thở phì phò?' }
+            ] 
+        },
+        { 
+            id: 2, size: 7, 
+            words: [
+                { d: 'a', r: 2, c: 1, w: 'CHO', h: 'Người bạn trung thành giữ nhà?' }, 
+                { d: 'd', r: 2, c: 1, w: 'CA', h: 'Động vật sống dưới nước?' }
+            ] 
+        },
+        { 
+            id: 3, size: 8, 
+            words: [
+                { d: 'a', r: 2, c: 2, w: 'CAM', h: 'Quả gì vỏ màu da cam?' }, 
+                { d: 'd', r: 1, c: 4, w: 'MUA', h: 'Hiện tượng nước rơi từ mây xuống?' }
+            ] 
+        },
+        { 
+            id: 4, size: 8, 
+            words: [
+                { d: 'a', r: 4, c: 1, w: 'BUT', h: 'Vật dùng để viết vào vở?' }, 
+                { d: 'd', r: 3, c: 1, w: 'BAN', h: 'Vật dùng để kê sách khi học?' }
+            ] 
+        },
+        { 
+            id: 5, size: 9, 
+            words: [
+                { d: 'a', r: 3, c: 2, w: 'SACH', h: 'Kho tàng tri thức của bé?' }, 
+                { d: 'd', r: 1, c: 5, w: 'HOA', h: 'Vật có cánh và mùi thơm rực rỡ?' }
+            ] 
+        }
+    ];
+
+    // 3. KHỞI TẠO TIẾN TRÌNH TỪ SERVER
+    async function init() {
+        try {
+            const res = await fetch('/api/user/progress');
+            const data = await res.json();
+            unlockedLevel = data.crosswordLevel || 1;
+        } catch(e) { console.log("Lỗi tải tiến trình, chơi offline."); }
+        renderLevelList();
+    }
+
+    function renderLevelList() {
+        const list = document.getElementById('level-list');
+        list.innerHTML = '';
+        for(let i=1; i<=100; i++) {
+            const btn = document.createElement('button');
+            btn.textContent = i;
+            btn.className = `lvl-btn ${i <= unlockedLevel ? 'unlocked' : ''} ${i === unlockedLevel ? 'current' : ''}`;
+            btn.disabled = i > unlockedLevel;
+            btn.onclick = () => startGame(i);
+            list.appendChild(btn);
+        }
+    }
+
+    // 4. BẮT ĐẦU CHƠI (ĐÃ SỬA LỖI LOGIC RETURN)
+    function startGame(lvl) {
+        currentLevel = lvl;
+        gameStartTime = Date.now();
+        let data = fixedLevels.find(l => l.id === lvl);
         
-        // Kho dữ liệu từ vựng để sinh level ngẫu nhiên (Cấp 21-100)
-        const vocab = [
-            {w:'MEO', h:'Con gì kêu meo meo?'}, {w:'CHO', h:'Người bạn trung thành của con người'},
-            {w:'GA', h:'Con gì gáy ò ó o?'}, {w:'VIT', h:'Con gì kêu cạp cạp?'},
-            {w:'CA', h:'Con gì bơi dưới nước?'}, {w:'HEO', h:'Con gì ăn no lại ngủ?'},
-            {w:'VOI', h:'Con gì có cái vòi dài?'}, {w:'HO', h:'Chúa sơn lâm?'},
-            {w:'CAM', h:'Quả gì màu cam?'}, {w:'TAO', h:'Quả gì Bạch Tuyết ăn?'},
-            {w:'XOAI', h:'Quả gì hạt to, màu vàng?'}, {w:'NHO', h:'Quả gì mọc thành chùm?'},
-            {w:'BAN', h:'Vật dùng để kê sách vở?'}, {w:'GHE', h:'Vật dùng để ngồi?'},
-            {w:'BUT', h:'Vật dùng để viết?'}, {w:'SACH', h:'Kho tàng tri thức?'}
-        ];
-
-        // Dữ liệu cố định 20 cấp đầu
-        const fixedLevels = [
-            { id:1, size:5, words:[{d:'a', r:2, c:0, w:'MEO', h:'Thích bắt chuột'}, {d:'d', r:0, c:2, w:'CHO', h:'Giữ nhà rất giỏi'}] },
-            { id:2, size:6, words:[{d:'a', r:2, c:0, w:'BANH', h:'Dùng để đá bóng'}, {d:'d', r:0, c:3, w:'NHA', h:'Nơi để gia đình ở'}] },
-            { id:3, size:6, words:[{d:'a', r:1, c:0, w:'CA', h:'Sống dưới nước'}, {d:'d', r:0, c:1, w:'CAM', h:'Trái cây nhiều vitamin C'}] },
-            // ... Bạn có thể thêm tiếp các level cố định ở đây
-        ];
-
-        async function init() {
-            try {
-                const res = await fetch('/api/user/progress');
-                const data = await res.json();
-                unlockedLevel = data.crosswordLevel || 1;
-            } catch(e) {}
-            renderLevelList();
-        }
-
-        function renderLevelList() {
-            const list = document.getElementById('level-list');
-            list.innerHTML = '';
-            for(let i=1; i<=100; i++) {
-                const btn = document.createElement('button');
-                btn.textContent = i;
-                btn.className = `lvl-btn ${i <= unlockedLevel ? 'unlocked' : ''} ${i === unlockedLevel ? 'current' : ''}`;
-                btn.disabled = i > unlockedLevel;
-                btn.onclick = () => startGame(i);
-                list.appendChild(btn);
-            }
-        }
-
-        function generateLevel(lvl) {
-            // Nếu là level thấp có sẵn
-            if(lvl <= fixedLevels.length) return fixedLevels[lvl-1];
-
-            // Tự sinh level ngẫu nhiên
-            const size = 7 + Math.floor(lvl/20); 
+        // Nếu không có trong fixedLevels, tự tạo cấp độ ngẫu nhiên từ kho vocab
+        if(!data) {
             const w1 = vocab[Math.floor(Math.random() * vocab.length)];
-            let w2 = vocab[Math.floor(Math.random() * vocab.length)];
-            while(w1 === w2) w2 = vocab[Math.floor(Math.random() * vocab.length)];
-
-            return {
-                id: lvl,
-                size: size,
+            let w2 = vocab.find(v => v.w !== w1.w) || vocab[0];
+            data = {
+                id: lvl, size: 10,
                 words: [
-                    {d:'a', r:Math.floor(size/2), c:1, w: w1.w, h: w1.h},
-                    {d:'d', r:1, c:Math.floor(size/2)+1, w: w2.w, h: w2.h}
+                    { d: 'a', r: 4, c: 2, w: w1.w, h: w1.h },
+                    { d: 'd', r: 3, c: 3, w: w2.w, h: w2.h }
                 ]
             };
         }
 
-        function startGame(lvl) {
-            currentLevel = lvl;
-            const data = generateLevel(lvl);
-            
-            document.getElementById('level-select-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
-            document.getElementById('level-title').textContent = `Cấp độ ${lvl}`;
-            hints = 3; document.getElementById('hint-count').textContent = hints;
+        document.getElementById('level-select-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        document.getElementById('level-title').textContent = `Cấp độ ${lvl}`;
+        hints = 3; 
+        document.getElementById('hint-count').textContent = hints;
 
-            drawGrid(data);
-        }
+        drawGrid(data);
+    }
 
-        function drawGrid(data) {
-            const table = document.getElementById('cw-grid');
-            const aList = document.getElementById('across-list');
-            const dList = document.getElementById('down-list');
-            table.innerHTML = ''; aList.innerHTML = ''; dList.innerHTML = '';
+    // 5. VẼ LƯỚI Ô CHỮ VÀ KIỂM TRA ĐIỂM GIAO
+    function drawGrid(data) {
+        const table = document.getElementById('cw-grid');
+        const aList = document.getElementById('across-list');
+        const dList = document.getElementById('down-list');
+        table.innerHTML = ''; aList.innerHTML = ''; dList.innerHTML = '';
 
-            // Tạo ma trận ảo
-            let grid = Array(data.size).fill(null).map(() => Array(data.size).fill(null));
+        let grid = Array(data.size).fill(null).map(() => Array(data.size).fill(null));
 
-            data.words.forEach((word, idx) => {
-                const li = document.createElement('li');
-                li.textContent = `${idx+1}. ${word.h}`;
-                if(word.d === 'a') aList.appendChild(li); else dList.appendChild(li);
+        data.words.forEach((word, idx) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${idx+1}.</strong> ${word.h}`;
+            if(word.d === 'a') aList.appendChild(li); else dList.appendChild(li);
 
-                for(let i=0; i<word.w.length; i++) {
-                    let r = word.r + (word.d==='d'?i:0);
-                    let c = word.c + (word.d==='a'?i:0);
-                    if(!grid[r]) grid[r] = [];
-                    grid[r][c] = { char: word.w[i], num: (i===0 ? idx+1 : null) };
+            for(let i=0; i<word.w.length; i++) {
+                let r = word.r + (word.d==='d' ? i : 0);
+                let c = word.c + (word.d==='a' ? i : 0);
+                
+                // Vá lỗi điểm giao: Nếu ô đã có chữ, kiểm tra xem có khớp không
+                if (!grid[r][c]) {
+                    grid[r][c] = { char: word.w[i], nums: [] };
+                } else if (grid[r][c].char !== word.w[i]) {
+                    console.error(`Lỗi giao nhau tại (${r},${c}): ${grid[r][c].char} != ${word.w[i]}`);
                 }
-            });
-
-            // Vẽ HTML
-            for(let r=0; r<data.size; r++) {
-                const tr = document.createElement('tr');
-                for(let c=0; c<data.size; c++) {
-                    const td = document.createElement('td');
-                    const cell = grid[r][c];
-                    
-                    if(cell) {
-                        td.className = 'cw-cell white';
-                        if(cell.num) td.innerHTML += `<span class="num">${cell.num}</span>`;
-                        const inp = document.createElement('input');
-                        inp.maxLength = 1;
-                        inp.dataset.ans = cell.char;
-                        // Tự động nhảy ô
-                        inp.oninput = function() { if(this.value) focusNext(this); };
-                        td.appendChild(inp);
-                    } else {
-                        td.className = 'cw-cell black';
-                    }
-                    tr.appendChild(td);
-                }
-                table.appendChild(tr);
+                if (i === 0) grid[r][c].nums.push(idx + 1);
             }
-        }
+        });
 
-        function focusNext(currentInput) {
-            // Logic đơn giản để nhảy sang ô input tiếp theo trong DOM
-            const inputs = Array.from(document.querySelectorAll('input'));
-            const idx = inputs.indexOf(currentInput);
-            if(idx < inputs.length - 1) inputs[idx+1].focus();
-        }
-
-        function useHint() {
-            if(hints <= 0) return alert("Hết gợi ý rồi!");
-            const inputs = Array.from(document.querySelectorAll('input')).filter(i => !i.value);
-            if(inputs.length === 0) return alert("Đã điền hết, hãy kiểm tra!");
-            
-            const randomInput = inputs[Math.floor(Math.random() * inputs.length)];
-            randomInput.value = randomInput.dataset.ans;
-            randomInput.style.color = '#2980b9';
-            hints--;
-            document.getElementById('hint-count').textContent = hints;
-        }
-
-        async function checkWin() {
-            const inputs = document.querySelectorAll('input');
-            let correct = true;
-            inputs.forEach(i => {
-                if(i.value.toUpperCase() !== i.dataset.ans) {
-                    i.style.color = 'red';
-                    correct = false;
+        for(let r=0; r<data.size; r++) {
+            const tr = document.createElement('tr');
+            for(let c=0; c<data.size; c++) {
+                const td = document.createElement('td');
+                const cell = grid[r][c];
+                
+                if(cell) {
+                    td.className = 'cw-cell white';
+                    if(cell.nums.length > 0) td.innerHTML += `<span class="num">${cell.nums.join('/')}</span>`;
+                    const inp = document.createElement('input');
+                    inp.maxLength = 1;
+                    inp.dataset.ans = cell.char;
+                    inp.oninput = function() { 
+                        this.value = this.value.toUpperCase();
+                        if(this.value) focusNext(this); 
+                    };
+                    td.appendChild(inp);
                 } else {
-                    i.style.color = '#2ecc71';
+                    td.className = 'cw-cell black';
                 }
-            });
-
-            if(correct) {
-                // Gọi API lưu điểm (Nhớ update server.js)
-                try {
-                    const res = await fetch('/api/game/crossword-win', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ level: currentLevel })
-                    });
-                    const d = await res.json();
-                    if(d.newLevel) unlockedLevel = d.newLevel;
-                    alert("🎉 CHIẾN THẮNG! " + d.message);
-                    backToMenu();
-                } catch(e) {
-                    alert("Thắng rồi! (Lỗi lưu điểm)");
-                    backToMenu();
-                }
-            } else {
-                alert("Chưa đúng, kiểm tra các ô màu đỏ nhé!");
+                tr.appendChild(td);
             }
+            table.appendChild(tr);
         }
+    }
 
-        function backToMenu() {
-            document.getElementById('game-screen').style.display = 'none';
-            document.getElementById('level-select-screen').style.display = 'block';
-            renderLevelList();
+    // 6. VÁ LỖI ĐIỀU HƯỚNG Ô NHẬP (THÔNG MINH THEO HÀNG/CỘT)
+    function focusNext(currentInput) {
+        const table = document.getElementById('cw-grid');
+        const row = currentInput.parentElement.parentElement.rowIndex;
+        const col = currentInput.parentElement.cellIndex;
+
+        // Tìm ô tiếp theo bên phải (cho hàng ngang) hoặc bên dưới (cho hàng dọc)
+        let nextCell = table.rows[row]?.cells[col + 1]?.querySelector('input') || 
+                       table.rows[row + 1]?.cells[col]?.querySelector('input');
+        
+        if (nextCell) nextCell.focus();
+    }
+
+    // 7. HÀM GỢI Ý
+    function useHint() {
+        if(hints <= 0) return alert("Hết gợi ý rồi bé ơi!");
+        const inputs = Array.from(document.querySelectorAll('input')).filter(i => !i.value);
+        if(inputs.length === 0) return;
+        
+        const randomInput = inputs[Math.floor(Math.random() * inputs.length)];
+        randomInput.value = randomInput.dataset.ans;
+        randomInput.style.color = '#2980b9';
+        hints--;
+        document.getElementById('hint-count').textContent = hints;
+    }
+
+    // 8. KIỂM TRA THẮNG VÀ KẾT NỐI SERVER
+    async function checkWin() {
+        const inputs = document.querySelectorAll('input');
+        let correct = true;
+        inputs.forEach(i => {
+            if(i.value.toUpperCase() !== i.dataset.ans) {
+                i.style.color = 'red';
+                correct = false;
+            } else {
+                i.style.color = '#2ecc71';
+            }
+        });
+
+        if(correct) {
+            const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+            try {
+                const res = await fetch('/api/game/crossword-win', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        level: currentLevel,
+                        timeTaken: timeSpent // Gửi thời gian chuẩn để Admin tính điểm phạt
+                    })
+                });
+                const d = await res.json();
+                if(d.newLevel) unlockedLevel = d.newLevel;
+                alert("🎉 GIỎI QUÁ! Bé đã vượt qua thử thách này!");
+                backToMenu();
+            } catch(e) {
+                alert("Bé đã thắng rồi! (Lỗi kết nối server)");
+                backToMenu();
+            }
+        } else {
+            alert("Hic, có ô bị sai rồi. Bé kiểm tra lại các ô màu đỏ nhé!");
         }
+    }
 
-        init();
-    </script>
+    function backToMenu() {
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('level-select-screen').style.display = 'block';
+        init(); // Tải lại danh sách level để cập nhật trạng thái mới
+    }
+
+    init();
+</script>
 </body>
 </html>
