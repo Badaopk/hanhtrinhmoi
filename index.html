@@ -7,6 +7,44 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="style.css">
     <style>
+/* Hiệu ứng cho Thông báo nhắc lịch thi đấu */
+.match-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 320px;
+    background: white;
+    border-left: 10px solid #f1c40f;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    z-index: 10001;
+    animation: slideIn 0.5s ease-out forwards;
+    color: #333;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+.notif-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: #2ecc71;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: 'Baloo 2', cursive;
+}
         .user-access {
             position: absolute;
             top: 20px;
@@ -78,6 +116,57 @@
     <script src="global-client.js"></script>
 
     <script>
+// Khởi tạo socket nếu chưa có (đặt ở đầu thẻ script)
+const socket = io();
+
+// Lắng nghe thông báo nhắc lịch thi đấu từ Server
+socket.on('matchNotice', (data) => {
+    // Tạo phần tử thông báo
+    const notif = document.createElement('div');
+    notif.className = 'match-notification';
+    notif.innerHTML = `
+        <h3 style="margin:0; color:#e67e22;">${data.title}</h3>
+        <p style="margin:10px 0; font-size:0.9rem;">${data.message}</p>
+        <button class="notif-btn" onclick="window.location.href='giai-dau.html'">🏟️ ĐẾN SÂN VẬN ĐỘNG</button>
+    `;
+
+    document.body.appendChild(notif);
+
+    // Tự động biến mất sau 12 giây để bé kịp đọc
+    setTimeout(() => {
+        notif.style.animation = "slideOut 0.5s ease-in forwards";
+        setTimeout(() => notif.remove(), 500);
+    }, 300000);
+});
+// Lắng nghe thông báo TOÀN SERVER từ Admin
+socket.on('adminNotification', (data) => {
+    const notif = document.createElement('div');
+    notif.className = 'match-notification'; // Dùng chung style đẹp lúc nãy
+    notif.style.borderLeftColor = '#8e44ad'; // Đổi sang màu tím cho uy nghiêm
+    
+    notif.innerHTML = `
+        <h3 style="margin:0; color:#8e44ad;">📢 ${data.title}</h3>
+        <p style="margin:10px 0; font-weight: bold;">${data.message}</p>
+        <button class="notif-btn" style="background:#8e44ad" onclick="this.parentElement.remove()">ĐÃ HIỂU</button>
+    `;
+
+    document.body.appendChild(notif);
+
+    // --- CHỈNH THỜI GIAN TẮT Ở ĐÂY ---
+    // Ví dụ: 15000 là 15 giây. Bạn muốn bao lâu thì sửa con số này.
+    const displayTime = 3000000; 
+
+    setTimeout(() => {
+        if (notif) {
+            notif.style.animation = "slideOut 0.5s ease-in forwards";
+            setTimeout(() => notif.remove(), 500);
+        }
+    }, displayTime);
+});
+// Lắng nghe cập nhật giải đấu (để làm mới dữ liệu nếu cần)
+socket.on('tournamentUpdated', () => {
+    console.log("Giải đấu có cập nhật mới!");
+});
         document.addEventListener('DOMContentLoaded', async () => {
             const authContainer = document.getElementById('auth-container');
             

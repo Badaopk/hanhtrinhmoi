@@ -189,13 +189,7 @@
                 <option value="othello">Vua Phục Kích</option>
             </select>
         </div>
-        <div class="form-group">
-            <label>Thể thức:</label>
-            <select id="tour-format">
-                <option value="knockout">Loại trực tiếp</option>
-                <option value="group">Vòng bảng + Loại</option>
-            </select>
-        </div>
+       
         <div class="form-group">
             <label>Thời gian (phút/trận):</label>
             <input type="number" id="tour-time" value="10" min="1">
@@ -206,6 +200,14 @@
         <button class="create-btn" onclick="apiCall('/api/admin/start-tournament', 'POST', {})" style="background:#e74c3c">2. Chốt & Chia Bảng</button>
         <button class="create-btn" onclick="finishTourney()" style="background:#f1c40f; color:#333;">3. Trao Thưởng & Kết Thúc</button>
     </div>
+<div class="form-group">
+    <label>Thời gian giải (Ngày):</label>
+    <input type="number" id="tour-duration" value="7" min="1">
+</div>
+<button class="create-btn" onclick="startSmartTourney()" style="background:#e74c3c">
+    2. Chốt & Lập Lịch Tự Động
+</button>
+
 </div>
         <div class="admin-create-form" style="background: #fffbe6;">
             <h2>Công Cụ Chung</h2>
@@ -218,6 +220,9 @@
                     <div class="form-group">
                     <label style="color:red;">⚠️ VÙNG NGUY HIỂM:</label>
                     <button type="button" class="create-btn delete-btn" onclick="resetAllServerLevels()">🔄 RESET TOÀN BỘ CẤP ĐỘ</button>
+                    <button class="create-btn" onclick="apiCall('/api/admin/advance-to-knockout', 'POST', {})" style="background:#3498db">
+    2.5. Kết thúc Vòng Bảng -> Vào Vòng Loại
+                    </button>
             </div>
                 <button type="submit" id="broadcast-btn" class="create-btn broadcast-btn">Gửi Broadcast</button>
             </form>
@@ -452,6 +457,16 @@ setInterval(updateAdminTourInfo, 3000);
             });
         }
         // --- CÁC HÀM XỬ LÝ (SAVE, DELETE, NOTIFY...) ---
+async function startSmartTourney() {
+    const days = document.getElementById('tour-duration').value;
+    const res = await fetch('/api/admin/start-tournament', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ durationDays: parseInt(days) })
+    });
+    const data = await res.json();
+    alert(data.message);
+}
         async function saveUser(username) {
             const data = {
                 username: username,

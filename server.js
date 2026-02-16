@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
+const onlineUsers = {};
 const MongoStore = require('connect-mongo');
 // --- CẤU HÌNH DATABASE (THAY CHUỖI KẾT NỐI CỦA BẠN VÀO ĐÂY) ---
 const MONGO_URI = 'mongodb+srv://admin:Quoc2007%40@cluster0.fme5rgw.mongodb.net/?appName=Cluster0'; 
@@ -30,11 +31,18 @@ mongoose.connect(MONGO_URI)
             const adminExists = await User.findOne({ username: 'Admin' });
             if (!adminExists) {
                 const hashedPassword = await bcrypt.hash('Quoc2007@', 10);
-                const admin = new User({
-                    username: 'Admin',
-                    password: hashedPassword,
-                    role: 'admin'
-                });
+                // Tìm đoạn này trong server.js và thay bằng:
+const admin = new User({
+    username: 'Admin',
+    password: hashedPassword,
+    role: 'admin',
+    // Cấp ngay 100 cấp độ cho Admin để test toàn bộ tính năng
+    chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
+    detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
+    shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
+    vietSpeechLevel: 100, englishSpeechLevel: 100,
+    score: 9999
+});
                 await admin.save();
                 console.log("🚀 Đã tự động tạo tài khoản Admin mặc định (Quoc2007@).");
             }
@@ -76,20 +84,45 @@ const userSchema = new mongoose.Schema({
 const tournamentSchema = new mongoose.Schema({
     gameType: String, // 'chess', 'caro', 'go', 'othello'
     format: String,   // 'knockout' (loại trực tiếp) hoặc 'group' (vòng bảng)
+    phase: { type: String, default: 'registration' },
     status: { type: String, default: 'open' }, // open (đăng ký), playing (đang đấu), finished
     matchDuration: Number, // Số phút mỗi trận
+    durationDays: { type: Number, default: 7 },
     participants: [String], // Danh sách tên các bé tham gia
     brackets: { type: Array, default: [] }, // Sơ đồ trận đấu/bảng đấu
     winners: { top1: String, top2: String, top3: String }
 });
+// --- DANH SÁCH 22 VẬT PHẨM NÂNG CẤP ---
 const SHOP_ITEMS = [
-    { id: 'bed_red', name: 'Giường Đỏ', price: 200, type: 'furniture', icon: '🛏️' },
-    { id: 'sofa_blue', name: 'Sofa Xanh', price: 150, type: 'furniture', icon: '🛋️' },
-    { id: 'plant_1', name: 'Cây Cảnh', price: 50, type: 'decor', icon: '🪴' },
-    { id: 'tv_set', name: 'Tivi Xịn', price: 300, type: 'electronic', icon: '📺' },
-    { id: 'rug_bear', name: 'Thảm Gấu', price: 80, type: 'floor', icon: '🐻' },
-    { id: 'lamp_stand', name: 'Đèn Ngủ', price: 60, type: 'decor', icon: '💡' },
-    { id: 'bookshelf', name: 'Kệ Sách', price: 120, type: 'furniture', icon: '📚' }
+    // Nội thất (Furniture)
+    { id: 'bed_lux', name: 'Giường Hoàng Gia', price: 500, type: 'f', icon: '🛌' },
+    { id: 'sofa_pro', name: 'Sofa Da Cao Cấp', price: 400, type: 'f', icon: '🛋️' },
+    { id: 'desk_gaming', name: 'Bàn Học Gaming', price: 350, type: 'f', icon: '📑' },
+    { id: 'chair_gaming', name: 'Ghế Công Thái Học', price: 250, type: 'f', icon: '💺' },
+    { id: 'wardrobe_big', name: 'Tủ Quần Áo Gỗ', price: 450, type: 'f', icon: '👗' },
+    { id: 'bookshelf_v2', name: 'Kệ Sách Tri Thức', price: 200, type: 'f', icon: '📚' },
+    
+    // Điện tử (Electronics)
+    { id: 'tv_8k', name: 'Tivi 8K Siêu Mỏng', price: 600, type: 'e', icon: '📺' },
+    { id: 'pc_super', name: 'Siêu Máy Tính', price: 700, type: 'e', icon: '🖥️' },
+    { id: 'speaker_hiend', name: 'Loa Âm Thanh Vòm', price: 300, type: 'e', icon: '🔊' },
+    { id: 'robot_clean', name: 'Robot Hút Bụi', price: 200, type: 'e', icon: '🤖' },
+    { id: 'lamp_modern', name: 'Đèn Ngủ Cảm Ứng', price: 150, type: 'e', icon: '🏮' },
+
+    // Trang trí & Giải trí (Decor & Hobby)
+    { id: 'piano_grand', name: 'Đàn Piano Cơ', price: 1000, type: 'd', icon: '🎹' },
+    { id: 'aquarium_pro', name: 'Bể Cá Thủy Sinh', price: 550, type: 'd', icon: '🐠' },
+    { id: 'bonsai_tree', name: 'Cây Cảnh Nghệ Thuật', price: 180, type: 'd', icon: '🪴' },
+    { id: 'bear_huge', name: 'Gấu Bông Khổng Lồ', price: 120, type: 'd', icon: '🧸' },
+    { id: 'telescope_v2', name: 'Kính Thiên Văn', price: 400, type: 'd', icon: '🔭' },
+    { id: 'painting_art', name: 'Tranh Triển Lãm', price: 300, type: 'd', icon: '🖼️' },
+    { id: 'clock_gold', name: 'Đồng Hồ Quả Lắc', price: 220, type: 'd', icon: '⏰' },
+    { id: 'mirror_magic', name: 'Gương Thần Kỳ', price: 160, type: 'd', icon: '🪞' },
+    { id: 'rug_royal', name: 'Thảm Lông Cừu', price: 140, type: 'd', icon: '🧶' },
+
+    // Thú cưng (Pets)
+    { id: 'cat_tree_v2', name: 'Tháp Cho Mèo', price: 280, type: 'p', icon: '🐱' },
+    { id: 'dog_house', name: 'Nhà Cho Cún Con', price: 260, type: 'p', icon: '🐶' }
 ];
 const Tournament = mongoose.model('Tournament', tournamentSchema);
 const User = mongoose.model('User', userSchema);
@@ -254,6 +287,10 @@ app.get('/api/user/progress', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
     const user = await User.findOne({ username: req.session.user.username }).select('-password');
     if (!user) return res.status(404).json({ message: 'Không tìm thấy user' });
+    if (user.role === 'admin') {
+        const levels = ['chessLevel', 'caroLevel', 'memoryLevel', 'crosswordLevel', 'detectiveLevel', 'goLevel', 'othelloLevel', 'storyLevel', 'shapeLevel', 'buildLevel', 'paintingLevel', 'monopolyLevel', 'vietSpeechLevel', 'englishSpeechLevel'];
+        levels.forEach(l => user[l] = 100); // Ép hiển thị 100 cấp độ trên giao diện
+    }
     await refreshDailyQuests(user);
     res.json(user);
 });
@@ -278,53 +315,101 @@ app.post('/api/admin/finish-tournament', async (req, res) => {
     res.json({ message: "Đã trao thưởng thành công!" });
 });
 // Admin chốt danh sách và chia bảng
+// Admin chốt danh sách - Hệ thống tự chọn thể thức thông minh
 app.post('/api/admin/start-tournament', async (req, res) => {
     const tourney = await Tournament.findOne({ status: 'open' });
-    if (!tourney || tourney.participants.length < 2) return res.status(400).json({ message: "Không đủ người thi đấu!" });
+    if (!tourney || tourney.participants.length < 2) return res.status(400).json({ message: "Không đủ người!" });
 
+    const { durationDays } = req.body; // Lấy số ngày từ Admin
     const players = [...tourney.participants].sort(() => Math.random() - 0.5);
-    let brackets = [];
+    const count = players.length;
+    
+    // Tính toán tổng thời gian (ms)
+    const totalTime = durationDays * 24 * 60 * 60 * 1000;
+    const startTimeBase = Date.now() + (60 * 60 * 1000); // Trận đầu tiên bắt đầu sau 1 tiếng nữa
 
-    if (tourney.format === 'knockout') {
-        // Chia cặp loại trực tiếp
-        for (let i = 0; i < players.length; i += 2) {
-            brackets.push({ 
-                matchId: 'TOUR-' + Math.random().toString(36).substr(2, 5), // Tạo mã phòng ngẫu nhiên
-                p1: players[i], 
-                p2: players[i+1] || "BYE (Miễn đấu)", 
-                winner: players[i+1] ? null : players[i] 
-            });
-        }
-    } else {
-        // CHIA VÒNG BẢNG (Mỗi bảng 4 người, đấu vòng tròn)
-        let groupCount = Math.ceil(players.length / 4);
+    let allMatches = [];
+    // Giả sử tính toán tổng số trận (ví dụ cho Knockout hoặc Group)
+    // Thuật toán: Giờ bắt đầu trận i = startTimeBase + (i * khoảng cách giữa các trận)
+
+    if (count > 8) {
+        tourney.phase = 'groups';
+        let groupCount = Math.ceil(count / 4);
+        let allGroupMatches = [];
+
+        // Tạo danh sách tất cả các trận đấu trước để tính tổng số trận
         for (let g = 0; g < groupCount; g++) {
             let members = players.slice(g * 4, (g + 1) * 4);
-            let groupMatches = [];
-            
-            // Thuật toán tạo cặp đấu vòng tròn (Round-robin)
             for (let i = 0; i < members.length; i++) {
                 for (let j = i + 1; j < members.length; j++) {
-                    groupMatches.push({
-                        matchId: `TOUR-G-${g}-${i}-${j}-` + Math.random().toString(36).substr(2, 3),
-                        p1: members[i],
-                        p2: members[j],
-                        winner: null
-                    });
+                    allGroupMatches.push({ g, p1: members[i], p2: members[j] });
                 }
             }
-            brackets.push({ 
-                groupName: `Bảng ${String.fromCharCode(65 + g)}`, 
-                members: members, 
-                matches: groupMatches 
+        }
+
+        // Tính khoảng cách thời gian dựa trên tổng số trận
+        const interval = totalTime / (allGroupMatches.length + 1);
+        let matchIdx = 0;
+
+        for (let g = 0; g < groupCount; g++) {
+            let membersInGroup = players.slice(g * 4, (g + 1) * 4);
+            let groupMatches = allGroupMatches.filter(m => m.g === g).map(m => {
+                return {
+                    matchId: `G-${++matchIdx}`,
+                    p1: m.p1, p2: m.p2, winner: null,
+                    startTime: new Date(startTimeBase + matchIdx * interval)
+                };
+            });
+            brackets.push({ groupName: `Bảng ${String.fromCharCode(65 + g)}`, members: membersInGroup, matches: groupMatches });
+        }
+        tourney.brackets = brackets;
+    
+      } else {
+        tourney.phase = 'knockout';
+        const matchCount = Math.floor(count / 2);
+        const interval = totalTime / (matchCount + 1);
+
+        for (let i = 0; i < count; i += 2) {
+            allMatches.push({
+                matchId: `KO-${i}`,
+                p1: players[i],
+                p2: players[i+1] || "BYE",
+                winner: players[i+1] ? null : players[i],
+                startTime: new Date(startTimeBase + (i/2) * interval) // Gán giờ tự động
             });
         }
+        tourney.brackets = allMatches;
     }
-    tourney.brackets = brackets;
+
     tourney.status = 'playing';
     await tourney.save();
-    io.emit('tournamentStarted', tourney);
-    res.json({ message: "Đã chia bảng và bắt đầu giải đấu!" });
+    res.json({ message: "Đã lập lịch giải đấu thành công!" });
+});
+app.post('/api/admin/advance-to-knockout', async (req, res) => {
+    const tourney = await Tournament.findOne({ status: 'playing', phase: 'groups' });
+    if (!tourney) return res.status(400).json({ message: "Không tìm thấy vòng bảng đang đấu!" });
+
+    // 1. Tìm người nhất mỗi bảng
+    let winners = [];
+    tourney.brackets.forEach(group => {
+        let scores = {};
+        group.members.forEach(m => scores[m] = 0);
+        group.matches.forEach(m => { if(m.winner) scores[m.winner] += 3; });
+        let topPlayer = Object.entries(scores).sort((a,b) => b[1] - a[1])[0][0];
+        winners.push(topPlayer);
+    });
+
+    // 2. Tạo vòng Loại trực tiếp (Knockout)
+    let koBrackets = [];
+    for (let i = 0; i < winners.length; i += 2) {
+        koBrackets.push({ matchId: `FINAL-${i}`, p1: winners[i], p2: winners[i+1] || "BYE", winner: winners[i+1] ? null : winners[i] });
+    }
+
+    tourney.phase = 'knockout';
+    tourney.brackets = koBrackets;
+    await tourney.save();
+    io.emit('adminNotification', { title: '⚡ VÒNG LOẠI TRỰC TIẾP', message: 'Các bé xuất sắc nhất đã vào vòng trong!' });
+    res.json({ message: "Đã tiến vào vòng Loại trực tiếp!" });
 });
 app.post('/api/admin/update-user', async (req, res) => {
     if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ message: 'Không có quyền' });
@@ -624,6 +709,13 @@ app.post('/api/house/save', async (req, res) => {
 
 io.on('connection', (socket) => {
     const sessionUser = socket.request.session.user;
+    if (sessionUser) {
+        onlineUsers[sessionUser.username] = socket.id; // Lưu lại socketId của bé
+    }
+
+    socket.on('disconnect', () => {
+        if (sessionUser) delete onlineUsers[sessionUser.username]; // Xóa khi bé thoát
+    });
     const username = sessionUser ? sessionUser.username : `Khách-${socket.id.substr(0,4)}`;
 
     // Kiểm tra bảo trì khi vừa connect
@@ -1160,6 +1252,41 @@ if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
     });
 
 });
+// --- HÀM TỰ ĐỘNG QUÉT VÀ XỬ THUA ---
+async function autoCheckForfeit() {
+    const now = new Date();
+    // Tìm giải đấu đang diễn ra
+    const tourney = await Tournament.findOne({ status: 'playing' });
+    if (!tourney) return;
+
+    let hasChange = false;
+
+    // Duyệt qua tất cả các trận đấu
+    tourney.brackets.forEach(match => {
+        // Nếu trận chưa có người thắng và đã có lịch bắt đầu
+        if (!match.winner && match.startTime) {
+            const startTime = new Date(match.startTime);
+            const diffInMinutes = (now - startTime) / (1000 * 60);
+
+            // LUẬT 10 PHÚT: Nếu quá 10 phút mà chưa ai vào đấu để có winner
+            if (diffInMinutes > 10) {
+                match.winner = "Hòa (Cùng vắng mặt)"; // Hoặc "Xử thua" tùy bạn quy định
+                hasChange = true;
+                console.log(`[Tournament] Tự động đóng trận ${match.matchId} do quá giờ.`);
+            }
+        }
+    });
+
+    if (hasChange) {
+        tourney.markModified('brackets');
+        await tourney.save();
+        // Gửi tín hiệu để tất cả các máy bé đang mở trang giải đấu tự tải lại lịch mới
+        io.emit('tournamentUpdated'); 
+    }
+}
+
+// Cứ mỗi 1 phút, Server sẽ tự thực hiện kiểm tra 1 lần
+setInterval(autoCheckForfeit, 60000);
 server.listen(PORT, () => {
     console.log(`🚀 Server Database đang chạy tại: http://localhost:${PORT}`);
 });
