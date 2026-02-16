@@ -338,7 +338,9 @@ function removeItem(uniqueId, itemId) {
     console.log("Đã thu hồi món đồ:", itemId);
 }
     // --- LƯU NHÀ ---
-    async function saveHouse() {
+    // --- LƯU NHÀ ---
+async function saveHouse() {
+    // 1. Thu thập vị trí các đồ vật đang đặt trong phòng
     const itemsToSave = placedItems.map(obj => ({
         id: obj.itemId,
         uniqueId: obj.uniqueId,
@@ -347,7 +349,7 @@ function removeItem(uniqueId, itemId) {
     }));
 
     try {
-        // Chỉ cần gọi 1 API duy nhất, gửi cả đồ trong nhà và đồ trong kho
+        // 2. Gọi API để lưu đồng thời cả vị trí đồ đạc và kho đồ (inventory)
         const res = await fetch('/api/house/save', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -357,41 +359,15 @@ function removeItem(uniqueId, itemId) {
             })
         });
         const result = await res.json();
-        alert(result.message);
+        alert("🎉 " + result.message);
     } catch(e) { 
-        alert("Lỗi kết nối!"); 
+        alert("❌ Lỗi kết nối!"); 
+        console.error(e);
     }
-}        
-                
-        try {
-            // Gửi danh sách đồ đang đặt về server
-            const res = await fetch('/api/house/save', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ items: itemsToSave })
-            });
-            // Cần thêm 1 API để cập nhật lại inventory (những món chưa đặt)
-            // Để đơn giản, ta gộp vào API save hoặc gửi inventory hiện tại lên luôn
-             // SỬA SERVER API save để nhận cả inventory mới
-             
-             // Nhưng để không phải sửa server quá nhiều, ta dùng mẹo:
-             // Khi Save, server sẽ lưu HouseData.
-             // Đồng thời ta cần update inventory user bằng danh sách myInventory hiện tại.
-             await fetch('/api/admin/update-user', { // Tận dụng API update user có sẵn hoặc viết mới
-                 method: 'POST',
-                 headers: {'Content-Type': 'application/json'},
-                 body: JSON.stringify({ 
-                     username: localStorage.getItem('currentUser'),
-                     inventory: myInventory // Cần sửa API admin update user để chấp nhận field này hoặc viết API riêng
-                 })
-             }); 
-             // Tạm thời chỉ lưu houseData, bạn hãy test thử.
-             
-             alert("Đã lưu trang trí nhà thành công!");
-        } catch(e) { console.error(e); }
-    }
+}
 
-    init();
+// KHỞI CHẠY HỆ THỐNG KHI TẢI TRANG
+init();
 </script>
 
 </body>

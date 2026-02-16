@@ -571,15 +571,22 @@ app.post('/api/admin/reset-all-levels', async (req, res) => {
 // 1. Lấy thông tin nhà và Shop
 app.get('/api/house/info', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const user = await User.findOne({ username: req.session.user.username });
-    res.json({ 
-        score: user.score,
-        inventory: user.inventory,
-        houseData: user.houseData,
-        shopItems: SHOP_ITEMS
-    });
-});
+    
+    try {
+        const user = await User.findOne({ username: req.session.user.username });
+        if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
 
+        res.json({ 
+            // Bổ sung || để đảm bảo luôn có dữ liệu trả về, không bị undefined
+            score: user.score || 0,
+            inventory: user.inventory || [],
+            houseData: user.houseData || [],
+            shopItems: SHOP_ITEMS // Đảm bảo biến SHOP_ITEMS đã được khai báo ở trên
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server: ' + error.message });
+    }
+});
 // 2. Mua đồ
 app.post('/api/house/buy', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
