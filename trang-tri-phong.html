@@ -3,291 +3,393 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiến Trúc Sư Nhí - Luxury Home</title>
+    <title>Biệt Thự 3D - Hành Tinh Mơ Ước</title>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --primary: #3498db; --bg: #2c3e50; }
-        body { margin: 0; font-family: 'Baloo 2', cursive; background: var(--bg); overflow: hidden; }
-        .main-container { display: flex; height: 100vh; }
-
-        /* --- PHÒNG 3D ISOMETRIC --- */
-        .house-area { 
-            flex: 3; position: relative; 
-            background: radial-gradient(circle, #576574, #222f3e);
+        :root { --primary: #3498db; --bg: #1e272e; --wall-l: #dfe6e9; --wall-r: #b2bec3; --floor: #f5f6fa; }
+        body { margin: 0; font-family: 'Baloo 2', cursive; background: var(--bg); overflow: hidden; color: #333; }
+        
+        /* --- KHUNG NHÌN 3D --- */
+        .viewport {
+            width: 100vw; height: 100vh;
             display: flex; justify-content: center; align-items: center;
-        }
-        .room-3d {
-            width: 750px; height: 480px;
-            background: #f8f9fa; position: relative;
-            transform: perspective(1200px) rotateX(8deg);
-            box-shadow: 0 40px 80px rgba(0,0,0,0.5);
-            border: 12px solid #fff; border-radius: 4px;
-        }
-        .room-3d::before { /* Tường bên trái */
-            content: ""; position: absolute; top: 0; left: 0; width: 40%; height: 100%;
-            background: rgba(0,0,0,0.04); border-right: 1px solid rgba(0,0,0,0.05);
-        }
-        .room-floor {
-            position: absolute; bottom: 0; width: 100%; height: 140px;
-            background: repeating-linear-gradient(90deg, #dcdde1, #dcdde1 30px, #f5f6fa 30px, #f5f6fa 60px);
-            border-top: 3px solid #718093;
+            perspective: 1500px; /* Tạo chiều sâu */
+            overflow: hidden;
         }
 
-        /* --- ĐỒ VẬT --- */
-        .furniture-item {
-            position: absolute; cursor: grab; font-size: 4.5rem;
-            user-select: none; z-index: 10;
-            filter: drop-shadow(8px 12px 10px rgba(0,0,0,0.3));
+        .world {
+            position: relative;
+            width: 600px; height: 600px;
+            transform-style: preserve-3d;
             transition: transform 0.1s;
+            transform: rotateX(60deg) rotateZ(45deg) translateZ(-100px);
         }
-        .furniture-item:active { cursor: grabbing; transform: scale(1.15); z-index: 999; }
+
+        /* --- CẤU TRÚC NHÀ --- */
+        .room-surface { position: absolute; box-shadow: inset 0 0 50px rgba(0,0,0,0.1); }
+        
+        /* Sàn nhà */
+        .floor {
+            width: 600px; height: 600px;
+            background: 
+                linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc),
+                linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc);
+            background-color: var(--floor);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+            transform: translateZ(0);
+        }
+
+        /* Tường Trái */
+        .wall-left {
+            width: 20px; height: 600px;
+            background: var(--wall-l);
+            transform: rotateY(-90deg) translateZ(10px) translateX(-10px);
+            transform-origin: left center;
+            border-right: 2px solid #95a5a6;
+        }
+        /* Tường Phải */
+        .wall-right {
+            width: 600px; height: 20px;
+            background: var(--wall-r);
+            transform: rotateX(-90deg) translateZ(10px) translateY(-10px);
+            transform-origin: top center;
+            border-bottom: 2px solid #95a5a6;
+        }
+
+        /* --- ĐỒ VẬT & NHÂN VẬT --- */
+        .object-3d {
+            position: absolute;
+            transform-style: preserve-3d;
+            cursor: grab;
+            transition: top 0.1s, left 0.1s;
+        }
+        .object-3d span {
+            display: block; font-size: 3.5rem;
+            transform: rotateX(-90deg) rotateY(45deg) rotateZ(0deg) translateY(-30px); /* Dựng đứng hình ảnh */
+            filter: drop-shadow(5px 10px 5px rgba(0,0,0,0.4));
+        }
+
+        .avatar {
+            position: absolute; width: 40px; height: 40px;
+            z-index: 1000; transition: top 0.2s linear, left 0.2s linear;
+            pointer-events: none; /* Để không bị click nhầm */
+        }
+        .avatar-body {
+            font-size: 3rem; 
+            transform: rotateX(-90deg) rotateY(45deg) translateY(-40px);
+            filter: drop-shadow(0 15px 10px rgba(0,0,0,0.5));
+            animation: bounce 0.5s infinite alternate;
+        }
+        @keyframes bounce { from { transform: rotateX(-90deg) rotateY(45deg) translateY(-40px); } to { transform: rotateX(-90deg) rotateY(45deg) translateY(-50px); } }
 
         /* --- UI PANEL --- */
-        .ui-panel {
-            flex: 1; background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(10px); display: flex; flex-direction: column;
-            padding: 20px; border-left: 6px solid var(--primary); z-index: 1000;
+        .ui-controls {
+            position: fixed; top: 20px; left: 20px; z-index: 2000;
+            background: rgba(255,255,255,0.9); padding: 15px;
+            border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 250px;
         }
-        .header-ui { text-align: center; margin-bottom: 15px; }
-        .score-box { 
-            background: linear-gradient(45deg, #f1c40f, #f39c12); color: white;
-            padding: 8px 25px; border-radius: 50px; font-weight: 800; font-size: 1.3rem;
-            box-shadow: 0 5px 15px rgba(241, 196, 15, 0.4);
+        .control-row { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+        input[type=range] { width: 60%; }
+        
+        .ui-shop {
+            position: fixed; right: 0; top: 0; bottom: 0; width: 300px;
+            background: rgba(255,255,255,0.95); box-shadow: -5px 0 20px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; padding: 20px; z-index: 2000;
+            backdrop-filter: blur(10px);
         }
-        .tabs { display: flex; gap: 8px; margin: 15px 0; }
-        .tab-btn { 
-            flex: 1; padding: 10px; border: none; border-radius: 12px; 
-            cursor: pointer; font-weight: 700; background: #eee; transition: 0.3s;
-        }
-        .tab-btn.active { background: var(--primary); color: white; transform: translateY(-3px); }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; overflow-y: auto; flex: 1; }
+        .item-card { background: #fff; padding: 10px; border-radius: 10px; text-align: center; border: 2px solid #eee; cursor: pointer; transition:0.2s;}
+        .item-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+        .save-btn { padding: 15px; background: #e74c3c; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
-        .items-grid { 
-            display: grid; grid-template-columns: repeat(2, 1fr); 
-            gap: 15px; overflow-y: auto; padding: 5px; flex: 1;
-        }
-        .shop-item {
-            background: #fff; border-radius: 15px; padding: 12px;
-            text-align: center; box-shadow: 0 5px 10px rgba(0,0,0,0.05);
-            border: 2px solid #f1f2f6; transition: 0.2s;
-        }
-        .shop-item:hover { border-color: var(--primary); transform: translateY(-3px); }
-        .shop-item .icon { font-size: 2.8rem; display: block; margin-bottom: 8px; }
-        .shop-item .name { font-weight: 700; font-size: 0.85rem; display: block; min-height: 40px; }
-        .shop-item .price { color: #e67e22; font-weight: 800; }
-        .shop-item button { 
-            width: 100%; margin-top: 8px; border: none; padding: 8px;
-            border-radius: 8px; background: #2ecc71; color: white; font-weight: 800; cursor: pointer;
-        }
-        .inventory-item { background: #f8f9fa; border: 2px dashed #3498db; }
-
-        .action-btns { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
-        .save-btn { 
-            padding: 15px; background: #e74c3c; color: white; border: none; 
-            border-radius: 12px; font-weight: 800; font-size: 1.2rem; cursor: pointer;
-            box-shadow: 0 5px 0 #c0392b;
-        }
-        .save-btn:active { transform: translateY(4px); box-shadow: none; }
-        .hint-text { font-size: 0.8rem; color: #7f8c8d; text-align: center; }
+        /* Thông báo */
+        .notif { position: fixed; top: 20px; right: 340px; background: white; padding: 15px; border-radius: 10px; border-left: 5px solid #f1c40f; animation: slideIn 0.5s; z-index: 9999;}
+        @keyframes slideIn { from{transform: translateX(100%);} to{transform: translateX(0);} }
     </style>
 </head>
 <body>
 
-<div class="main-container">
-    <div class="house-area">
-        <div class="room-3d" id="room">
-            <div class="room-floor"></div>
-        </div>
+<div class="ui-controls">
+    <button onclick="window.location.href='index.html'" style="width:100%; margin-bottom:10px; padding:8px; border-radius:8px; border:none; background:#95a5a6; color:white; font-weight:bold; cursor:pointer;">⬅️ Về Hành Tinh</button>
+    <div class="control-row">
+        <span>🔄 Xoay:</span>
+        <input type="range" min="0" max="360" value="45" oninput="rotateWorld(this.value)">
     </div>
-
-    <div class="ui-panel">
-        <div class="header-ui">
-            <h1 style="margin:0; color:var(--primary);">🏰 ROYAL HOME</h1>
-            <div class="score-box">💎 <span id="user-score">0</span></div>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" id="tab-shop" onclick="switchTab('shop')">🛒 Cửa Hàng</button>
-            <button class="tab-btn" id="tab-inv" onclick="switchTab('inventory')">🎒 Kho Đồ</button>
-        </div>
-
-        <div id="shop-list" class="items-grid"></div>
-        <div id="inventory-list" class="items-grid" style="display:none;"></div>
-
-        <div class="action-btns">
-            <button class="save-btn" onclick="saveHouse()">💾 LƯU NGÔI NHÀ</button>
-            <button onclick="window.location.href='index.html'" style="background:none; border:none; color:#95a5a6; cursor:pointer; font-weight:bold;">🔙 Trở về Hành Tinh</button>
-            <div class="hint-text">Chuột phải vào đồ vật để thu hồi về kho</div>
-        </div>
+    <div class="control-row">
+        <span>🔍 Zoom:</span>
+        <input type="range" min="0.5" max="2" step="0.1" value="1" oninput="zoomWorld(this.value)">
+    </div>
+    <div style="font-size:0.8rem; color:#7f8c8d; margin-top:5px; text-align:center;">
+        Dùng ⬅️ ⬆️ ⬇️ ➡️ để đi dạo!
     </div>
 </div>
 
-<script>
-    let myScore = 0;
-    let myInventory = [];
-    let shopData = [];
-    let placedItems = [];
+<div class="ui-shop">
+    <div style="text-align:center; margin-bottom:15px;">
+        <h2 style="margin:0; color:var(--primary)">🏡 3D SHOP</h2>
+        <div style="background:#f1c40f; color:white; padding:5px 15px; border-radius:20px; display:inline-block; font-weight:bold; margin-top:5px;">
+            💎 <span id="score">0</span>
+        </div>
+    </div>
+    
+    <div style="display:flex; gap:5px; margin-bottom:10px;">
+        <button onclick="switchTab('shop')" style="flex:1; padding:8px; cursor:pointer; background:var(--primary); color:white; border:none; border-radius:5px;">Cửa Hàng</button>
+        <button onclick="switchTab('inv')" style="flex:1; padding:8px; cursor:pointer; background:#eee; border:none; border-radius:5px;">Kho Đồ</button>
+    </div>
 
+    <div id="grid-shop" class="shop-grid"></div>
+    <div id="grid-inv" class="shop-grid" style="display:none"></div>
+
+    <button class="save-btn" onclick="saveHouse()">💾 LƯU NHÀ</button>
+</div>
+
+<div class="viewport">
+    <div class="world" id="world">
+        <div class="wall-left"></div>
+        <div class="wall-right"></div>
+        <div class="floor" id="floor-area"></div>
+        
+        <div class="avatar" id="player" style="top:300px; left:300px;">
+            <div class="avatar-body">🏃</div>
+        </div>
+
+        </div>
+</div>
+
+<script>
+    const socket = io();
+    let houseState = { score: 0, inventory: [], items: [] };
+    let shopItems = [];
+    let currentRotation = 45;
+
+    // --- 1. KHỞI TẠO ---
     async function init() {
         try {
             const res = await fetch('/api/house/info');
-            if(res.status === 401) window.location.href = 'login.html';
+            if(res.status === 401) return window.location.href = 'login.html';
             const data = await res.json();
-            myScore = data.score;
-            myInventory = data.inventory || [];
-            shopData = data.shopItems;
+            
+            houseState.score = data.score;
+            houseState.inventory = data.inventory || [];
+            shopItems = data.shopItems;
+            
             updateUI();
+            
+            // Load đồ đã đặt
             if(data.houseData) {
-                data.houseData.forEach(item => placeItemVisual(item.id, item.x, item.y, item.uniqueId));
+                data.houseData.forEach(item => spawnItemVisual(item.id, item.x, item.y, item.uniqueId));
             }
+
+            // Lắng nghe di chuyển nhân vật
+            window.addEventListener('keydown', movePlayer);
+
         } catch(e) { console.error(e); }
     }
 
-    function updateUI() {
-        document.getElementById('user-score').textContent = myScore.toLocaleString();
+    // --- 2. HỆ THỐNG DI CHUYỂN (WALKING) ---
+    function movePlayer(e) {
+        const player = document.getElementById('player');
+        let t = parseInt(player.style.top);
+        let l = parseInt(player.style.left);
+        const step = 20;
+
+        // Xử lý hướng đi dựa trên góc xoay camera để đi "thẳng" theo mắt nhìn
+        // (Ở đây làm đơn giản: Mũi tên tương ứng hướng sàn nhà)
+        if(e.key === 'ArrowUp') { t -= step; l -= step; }
+        else if(e.key === 'ArrowDown') { t += step; l += step; }
+        else if(e.key === 'ArrowLeft') { l -= step; t += step; } // Iso logic
+        else if(e.key === 'ArrowRight') { l += step; t -= step; }
         
-        // Render Shop
-        const shopEl = document.getElementById('shop-list');
-        shopEl.innerHTML = '';
-        shopData.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'shop-item';
-            div.innerHTML = `
-                <span class="icon">${item.icon}</span>
-                <span class="name">${item.name}</span>
-                <div class="price">${item.price} 💎</div>
-                <button onclick="buyItem('${item.id}')">Mua</button>
-            `;
-            shopEl.appendChild(div);
-        });
+        // Giới hạn trong sàn 600x600
+        if(t < 0) t = 0; if(t > 560) t = 560;
+        if(l < 0) l = 0; if(l > 560) l = 560;
 
-        // Render Inventory (Kho đồ có đếm số lượng)
-        const invEl = document.getElementById('inventory-list');
-        invEl.innerHTML = '';
-        const counts = {};
-        myInventory.forEach(id => counts[id] = (counts[id] || 0) + 1);
-
-        for (const [id, count] of Object.entries(counts)) {
-            const item = shopData.find(i => i.id === id);
-            if(item) {
-                const div = document.createElement('div');
-                div.className = 'shop-item inventory-item';
-                div.innerHTML = `
-                    <span class="icon">${item.icon}</span>
-                    <span class="name">${item.name} (x${count})</span>
-                    <button onclick="spawnItem('${id}')" style="background:#3498db">Đặt ra</button>
-                `;
-                invEl.appendChild(div);
-            }
-        }
+        player.style.top = t + 'px';
+        player.style.left = l + 'px';
+        
+        // Hiệu ứng bước đi
+        player.querySelector('.avatar-body').innerText = (t+l)%40 === 0 ? '🚶' : '🏃';
     }
 
-    function switchTab(tab) {
-        document.getElementById('shop-list').style.display = tab === 'shop' ? 'grid' : 'none';
-        document.getElementById('inventory-list').style.display = tab === 'inventory' ? 'grid' : 'none';
-        document.getElementById('tab-shop').classList.toggle('active', tab === 'shop');
-        document.getElementById('tab-inv').classList.toggle('active', tab === 'inventory');
+    // --- 3. CAMERA CONTROL ---
+    function rotateWorld(deg) {
+        currentRotation = deg;
+        document.getElementById('world').style.transform = `rotateX(60deg) rotateZ(${deg}deg) translateZ(-100px)`;
+        // Xoay ngược các đồ vật để chúng luôn đứng thẳng
+        document.querySelectorAll('.object-3d span, .avatar-body').forEach(el => {
+            el.style.transform = `rotateX(-90deg) rotateY(-${deg}deg) rotateZ(0deg) translateY(-40px)`;
+        });
+    }
+
+    function zoomWorld(scale) {
+        document.getElementById('world').style.zoom = scale;
+    }
+
+    // --- 4. QUẢN LÝ ĐỒ VẬT ---
+    function updateUI() {
+        document.getElementById('score').innerText = houseState.score.toLocaleString();
+        
+        // Shop
+        const sGrid = document.getElementById('grid-shop');
+        sGrid.innerHTML = '';
+        shopItems.forEach(i => {
+            sGrid.innerHTML += `
+                <div class="item-card" onclick="buyItem('${i.id}')">
+                    <div style="font-size:2rem">${i.icon}</div>
+                    <b>${i.name}</b><br>
+                    <small style="color:#e67e22">${i.price} 💎</small>
+                </div>
+            `;
+        });
+
+        // Inventory
+        const iGrid = document.getElementById('grid-inv');
+        iGrid.innerHTML = '';
+        const counts = {};
+        houseState.inventory.forEach(x => counts[x] = (counts[x] || 0) + 1);
+        
+        for(let [id, count] of Object.entries(counts)) {
+            const item = shopItems.find(x => x.id === id);
+            if(item) {
+                iGrid.innerHTML += `
+                    <div class="item-card" style="border-style:dashed" onclick="placeFromInventory('${id}')">
+                        <div style="font-size:2rem">${item.icon}</div>
+                        <b>${item.name}</b><br>
+                        <small>x${count}</small>
+                    </div>
+                `;
+            }
+        }
     }
 
     async function buyItem(id) {
-        try {
-            const res = await fetch('/api/house/buy', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ itemId: id })
-            });
-            const d = await res.json();
-            if(res.ok) {
-                myScore = d.newScore;
-                myInventory.push(id);
-                updateUI();
-            } else alert(d.message);
-        } catch(e) { console.error(e); }
+        const res = await fetch('/api/house/buy', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({itemId: id})
+        });
+        const d = await res.json();
+        if(res.ok) {
+            houseState.score = d.newScore;
+            houseState.inventory.push(id);
+            updateUI();
+            alert("Đã mua thành công!");
+        } else alert(d.message);
     }
 
-    function spawnItem(itemId) {
-        const idx = myInventory.indexOf(itemId);
+    function switchTab(t) {
+        document.getElementById('grid-shop').style.display = t==='shop'?'grid':'none';
+        document.getElementById('grid-inv').style.display = t==='inv'?'grid':'none';
+    }
+
+    function placeFromInventory(id) {
+        const idx = houseState.inventory.indexOf(id);
         if(idx > -1) {
-            myInventory.splice(idx, 1); // Xóa khỏi kho đồ client
+            houseState.inventory.splice(idx, 1);
+            spawnItemVisual(id, 300, 300, Date.now());
             updateUI();
-            placeItemVisual(itemId, 300, 200, Date.now()); 
         }
     }
 
-    function removeItem(uniqueId, itemId) {
-        const el = document.getElementById(uniqueId);
-        if (el) el.remove();
-        placedItems = placedItems.filter(item => item.uniqueId != uniqueId);
-        myInventory.push(itemId); // Trả lại kho
-        updateUI();
-    }
-
-    function placeItemVisual(itemId, x, y, uniqueId) {
-        const itemInfo = shopData.find(i => i.id === itemId);
-        if(!itemInfo) return;
-
+    function spawnItemVisual(id, x, y, uid) {
+        const item = shopItems.find(i => i.id === id);
         const el = document.createElement('div');
-        el.className = 'furniture-item';
-        el.textContent = itemInfo.icon;
-        el.id = uniqueId;
+        el.className = 'object-3d';
+        el.id = uid;
         el.style.left = x + 'px';
         el.style.top = y + 'px';
-
-        el.oncontextmenu = (e) => {
-            e.preventDefault();
-            removeItem(uniqueId, itemId);
+        
+        // Tạo thẻ span chứa hình ảnh để có thể xoay lập thể
+        const img = document.createElement('span');
+        img.innerText = item.icon;
+        // Chỉnh góc xoay ban đầu cho khớp camera
+        img.style.transform = `rotateX(-90deg) rotateY(-${currentRotation}deg) rotateZ(0deg) translateY(-30px)`;
+        
+        el.appendChild(img);
+        
+        // Sự kiện Kéo thả
+        el.onmousedown = function(e) {
+            e.stopPropagation(); // Không cho kéo sàn
+            dragElement(el);
         };
 
-        el.onmousedown = dragMouseDown;
-        el.ontouchstart = dragMouseDown;
+        // Chuột phải để thu hồi
+        el.oncontextmenu = function(e) {
+            e.preventDefault();
+            el.remove();
+            houseState.inventory.push(id);
+            houseState.items = houseState.items.filter(i => i.uniqueId != uid);
+            updateUI();
+        };
 
-        document.getElementById('room').appendChild(el);
-        placedItems.push({ uniqueId, itemId, element: el });
+        document.getElementById('floor-area').appendChild(el);
+        houseState.items.push({ id, uniqueId: uid, el });
     }
 
-    function dragMouseDown(e) {
-        e.preventDefault();
-        let elm = e.target;
-        let pos3 = e.clientX || e.touches[0].clientX;
-        let pos4 = e.clientY || e.touches[0].clientY;
+    function dragElement(elmnt) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        document.onmousemove = elementDrag;
+        document.onmouseup = closeDragElement;
 
-        document.onmouseup = () => document.onmousemove = null;
-        document.ontouchend = () => document.ontouchmove = null;
+        function elementDrag(e) {
+            e.preventDefault();
+            // Tính toán vị trí chuột trong không gian 3D tương đối khó
+            // Ta dùng movementX/Y để dịch chuyển
+            elmnt.style.top = (elmnt.offsetTop + e.movementY) + "px";
+            elmnt.style.left = (elmnt.offsetLeft + e.movementX) + "px";
+        }
 
-        document.onmousemove = document.ontouchmove = (e) => {
-            let cx = e.clientX || (e.touches ? e.touches[0].clientX : pos3);
-            let cy = e.clientY || (e.touches ? e.touches[0].clientY : pos4);
-            let p1 = pos3 - cx; let p2 = pos4 - cy;
-            pos3 = cx; pos4 = cy;
-
-            let nt = elm.offsetTop - p2;
-            let nl = elm.offsetLeft - p1;
-
-            const room = document.getElementById('room');
-            if(nt < 0) nt = 0; if(nl < 0) nl = 0;
-            if(nt > room.clientHeight - 80) nt = room.clientHeight - 80;
-            if(nl > room.clientWidth - 80) nl = room.clientWidth - 80;
-
-            elm.style.top = nt + "px";
-            elm.style.left = nl + "px";
-        };
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
     }
 
     async function saveHouse() {
-        const itemsToSave = placedItems.map(obj => ({
-            id: obj.itemId, uniqueId: obj.uniqueId,
-            x: obj.element.offsetLeft, y: obj.element.offsetTop
-        }));
+        // Cập nhật tọa độ mới nhất từ DOM
+        const itemsToSave = houseState.items.map(i => {
+            const el = document.getElementById(i.uniqueId);
+            return {
+                id: i.id,
+                uniqueId: i.uniqueId,
+                x: el ? el.offsetLeft : 0,
+                y: el ? el.offsetTop : 0
+            };
+        });
 
-        try {
-            const res = await fetch('/api/house/save', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ items: itemsToSave, inventory: myInventory })
-            });
-            const result = await res.json();
-            alert("✨ " + result.message);
-        } catch(e) { alert("Lỗi kết nối!"); }
+        await fetch('/api/house/save', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ items: itemsToSave, inventory: houseState.inventory })
+        });
+        
+        // Hiệu ứng thông báo đẹp
+        const n = document.createElement('div');
+        n.className = 'notif';
+        n.innerHTML = "✅ Đã lưu ngôi nhà 3D của bé!";
+        document.body.appendChild(n);
+        setTimeout(()=>n.remove(), 3000);
     }
+
+    // --- SOCKET NOTIFICATION (Copy từ file cũ qua để không mất tính năng) ---
+    socket.on('matchNotice', (data) => {
+        const notif = document.createElement('div');
+        notif.className = 'notif';
+        notif.style.borderLeftColor = '#f1c40f';
+        notif.innerHTML = `<b>🔔 ${data.title}</b><br>${data.message}`;
+        document.body.appendChild(notif);
+        setTimeout(()=>notif.remove(), 15000);
+    });
+    
+    socket.on('adminNotification', (data) => {
+        const notif = document.createElement('div');
+        notif.className = 'notif';
+        notif.style.borderLeftColor = '#8e44ad';
+        notif.innerHTML = `<b>📢 ${data.title}</b><br>${data.message}`;
+        document.body.appendChild(notif);
+        setTimeout(()=>notif.remove(), 15000);
+    });
 
     init();
 </script>

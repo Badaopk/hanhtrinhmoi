@@ -195,11 +195,6 @@
             <input type="number" id="tour-time" value="10" min="1">
         </div>
     </div>
-    <div style="display:flex; gap:10px;">
-        <button class="create-btn" onclick="apiCall('/api/admin/create-tournament', 'POST', getTourData())" style="background:#2ecc71">1. Mở Đăng Ký</button>
-        <button class="create-btn" onclick="apiCall('/api/admin/start-tournament', 'POST', {})" style="background:#e74c3c">2. Chốt & Chia Bảng</button>
-        <button class="create-btn" onclick="finishTourney()" style="background:#f1c40f; color:#333;">3. Trao Thưởng & Kết Thúc</button>
-    </div>
 <div class="form-group">
     <label>Thời gian giải (Ngày):</label>
     <input type="number" id="tour-duration" value="7" min="1">
@@ -207,6 +202,19 @@
 <button class="create-btn" onclick="startSmartTourney()" style="background:#e74c3c">
     2. Chốt & Lập Lịch Tự Động
 </button>
+<div class="form-group">
+    <label>Khung giờ thi đấu (Giờ):</label>
+    <div style="display:flex; gap:10px; flex:1;">
+        <input type="number" id="start-hour" value="8" min="0" max="23" placeholder="Từ (h)">
+        <span style="align-self:center;">đến</span>
+        <input type="number" id="end-hour" value="18" min="0" max="23" placeholder="Đến (h)">
+    </div>
+</div>
+    <div style="display:flex; gap:10px;">
+        <button class="create-btn" onclick="apiCall('/api/admin/create-tournament', 'POST', getTourData())" style="background:#2ecc71">1. Mở Đăng Ký</button>
+        <button class="create-btn" onclick="apiCall('/api/admin/start-tournament', 'POST', {})" style="background:#e74c3c">2. Chốt & Chia Bảng</button>
+        <button class="create-btn" onclick="finishTourney()" style="background:#f1c40f; color:#333;">3. Trao Thưởng & Kết Thúc</button>
+    </div>
 
 </div>
         <div class="admin-create-form" style="background: #fffbe6;">
@@ -337,7 +345,7 @@ setInterval(updateAdminTourInfo, 3000);
 function getTourData() {
     return {
         gameType: document.getElementById('tour-game').value,
-        format: document.getElementById('tour-format').value,
+       
         matchDuration: parseInt(document.getElementById('tour-time').value) || 10
     };
 }
@@ -459,13 +467,18 @@ setInterval(updateAdminTourInfo, 3000);
         // --- CÁC HÀM XỬ LÝ (SAVE, DELETE, NOTIFY...) ---
 async function startSmartTourney() {
     const days = document.getElementById('tour-duration').value;
-    const res = await fetch('/api/admin/start-tournament', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ durationDays: parseInt(days) })
+    const startHour = document.getElementById('start-hour').value;
+    const endHour = document.getElementById('end-hour').value;
+    
+    // Gửi thêm thông tin startHour và endHour lên Server
+    await apiCall('/api/admin/start-tournament', 'POST', { 
+        ...getTourData(), 
+        durationDays: parseInt(days),
+        dailyStartHour: parseInt(startHour),
+        dailyEndHour: parseInt(endHour)
     });
-    const data = await res.json();
-    alert(data.message);
+    
+    updateAdminTourInfo();
 }
         async function saveUser(username) {
             const data = {

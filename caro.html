@@ -1,121 +1,203 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Cờ Caro Thử Thách - 100 Cấp Độ</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <style>
-        body { background: radial-gradient(circle, #3498db, #2980b9); color: white; min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Baloo 2', cursive; overscroll-behavior: none; }
-        .game-layout { display: flex; gap: 20px; justify-content: center; padding: 20px; flex-wrap: wrap; width: 100%; box-sizing: border-box; }
-        
-        /* Bàn cờ */
-        .board-container { background: #fff; padding: 10px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .caro-grid { display: grid; background: #bdc3c7; border: 2px solid #2c3e50; transition: opacity 0.3s; touch-action: manipulation; }
-        .caro-grid.game-over { pointer-events: none; opacity: 0.8; }
-        
-        .cell { width: 30px; height: 30px; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; cursor: pointer; color: #333; border: 1px solid #ddd; }
-        .cell:active { background: #f1f2f6; }
-        .cell.X { color: #3498db; } .cell.O { color: #e74c3c; }
-        .cell.last-move { background: #fff9c4; }
-        .cell.win { background: #2ecc71 !important; color: white; animation: pulse 0.5s infinite; }
+    <meta charset="UTF-8">
+    <title>Cờ Caro Thử Thách - 100 Cấp Độ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { background: radial-gradient(circle, #3498db, #2980b9); color: white; min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Baloo 2', cursive; overscroll-behavior: none; }
+        .game-layout { display: flex; gap: 20px; justify-content: center; padding: 20px; flex-wrap: wrap; width: 100%; box-sizing: border-box; }
+        
+        /* Bàn cờ */
+        .board-container { background: #fff; padding: 10px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .caro-grid { display: grid; background: #bdc3c7; border: 2px solid #2c3e50; transition: opacity 0.3s; touch-action: manipulation; }
+        .caro-grid.game-over { pointer-events: none; opacity: 0.8; }
+        
+        .cell { width: 30px; height: 30px; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; cursor: pointer; color: #333; border: 1px solid #ddd; }
+        .cell:active { background: #f1f2f6; }
+        .cell.X { color: #3498db; } .cell.O { color: #e74c3c; }
+        .cell.last-move { background: #fff9c4; }
+        .cell.win { background: #2ecc71 !important; color: white; animation: pulse 0.5s infinite; }
 
-        /* Sidebar & Menu */
-        .sidebar { width: 95%; max-width: 350px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 20px; border-radius: 20px; text-align: center; }
-        .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; margin-bottom: 8px; color: white; transition: 0.2s; font-size: 1rem; font-family: inherit; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
-        .btn-game:active { transform: translateY(2px); box-shadow: none; }
-        .btn-new { background: #2ecc71; } .btn-online { background: #9b59b6; } .btn-undo { background: #f39c12; }
-        .room-input { width: 60%; padding: 10px; border-radius: 8px; border: none; text-align: center; font-weight: bold; font-size: 1rem; }
-        
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        
-        /* Ẩn hiện menu */
-        #menu-area { display: block; }
-        #control-area { display: none; }
-    </style>
+        /* Sidebar & Menu */
+        .sidebar { width: 95%; max-width: 350px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 20px; border-radius: 20px; text-align: center; }
+        .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; margin-bottom: 8px; color: white; transition: 0.2s; font-size: 1rem; font-family: inherit; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+        .btn-game:active { transform: translateY(2px); box-shadow: none; }
+        .btn-new { background: #2ecc71; } .btn-online { background: #9b59b6; } .btn-undo { background: #f39c12; }
+        .room-input { width: 60%; padding: 10px; border-radius: 8px; border: none; text-align: center; font-weight: bold; font-size: 1rem; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        
+        /* Ẩn hiện menu */
+        #menu-area { display: block; }
+        #control-area { display: none; }
+
+        /* Thông báo */
+        .match-notification {
+            position: fixed; top: 20px; right: 20px; width: 320px;
+            background: white; border-left: 10px solid #f1c40f;
+            padding: 20px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            z-index: 10001; animation: slideIn 0.5s ease-out forwards; color: #333;
+        }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .notif-btn { width: 100%; margin-top: 10px; background: #2ecc71; color: white; border: none; padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: 'Baloo 2', cursive; }
+    </style>
 </head>
 <body>
     <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none; position:fixed; top:10px; right:10px; z-index:100;">
-    ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
-</div>
-    <h1 style="text-shadow: 2px 2px 0 #2c3e50; margin: 15px 0;">⭕ CARO ĐẠI CHIẾN ❌</h1>
+        ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
+    </div>
+    <h1 style="text-shadow: 2px 2px 0 #2c3e50; margin: 15px 0;">⭕ CARO ĐẠI CHIẾN ❌</h1>
 
-    <div class="game-layout">
-        <div class="board-container" id="play-area" style="display:none;">
-            <div id="caro-board" class="caro-grid"></div>
-        </div>
+    <div class="game-layout">
+        <div class="board-container" id="play-area" style="display:none;">
+            <div id="caro-board" class="caro-grid"></div>
+        </div>
 
-        <div class="sidebar">
-            <div style="background: #f1c40f; padding: 10px; border-radius: 10px; margin-bottom: 15px; color:#333; font-weight:bold;">
-                Cấp độ hiện tại: <span id="lvl-display" style="font-size: 1.5rem;">1</span>
-            </div>
-            <div id="status" style="margin-bottom: 15px; font-weight:bold; min-height:25px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px;">Chọn chế độ chơi...</div>
+        <div class="sidebar">
+            <div style="background: #f1c40f; padding: 10px; border-radius: 10px; margin-bottom: 15px; color:#333; font-weight:bold;">
+                Cấp độ hiện tại: <span id="lvl-display" style="font-size: 1.5rem;">1</span>
+            </div>
+            <div id="status" style="margin-bottom: 15px; font-weight:bold; min-height:25px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px;">Chọn chế độ chơi...</div>
 
-            <div id="menu-area">
-                <select id="ai-level-select" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-size: 1rem;"></select>
-                <select id="board-size-select" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-size: 1rem;">
-                    <option value="15">Bàn nhỏ (15x15)</option>
-                    <option value="20" selected>Bàn lớn (20x20)</option>
-                </select>
-                <button class="btn-game btn-new" onclick="startAiGame()">🤖 Đấu với Máy</button>
-                <hr style="border:0.5px solid rgba(255,255,255,0.3); margin:15px 0;">
-                <button class="btn-game btn-online" onclick="findRandomMatch()">🎲 Ghép Ngẫu Nhiên</button>
-                <div style="display:flex; gap:5px;">
-                    <button class="btn-game btn-new" style="flex:1" onclick="createRoom()">Tạo</button>
-                    <input id="room-code" class="room-input" placeholder="Mã...">
-                    <button class="btn-game btn-online" style="width:auto" onclick="joinRoom()">Vào</button>
-                </div>
-            </div>
+            <div id="menu-area">
+                <select id="ai-level-select" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-size: 1rem;"></select>
+                <select id="board-size-select" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-size: 1rem;">
+                    <option value="15">Bàn nhỏ (15x15)</option>
+                    <option value="20" selected>Bàn lớn (20x20)</option>
+                </select>
+                <button class="btn-game btn-new" onclick="startAiGame()">🤖 Đấu với Máy</button>
+                <hr style="border:0.5px solid rgba(255,255,255,0.3); margin:15px 0;">
+                <button class="btn-game btn-online" onclick="findRandomMatch()">🎲 Ghép Ngẫu Nhiên</button>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-game btn-new" style="flex:1" onclick="createRoom()">Tạo</button>
+                    <input id="room-code" class="room-input" placeholder="Mã...">
+                    <button class="btn-game btn-online" style="width:auto" onclick="joinRoom()">Vào</button>
+                </div>
+            </div>
 
-            <div id="control-area">
-                <button class="btn-game btn-undo" id="undo-btn" onclick="undoMove()">↩️ Đi Lại</button>
-                <button class="btn-game" style="background:#e74c3c" onclick="location.reload()">🚪 Thoát</button>
-            </div>
-            
-            <button class="btn-game" style="background:#636e72; margin-top: 10px;" onclick="window.location.href='index.html'">🏠 Về Trang Chủ</button>
-        </div>
-    </div>
-    <script src="/socket.io/socket.io.js"></script>
+            <div id="control-area">
+                <button class="btn-game btn-undo" id="undo-btn" onclick="undoMove()">↩️ Đi Lại</button>
+                <button class="btn-game" style="background:#e74c3c" onclick="location.reload()">🚪 Thoát</button>
+            </div>
+            
+            <button class="btn-game" style="background:#636e72; margin-top: 10px;" onclick="window.location.href='index.html'">🏠 Về Trang Chủ</button>
+        </div>
+    </div>
+
     <script>
         const boardEl = document.getElementById('caro-board');
         const statusEl = document.getElementById('status');
-        let size = 15, board = [], gameOver = false, history = [], isOnline = false, socket, playerSym = 'X', aiSym = 'O', isMyTurn = true;
+        let size = 15, board = [], gameOver = false, history = [], isOnline = false;
+        let playerSym = 'X', aiSym = 'O', isMyTurn = true;
         let aiLevel = 1;
         let gameStartTime;
         let matchTimer = null;
         let secondsLeft = 600;
+        let roomName = "";
 
-function startTournamentTimer(mins) {
-    clearInterval(matchTimer);
-    secondsLeft = mins * 60;
-    if(document.getElementById('tourney-timer')) {
-        document.getElementById('tourney-timer').style.display = 'block';
-    }
+        // --- 1. KHỞI TẠO SOCKET TOÀN CỤC ---
+        const socket = io(); // Kết nối ngay để nhận thông báo
 
-    matchTimer = setInterval(() => {
-        // Chỉ đếm ngược khi là Online và đến lượt mình
-        if (isOnline && isMyTurn && !gameOver) {
-            secondsLeft--;
-            const m = Math.floor(secondsLeft / 60);
-            const s = secondsLeft % 60;
-            const display = document.getElementById('time-left');
-            if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+        // --- 2. LẮNG NGHE SỰ KIỆN TỪ SERVER ---
 
-            if (secondsLeft <= 0) {
-                clearInterval(matchTimer);
-                // Gửi lệnh xử thua
-                socket.emit('timeoutLoss', { 
-                    room: roomName, 
-                    loserUsername: localStorage.getItem('currentUser'),
-                    gameType: 'Cờ Caro'
-                });
+        // A. Sự kiện Game Online
+        socket.on('roomCreated', (id) => {
+            roomName = id;
+            document.getElementById('room-code').value = id;
+            statusEl.textContent = `Mã phòng: ${id} (Đợi...)`;
+        });
+
+        socket.on('matchFound', (data) => {
+            isOnline = true; 
+            roomName = data.room;
+            playerSym = data.role === 'O' ? 'O' : 'X'; 
+            aiSym = playerSym === 'X' ? 'O' : 'X';
+            isMyTurn = data.yourTurn;
+            size = 20; 
+            gameStartTime = Date.now();
+            startGame();
+            startTournamentTimer(data.matchDuration || 10);
+        });
+
+        socket.on('opponentMove', (d) => {
+            makeMove(d.r, d.c, aiSym);
+            if(!gameOver) { isMyTurn = true; statusEl.textContent = "Lượt của bạn!"; }
+        });
+        
+        socket.on('notification', (msg) => alert(msg));
+
+        socket.on('gameOver', (data) => {
+            gameOver = true;
+            boardEl.classList.add('game-over');
+            clearInterval(matchTimer);
+            
+            if(data.reason === 'timeout') {
+                const isMe = data.loser === localStorage.getItem('currentUser');
+                alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
             }
+            setTimeout(() => { location.href = 'giai-dau.html'; }, 2000); 
+        });
+
+        // B. Sự kiện Thông báo Hệ thống
+        socket.on('matchNotice', (data) => {
+            const notif = document.createElement('div');
+            notif.className = 'match-notification';
+            notif.innerHTML = `
+                <h3 style="margin:0; color:#e67e22;">${data.title}</h3>
+                <p style="margin:10px 0; font-size:0.9rem;">${data.message}</p>
+                <button class="notif-btn" onclick="window.location.href='giai-dau.html'">🏟️ ĐẾN SÂN VẬN ĐỘNG</button>
+            `;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 300000);
+        });
+
+        socket.on('adminNotification', (data) => {
+            const notif = document.createElement('div');
+            notif.className = 'match-notification';
+            notif.style.borderLeftColor = '#8e44ad';
+            notif.innerHTML = `
+                <h3 style="margin:0; color:#8e44ad;">📢 ${data.title}</h3>
+                <p style="margin:10px 0; font-weight: bold;">${data.message}</p>
+                <button class="notif-btn" style="background:#8e44ad" onclick="this.parentElement.remove()">ĐÃ HIỂU</button>
+            `;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 300000);
+        });
+
+        // --- 3. CÁC HÀM XỬ LÝ LOGIC GAME ---
+
+        function startTournamentTimer(mins) {
+            clearInterval(matchTimer);
+            secondsLeft = mins * 60;
+            if(document.getElementById('tourney-timer')) {
+                document.getElementById('tourney-timer').style.display = 'block';
+            }
+
+            matchTimer = setInterval(() => {
+                if (isOnline && isMyTurn && !gameOver) {
+                    secondsLeft--;
+                    const m = Math.floor(secondsLeft / 60);
+                    const s = secondsLeft % 60;
+                    const display = document.getElementById('time-left');
+                    if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+
+                    if (secondsLeft <= 0) {
+                        clearInterval(matchTimer);
+                        socket.emit('timeoutLoss', { 
+                            room: roomName, 
+                            loserUsername: localStorage.getItem('currentUser'),
+                            gameType: 'Cờ Caro'
+                        });
+                    }
+                }
+            }, 1000);
         }
-    }, 1000);
-}
-        // --- 1. KHỞI TẠO ---
+
         async function init() {
             try {
                 const res = await fetch('/api/user/progress');
@@ -124,11 +206,11 @@ function startTournamentTimer(mins) {
                 document.getElementById('lvl-display').textContent = aiLevel;
                 renderLevelOpts(aiLevel);
             } catch(e) {}
+            
             const tourRoom = localStorage.getItem('joinTournamentRoom');
             if (tourRoom) {
-               connectSocket(); // Phải kết nối trước
-               socket.emit('joinCaroRoom', tourRoom); 
-               localStorage.removeItem('joinTournamentRoom');
+                socket.emit('joinCaroRoom', tourRoom); 
+                localStorage.removeItem('joinTournamentRoom');
             }
         }
 
@@ -143,7 +225,6 @@ function startTournamentTimer(mins) {
             sel.value = maxLvl;
         }
 
-        // --- 2. GAMEPLAY ---
         function startAiGame() {
             isOnline = false; playerSym = 'X'; aiSym = 'O';
             size = parseInt(document.getElementById('board-size-select').value);
@@ -167,7 +248,7 @@ function startTournamentTimer(mins) {
                 for(let c=0; c<size; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.onclick = () => onMove(r, c); // Dùng onclick cho đơn giản và ổn định
+                    cell.onclick = () => onMove(r, c);
                     boardEl.appendChild(cell);
                 }
             }
@@ -203,7 +284,6 @@ function startTournamentTimer(mins) {
             if(win) endGame(sym, win);
         }
 
-        // --- 3. AI THÔNG MINH (Đã tối ưu) ---
         function aiTurn() {
             if(gameOver) return;
             const lvl = parseInt(document.getElementById('ai-level-select').value);
@@ -306,76 +386,35 @@ function startTournamentTimer(mins) {
                 statusEl.textContent = "🏆 BẠN THẮNG!";
                 confetti();
                 const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-  if (winner === playerSym) {
-    statusEl.textContent = "🏆 BẠN THẮNG!";
-    confetti();
-    const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-    
-    // Luôn gửi kết quả (cả Online và Offline)
-    await fetch('/api/game/caro-win', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ 
-            level: parseInt(document.getElementById('ai-level-select').value),
-            timeTaken: timeSpent,
-            tournamentRoomId: roomName // Gửi mã phòng để Server cập nhật giải đấu
-        }) 
-    });
-    setTimeout(() => alert(`Thắng trong ${timeSpent} giây!`), 500);
-}
+                
+                await fetch('/api/game/caro-win', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ 
+                        level: parseInt(document.getElementById('ai-level-select').value),
+                        timeTaken: timeSpent,
+                        tournamentRoomId: roomName 
+                    }) 
+                });
+                setTimeout(() => alert(`Thắng trong ${timeSpent} giây!`), 500);
             } else {
                 statusEl.textContent = "😢 MÁY THẮNG!";
             }
         }
 
-        // --- 4. ONLINE ---
-        let roomName = "";
-        function connectSocket() {
-            if(!socket) {
-                socket = io();
-                
-                socket.on('roomCreated', (id) => {
-                    roomName = id;
-                    document.getElementById('room-code').value = id;
-                    statusEl.textContent = `Mã phòng: ${id} (Đợi...)`;
-                });
-
-                socket.on('matchFound', (data) => {
-                    isOnline = true; roomName = data.room;
-                    playerSym = data.role === 'O' ? 'O' : 'X'; 
-                    aiSym = playerSym === 'X' ? 'O' : 'X';
-                    isMyTurn = data.yourTurn;
-                    size = 20; 
-                    gameStartTime = Date.now();
-                    startGame();
-                    startTournamentTimer(data.matchDuration || 10);
-                });
-
-                socket.on('opponentMove', (d) => {
-                    makeMove(d.r, d.c, aiSym);
-                    if(!gameOver) { isMyTurn = true; statusEl.textContent = "Lượt của bạn!"; }
-                });
-                
-                socket.on('notification', (msg) => alert(msg));
-            }
-        }
-
-        // === ĐÃ SỬA LẠI CÁC HÀM NÀY ĐÚNG LOGIC ===
+        // --- BUTTON ACTIONS ---
         window.createRoom = () => { 
-            connectSocket(); 
-            socket.emit('createCaroRoom'); // Gọi đúng lệnh tạo phòng Caro
+            socket.emit('createCaroRoom'); 
             statusEl.textContent = "Đang tạo..."; 
         };
         
         window.joinRoom = () => {
             const code = document.getElementById('room-code').value.toUpperCase();
             if(!code) return alert("Vui lòng nhập mã phòng!");
-            connectSocket();
-            socket.emit('joinCaroRoom', code); // Gọi đúng lệnh vào phòng Caro
+            socket.emit('joinCaroRoom', code);
             statusEl.textContent = "Đang vào...";
         };
 
         window.findRandomMatch = () => { 
-            connectSocket(); 
             socket.emit('findMatch', 'caro'); 
             statusEl.textContent = "Đang tìm đối thủ..."; 
         };
@@ -391,19 +430,8 @@ function startTournamentTimer(mins) {
                 statusEl.textContent = "Đã đi lại!";
             }
         }
-socket.on('gameOver', (data) => {
-    gameOver = true;
-    boardEl.classList.add('game-over');
-    clearInterval(matchTimer);
-    
-    if(data.reason === 'timeout') {
-        const isMe = data.loser === localStorage.getItem('currentUser');
-        alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
-    }
-    location.href = 'giai-dau.html'; // Quay lại trang giải đấu để xem bảng đấu mới
-});
-        init();
 
+        init();
     </script>
-    </body>
+</body>
 </html>

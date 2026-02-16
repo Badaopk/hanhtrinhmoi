@@ -59,7 +59,17 @@
         .top-1 { color: #d35400; background: #fff4d1; }
 
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+/* --- STYLE CHO THÔNG BÁO (Mới thêm) --- */
+    .match-notification {
+        position: fixed; top: 20px; right: 20px; width: 320px;
+        background: white; border-left: 10px solid #f1c40f;
+        padding: 20px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        z-index: 10001; animation: slideIn 0.5s ease-out forwards; color: #333; font-family: 'Baloo 2', cursive;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .notif-btn { width: 100%; margin-top: 10px; background: #2ecc71; color: white; border: none; padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold; }
     </style>
+<script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="my-home-bg">
 
@@ -91,6 +101,35 @@
     </div>
 
     <script>
+// --- KHỞI TẠO SOCKET NHẬN THÔNG BÁO ---
+    const socket = io();
+
+    // 1. Nhắc lịch thi đấu (Hiện 30s)
+    socket.on('matchNotice', (data) => {
+        const notif = document.createElement('div');
+        notif.className = 'match-notification';
+        notif.innerHTML = `
+            <h3 style="margin:0; color:#e67e22;">${data.title}</h3>
+            <p style="margin:10px 0; font-size:0.9rem;">${data.message}</p>
+            <button class="notif-btn" onclick="window.location.href='giai-dau.html'">🏟️ ĐẾN SÂN VẬN ĐỘNG</button>
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 300000);
+    });
+
+    // 2. Thông báo từ Admin (Hiện 15s)
+    socket.on('adminNotification', (data) => {
+        const notif = document.createElement('div');
+        notif.className = 'match-notification';
+        notif.style.borderLeftColor = '#8e44ad';
+        notif.innerHTML = `
+            <h3 style="margin:0; color:#8e44ad;">📢 ${data.title}</h3>
+            <p style="margin:10px 0; font-weight: bold;">${data.message}</p>
+            <button class="notif-btn" style="background:#8e44ad" onclick="this.parentElement.remove()">ĐÃ HIỂU</button>
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 300000);
+    });
         // --- CẤU HÌNH DANH HIỆU (10 Cấp/Danh hiệu) ---
         const GAME_TITLES = {
             xuongVe: { 

@@ -317,74 +317,116 @@ app.post('/api/admin/finish-tournament', async (req, res) => {
 });
 // Admin chốt danh sách và chia bảng
 // Admin chốt danh sách - Hệ thống tự chọn thể thức thông minh
+// --- LOGIC CHỐT GIẢI & LẬP LỊCH THÔNG MINH (CÓ GIỚI HẠN GIỜ) ---
 app.post('/api/admin/start-tournament', async (req, res) => {
     const tourney = await Tournament.findOne({ status: 'open' });
     if (!tourney || tourney.participants.length < 2) return res.status(400).json({ message: "Không đủ người!" });
 
-    const { durationDays } = req.body; // Lấy số ngày từ Admin
+    // Nhận thêm tham số giờ bắt đầu/kết thúc trong ngày
+    const { durationDays, dailyStartHour, dailyEndHour } = req.body;
+    
+    const startH = dailyStartHour || 8;  // Mặc định 8h sáng
+    const endH = dailyEndHour || 18;    // Mặc định 18h tối
+    const days = durationDays || 7;
+
     const players = [...tourney.participants].sort(() => Math.random() - 0.5);
     const count = players.length;
     
-    // Tính toán tổng thời gian (ms)
-    const totalTime = durationDays * 24 * 60 * 60 * 1000;
-    const startTimeBase = Date.now() + (60 * 60 * 1000); // Trận đầu tiên bắt đầu sau 1 tiếng nữa
+    // --- HÀM PHỤ TRỢ TÍNH GIỜ ĐẤU ---
+    // matchIndex: Trận thứ mấy (0, 1, 2...)
+    // totalMatches: Tổng số trận cần tổ chức
+    function getSmartSchedule(matchIndex, totalMatches) {
+        // 1. Mỗi ngày tổ chức bao nhiêu trận?
+        const matchesPerDay = Math.ceil(totalMatches / days);
+        
+        // 2. Trận này rơi vào ngày thứ mấy (0, 1, 2...)?
+        const dayIndex = Math.floor(matchIndex / matchesPerDay);
+        
+        // 3. Trận này là trận thứ mấy trong ngày đó?
+        const matchInDayIndex = matchIndex % matchesPerDay;
+
+        // 4. Tính khoảng cách giữa các trận trong khung giờ cho phép
+        // Ví dụ: 8h-18h = 10 tiếng = 600 phút. Có 10 trận => Cách nhau 60 phút.
+        const availableMinutes = (endH - startH) * 60;
+        const intervalMinutes = availableMinutes / (matchesPerDay + 1); // +1 để thưa ra chút
+
+        // 5. Tạo thời gian
+        let scheduleDate = new Date();
+        scheduleDate.setDate(scheduleDate.getDate() + dayIndex + 1); // Bắt đầu từ ngày mai
+        scheduleDate.setHours(startH, 0, 0, 0); // Đặt giờ về mốc bắt đầu (ví dụ 8:00:00)
+        
+        // Cộng thêm phút
+        scheduleDate.setMinutes(scheduleDate.getMinutes() + (matchInDayIndex + 1) * intervalMinutes);
+
+        return scheduleDate;
+    }
 
     let allMatches = [];
-    // Giả sử tính toán tổng số trận (ví dụ cho Knockout hoặc Group)
-    // Thuật toán: Giờ bắt đầu trận i = startTimeBase + (i * khoảng cách giữa các trận)
 
     if (count > 8) {
+        // --- THỂ THỨC VÒNG BẢNG ---
         tourney.phase = 'groups';
         let groupCount = Math.ceil(count / 4);
-        let allGroupMatches = [];
+        let brackets = [];
+        let allGroupMatchesList = [];
 
-        // Tạo danh sách tất cả các trận đấu trước để tính tổng số trận
+        // Bước 1: Tạo trước danh sách tất cả các cặp đấu để đếm tổng số trận
         for (let g = 0; g < groupCount; g++) {
             let members = players.slice(g * 4, (g + 1) * 4);
             for (let i = 0; i < members.length; i++) {
                 for (let j = i + 1; j < members.length; j++) {
-                    allGroupMatches.push({ g, p1: members[i], p2: members[j] });
+                    allGroupMatchesList.push({ g: g, p1: members[i], p2: members[j] });
                 }
             }
         }
 
-        // Tính khoảng cách thời gian dựa trên tổng số trận
-        const interval = totalTime / (allGroupMatches.length + 1);
-        let matchIdx = 0;
+        // Bước 2: Gán giờ cho từng trận
+        let matchCounter = 0;
+        const totalMatches = allGroupMatchesList.length;
 
         for (let g = 0; g < groupCount; g++) {
-            let membersInGroup = players.slice(g * 4, (g + 1) * 4);
-            let groupMatches = allGroupMatches.filter(m => m.g === g).map(m => {
+            let members = players.slice(g * 4, (g + 1) * 4);
+            // Lọc ra các trận của bảng này
+            let matchesInThisGroup = allGroupMatchesList.filter(m => m.g === g).map(m => {
+                const scheduledTime = getSmartSchedule(matchCounter++, totalMatches);
                 return {
-                    matchId: `G-${++matchIdx}`,
+                    matchId: `G-${matchCounter}`,
                     p1: m.p1, p2: m.p2, winner: null,
-                    startTime: new Date(startTimeBase + matchIdx * interval)
+                    startTime: scheduledTime
                 };
             });
-            brackets.push({ groupName: `Bảng ${String.fromCharCode(65 + g)}`, members: membersInGroup, matches: groupMatches });
+            brackets.push({ groupName: `Bảng ${String.fromCharCode(65 + g)}`, members, matches: matchesInThisGroup });
         }
         tourney.brackets = brackets;
-    
-      } else {
+
+    } else {
+        // --- THỂ THỨC KNOCKOUT ---
         tourney.phase = 'knockout';
-        const matchCount = Math.floor(count / 2);
-        const interval = totalTime / (matchCount + 1);
+        const totalMatches = Math.floor(count / 2); // Tổng số trận vòng này
 
         for (let i = 0; i < count; i += 2) {
+            const matchIndex = i / 2;
+            const scheduledTime = getSmartSchedule(matchIndex, totalMatches);
+            
             allMatches.push({
                 matchId: `KO-${i}`,
                 p1: players[i],
                 p2: players[i+1] || "BYE",
                 winner: players[i+1] ? null : players[i],
-                startTime: new Date(startTimeBase + (i/2) * interval) // Gán giờ tự động
+                startTime: scheduledTime
             });
         }
         tourney.brackets = allMatches;
     }
 
     tourney.status = 'playing';
+    tourney.durationDays = days; // Lưu lại để dùng nếu cần
     await tourney.save();
-    res.json({ message: "Đã lập lịch giải đấu thành công!" });
+    
+    // Gửi thông báo cho toàn server
+    io.emit('adminNotification', { title: '📣 GIẢI ĐẤU BẮT ĐẦU', message: 'Lịch thi đấu đã được công bố! Hãy kiểm tra giờ thi đấu của bạn.' });
+    
+    res.json({ message: `Đã lập lịch thành công! Khung giờ: ${startH}h - ${endH}h trong ${days} ngày.` });
 });
 app.post('/api/admin/advance-to-knockout', async (req, res) => {
     const tourney = await Tournament.findOne({ status: 'playing', phase: 'groups' });
