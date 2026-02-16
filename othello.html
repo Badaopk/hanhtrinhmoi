@@ -404,7 +404,7 @@ function startTournamentTimer(mins) {
                         headers: {'Content-Type':'application/json'}, 
                         body: JSON.stringify({
                             level: isAiMode ? parseInt(document.getElementById('ai-level').value) : 0,
-                            timeTaken: timeSpent
+                            timeTaken: timeSpent,
                             tournamentRoomId: currentRoom
                         }) 
                     });

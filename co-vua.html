@@ -430,7 +430,7 @@ function startTournamentTimer(mins) {
         
         socket.on('matchFound', (data) => {
             currentMode = 'pvp'; switchMode('pvp');   
-            isPVP = true; isGameActive = true; selectedSquare = null; removeHighlights();
+            isGameActive = true; selectedSquare = null; removeHighlights();
             currentRoom = data.room; myRole = data.role;
             game.reset(); board.start(); 
             board.orientation(myRole === 'w' ? 'white' : 'black');
@@ -466,7 +466,7 @@ socket.on('gameOver', (data) => {
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({ 
                                     playedLevel: currentPlayingLevel,
-                                    timeTaken: timeSpent // <--- THÊM BIẾN NÀY VÀO ĐÂY
+                                    timeTaken: timeSpent, // <--- THÊM BIẾN NÀY VÀO ĐÂY
                                     tournamentRoomId: currentRoom
                                 })                            
                             });

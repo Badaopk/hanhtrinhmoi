@@ -174,7 +174,7 @@ function startTournamentTimer(mins) {
             document.getElementById('lvl-display').textContent = userLevel;
             renderLevelOptions();
             resizeCanvas();
-            drawBoard();
+            initGame(13);
             const tourRoom = localStorage.getItem('joinTournamentRoom');
             if (tourRoom) {
                socket.emit('joinGoRoom', tourRoom); // Gọi lệnh joinGoRoom
@@ -507,39 +507,42 @@ function startTournamentTimer(mins) {
             document.getElementById('capture-b').textContent = captures[1];
             document.getElementById('capture-w').textContent = captures[2];
         }
-
-        async function endGameCalculated() {
+async function endGameCalculated() {
             gameActive = false;
             let scoreB = captures[1];
-            let scoreW = captures[2] + 6.5; // Komi
+            let scoreW = captures[2] + 6.5; 
             let winner = scoreB > scoreW ? "Đen" : "Trắng";
             
             alert(`🏁 KẾT THÚC!\n⚫ Đen ăn: ${scoreB}\n⚪ Trắng ăn: ${scoreW}\n🏆 Người thắng: ${winner}`);
 
-            // Gửi điểm nếu mình thắng
             let myRoleStr = myColor === 1 ? "Đen" : "Trắng";
-            if (winner === myRoleStr) {
+            if (winner === myRoleStr) { 
+                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
                 try {
                     await fetch('/api/game/go-win', { 
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ 
                               level: userLevel,
-                              tournamentRoomId: currentRoom // <--- QUAN TRỌNG: Thêm dòng này
+                              timeTaken: timeSpent,
+                              tournamentRoomId: currentRoom 
                         })
                     });
                 } catch(e) {}
             }
             location.reload();
         }
+
+        // Lắng nghe sự kiện từ Server
         socket.on('gameOver', (data) => {
-    clearInterval(matchTimer);
-    if(data.reason === 'timeout') {
-        const isMe = data.loser === localStorage.getItem('currentUser');
-        alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
-    }
-    location.href = 'giai-dau.html';
-});
-        init();
+            clearInterval(matchTimer);
+            if(data.reason === 'timeout') {
+                const isMe = data.loser === localStorage.getItem('currentUser');
+                alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
+            }
+            location.href = 'giai-dau.html';
+        });
+
+        init(); // Chỉ gọi init một lần duy nhất ở đây
     </script>
-</body>
+       </body>
 </html>

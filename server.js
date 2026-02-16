@@ -437,15 +437,17 @@ app.post('/api/tournament/join', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: "Bé cần đăng nhập nhé!" });
     const tourney = await Tournament.findOne({ status: 'open' });
     if (!tourney) return res.status(404).json({ message: "Hiện không có giải nào mở đăng ký." });
-    
-    if (!tourney.participants.includes(req.session.user.username)) {
-        tourney.participants.push(req.session.user.username);
-        await tourney.save();
-        res.json({ message: "Đăng ký thành công! Hãy đợi Admin chia bảng." });
-    } else {
-        res.json({ message: "Bé đã đăng ký rồi mà!" });
-    }
-});
+    const result = await Tournament.updateOne(
+    { status: 'open', participants: { $ne: req.session.user.username } }, // Chỉ update nếu chưa có tên trong mảng
+    { $addToSet: { participants: req.session.user.username } }            // Thêm vào mảng và đảm bảo không trùng
+);
+
+if (result.modifiedCount > 0) {
+    res.json({ message: "Đăng ký thành công! Hãy đợi Admin chia bảng." });
+} else {
+    res.json({ message: "Bé đã đăng ký giải này rồi nhé!" });
+}
+    });
 // --- LOGIC NHIỆM VỤ (Đã sửa để khớp với Database) ---
 // --- 7. API GAME WIN (LƯU ĐIỂM VÀO DB) ---
 function updateQuestProgress(user, taskType, performance = { timeTaken: 0, isWin: true }) {

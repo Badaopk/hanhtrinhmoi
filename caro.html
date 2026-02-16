@@ -306,17 +306,22 @@ function startTournamentTimer(mins) {
                 statusEl.textContent = "🏆 BẠN THẮNG!";
                 confetti();
                 const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-                if(!isOnline) {
-                    await fetch('/api/game/caro-win', {
-                        method: 'POST', headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({ 
-                            level: parseInt(document.getElementById('ai-level-select').value),
-                            timeTaken: timeSpent 
-                            tournamentRoomId: roomName
-                        }) 
-                    });
-                    setTimeout(() => alert(`Thắng trong ${timeSpent} giây!`), 500);
-                }
+  if (winner === playerSym) {
+    statusEl.textContent = "🏆 BẠN THẮNG!";
+    confetti();
+    const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+    
+    // Luôn gửi kết quả (cả Online và Offline)
+    await fetch('/api/game/caro-win', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ 
+            level: parseInt(document.getElementById('ai-level-select').value),
+            timeTaken: timeSpent,
+            tournamentRoomId: roomName // Gửi mã phòng để Server cập nhật giải đấu
+        }) 
+    });
+    setTimeout(() => alert(`Thắng trong ${timeSpent} giây!`), 500);
+}
             } else {
                 statusEl.textContent = "😢 MÁY THẮNG!";
             }
@@ -342,6 +347,7 @@ function startTournamentTimer(mins) {
                     size = 20; 
                     gameStartTime = Date.now();
                     startGame();
+                    startTournamentTimer(data.matchDuration || 10);
                 });
 
                 socket.on('opponentMove', (d) => {
@@ -385,8 +391,19 @@ function startTournamentTimer(mins) {
                 statusEl.textContent = "Đã đi lại!";
             }
         }
-
+socket.on('gameOver', (data) => {
+    gameOver = true;
+    boardEl.classList.add('game-over');
+    clearInterval(matchTimer);
+    
+    if(data.reason === 'timeout') {
+        const isMe = data.loser === localStorage.getItem('currentUser');
+        alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
+    }
+    location.href = 'giai-dau.html'; // Quay lại trang giải đấu để xem bảng đấu mới
+});
         init();
+
     </script>
     </body>
 </html>
