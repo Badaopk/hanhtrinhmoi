@@ -305,17 +305,31 @@ app.post('/api/admin/create-tournament', async (req, res) => {
     io.emit('adminNotification', { title: '🏆 GIẢI ĐẤU MỚI', message: `Môn ${gameType.toUpperCase()} đã mở đăng ký!` });
     res.json({ message: "Đã mở giải thành công!" });
 });
+// Admin chốt danh sách và chia bảng
+// (Code Mới - Đã sửa lỗi)
 app.post('/api/admin/finish-tournament', async (req, res) => {
     const { top1, top2, top3 } = req.body;
-    if (top1) await User.updateOne({ username: top1 }, { $inc: { score: 500 } }); // Nhất: 500đ
-    if (top2) await User.updateOne({ username: top2 }, { $inc: { score: 300 } }); // Nhì: 300đ
-    if (top3) await User.updateOne({ username: top3 }, { $inc: { score: 100 } }); // Ba: 100đ
     
-    await Tournament.updateOne({ status: 'playing' }, { $set: { status: 'finished', winners: { top1, top2, top3 } } });
-    io.emit('adminNotification', { title: '🏁 GIẢI KẾT THÚC', message: `Chúc mừng quán quân: ${top1}!` });
-    res.json({ message: "Đã trao thưởng thành công!" });
+    // Cộng điểm cho người thắng
+    if (top1) await User.updateOne({ username: top1 }, { $inc: { score: 500 } }); 
+    if (top2) await User.updateOne({ username: top2 }, { $inc: { score: 300 } }); 
+    if (top3) await User.updateOne({ username: top3 }, { $inc: { score: 100 } }); 
+    
+    // --- SỬA Ở DÒNG DƯỚI ĐÂY ---
+    // Cập nhật trạng thái thành 'finished' cho bất kỳ giải nào chưa kết thúc (đang open hoặc playing)
+    await Tournament.updateOne(
+        { status: { $ne: 'finished' } }, 
+        { $set: { status: 'finished', winners: { top1, top2, top3 } } }
+    );
+    
+    // Gửi thông báo
+    io.emit('adminNotification', { title: '🏁 GIẢI KẾT THÚC', message: `Chúc mừng quán quân: ${top1 || 'Ẩn danh'}!` });
+    
+    // Gửi tín hiệu cập nhật giao diện ngay lập tức
+    io.emit('tournamentUpdated');
+
+    res.json({ message: "Đã trao thưởng và đóng giải đấu thành công!" });
 });
-// Admin chốt danh sách và chia bảng
 // Admin chốt danh sách - Hệ thống tự chọn thể thức thông minh
 // --- LOGIC CHỐT GIẢI & LẬP LỊCH THÔNG MINH (CÓ GIỚI HẠN GIỜ) ---
 app.post('/api/admin/start-tournament', async (req, res) => {
