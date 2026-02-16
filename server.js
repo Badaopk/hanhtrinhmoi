@@ -1049,7 +1049,8 @@ if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
         io.to(roomId).emit('lobbyUpdate', {
             roomId: roomId,
             players: room.players,
-            isHost: socket.id === room.hostId
+            hostId: room.hostId
+
         });
     }
 
@@ -1148,27 +1149,22 @@ if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
             const d2 = Math.floor(Math.random() * 6) + 1;
             
             io.to(roomId).emit('diceRolled', { d1, d2 });
-            
-            // Logic di chuyển trong monopoly-logic.js
-            const moveRes = game.movePlayer(d1 + d2);
-            
+                                   
             // Gửi cập nhật vị trí
-            io.to(roomId).emit('monopolyUpdate', {
-                roomId: roomId,
-                gameState: 'playing',
-                players: game.players, // Gửi lại toàn bộ danh sách để cập nhật vị trí/tiền
-                turnIndex: game.turnIndex,
-                logs: [moveRes.message]
-            });
+            const moveRes = game.movePlayer(d1 + d2); 
 
-            if (moveRes.action === 'buy') {
-                socket.emit('askBuyProperty', moveRes.data);
-            } else if (moveRes.action === 'payRent') {
-                // Tiền đã trừ trong logic movePlayer, chỉ cần cập nhật UI
-                io.to(roomId).emit('enableEndTurn');
-            } else {
-                io.to(roomId).emit('enableEndTurn');
-            }
+        io.to(roomId).emit('monopolyUpdate', {
+            players: game.players,
+            turnIndex: game.turnIndex,
+            propertyHouses: game.propertyHouses,
+            logs: [moveRes.message] // Giờ đây message đã có dữ liệu
+        });
+
+        if (moveRes.action === 'buy') {
+            socket.emit('askBuyProperty', moveRes.player.position); // Gửi vị trí ô đất
+        } else {
+            io.to(roomId).emit('enableEndTurn');
+        }
         }
     });
 
@@ -1228,6 +1224,72 @@ if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
             delete monopolyGames[roomId];
         }
     });
+socket.on('buildHouse', ({ roomId, tileId }) => {
+        const room = monopolyGames[roomId];
+        if (room && room.gameLogic) {
+            const game = room.gameLogic;
+            if (game.buildHouse(tileId)) {
+                io.to(roomId).emit('monopolyUpdate', { 
+                    players: game.players, 
+                    propertyHouses: game.propertyHouses,
+                    logs: [`🏗️ ${game.getCurrentPlayer().username} đã xây nhà tại ô ${tileId}`]
+                });
+                socket.emit('buildSuccess', "Xây nhà thành công!");
+            } else {
+                socket.emit('errorMsg', "Bé chưa đủ điều kiện xây nhà ở đây!");
+            }
+        }
+    });
+// --- BỘ MÁY ĐẤU GIÁ ---
+    socket.on('startAuction', ({ roomId, tileId }) => {
+        const room = monopolyGames[roomId];
+        const tile = boardData[tileId];
+        room.auction = {
+            tileId,
+            highestBid: 10, // Giá khởi điểm
+            highestBidder: null,
+            timer: 10 // 10 giây đếm ngược
+        };
+        io.to(roomId).emit('auctionStarted', { tile, auction: room.auction });
+        
+        // Chạy bộ đếm ngược đấu giá
+        const auctionInt = setInterval(() => {
+            room.auction.timer--;
+            io.to(roomId).emit('auctionTimer', room.auction.timer);
+
+            if (room.auction.timer <= 0) {
+                clearInterval(auctionInt);
+                endAuction(roomId);
+            }
+        }, 1000);
+    });
+
+    socket.on('placeBid', ({ roomId, bidAmount }) => {
+        const room = monopolyGames[roomId];
+        if (bidAmount > room.auction.highestBid) {
+            room.auction.highestBid = bidAmount;
+            room.auction.highestBidder = socket.request.session.user.username;
+            room.auction.timer = 6; // Reset lại 6 giây mỗi khi có người trả giá mới
+            io.to(roomId).emit('auctionUpdate', room.auction);
+        }
+    });
+
+    async function endAuction(roomId) {
+        const room = monopolyGames[roomId];
+        const { tileId, highestBid, highestBidder } = room.auction;
+        if (highestBidder) {
+            const game = room.gameLogic;
+            const winner = game.players.find(p => p.username === highestBidder);
+            if (winner && winner.money >= highestBid) {
+                winner.money -= highestBid;
+                game.boardState[tileId] = winner.id;
+                game.log(`🔨 Đấu giá: ${highestBidder} đã mua ${boardData[tileId].name} với giá $${highestBid}`);
+                io.to(roomId).emit('monopolyUpdate', { players: game.players, logs: game.logs });
+            }
+        }
+        io.to(roomId).emit('auctionEnded');
+        delete room.auction;
+    }
     // --- DISCONNECT ---
     socket.on('disconnecting', () => {
         // Xóa khỏi hàng chờ

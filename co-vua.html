@@ -436,7 +436,7 @@ function startTournamentTimer(mins) {
             board.orientation(myRole === 'w' ? 'white' : 'black');
             document.getElementById('pvp-room-info').textContent = "Đang thi đấu";
             document.getElementById('pvp-status').textContent = myRole === 'w' ? "Bạn đi trước" : "Bạn đi sau";
-            startTournamentTimer(data.matchDuration || 10);
+            startTournamentTimer(data.matchDuration || 30);
         });
 
         socket.on('move', (move) => {

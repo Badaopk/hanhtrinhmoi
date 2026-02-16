@@ -1,25 +1,24 @@
 // File: monopoly-logic.js
-// Logic xử lý game Cờ Tỷ Phú
-
 const { boardData } = require('./monopoly-data.js');
 
 class MonopolyGame {
     constructor(roomId) {
         this.roomId = roomId;
-        this.players = []; // Danh sách người chơi
-        this.boardState = {}; // Trạng thái ô đất (ai sở hữu?)
-        this.turnIndex = 0; // Lượt của ai (0, 1, 2...)
-        this.logs = []; // Lịch sử ván đấu
-        this.state = 'waiting'; // waiting, playing, ended
+        this.players = []; 
+        this.boardState = {};    // Lưu chủ sở hữu ô đất {vị_trí: id_người_chơi}
+        this.propertyHouses = {}; // QUAN TRỌNG: Lưu số nhà trên từng ô {vị_trí: số_nhà}
+        this.turnIndex = 0; 
+        this.logs = []; 
+        this.state = 'waiting'; 
     }
 
     addPlayer(id, username) {
         if (this.state !== 'waiting') return null;
-        const color = ['red', 'blue', 'green', 'yellow'][this.players.length % 4];
+        const color = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'pink'][this.players.length % 8];
         const newPlayer = {
             id,
             username,
-            money: 1500, // Tiền khởi điểm
+            money: 1500, 
             position: 0,
             color: color,
             isJailed: false,
@@ -46,6 +45,7 @@ class MonopolyGame {
     nextTurn() {
         this.turnIndex = (this.turnIndex + 1) % this.players.length;
         this.log(`👉 Chuyển lượt sang: ${this.getCurrentPlayer().username}`);
+        return this.getCurrentPlayer();
     }
 
     rollDice() {
@@ -58,24 +58,25 @@ class MonopolyGame {
     movePlayer(steps) {
         const player = this.getCurrentPlayer();
         
-        // Kiểm tra tù
         if (player.isJailed) {
-            this.log(`${player.username} đang ở tù, mất lượt.`);
             player.jailTurns--;
-            if (player.jailTurns <= 0) player.isJailed = false;
-            return { moved: false, newPos: player.position };
+            if (player.jailTurns <= 0) {
+                player.isJailed = false;
+                this.log(`🔓 ${player.username} đã hết hạn tù và được tự do!`);
+            } else {
+                return { action: 'msg', message: `${player.username} đang ở tù, mất lượt.` };
+            }
         }
 
         const oldPos = player.position;
         player.position = (player.position + steps) % 40;
 
-        // Đi qua Bắt Đầu (GO) nhận 200
         if (player.position < oldPos) {
             player.money += 200;
-            this.log(`💰 ${player.username} đi qua Bắt Đầu, nhận $200.`);
+            this.log(`💰 ${player.username} nhận $200 khi qua Bắt Đầu.`);
         }
 
-        return { moved: true, newPos: player.position };
+        return this.handleLanding(player.position);
     }
 
     handleLanding(pos) {
@@ -83,20 +84,18 @@ class MonopolyGame {
         const cell = boardData[pos];
         const ownerId = this.boardState[pos];
 
-        let action = null; // 'buy', 'rent', 'tax', 'chance', 'none'
-        let message = `Bạn đang ở ${cell.name}.`;
+        let action = null; 
+        let message = `Bé đang ở ${cell.name}.`;
 
         if (cell.type === 'property' || cell.type === 'railroad' || cell.type === 'utility') {
             if (!ownerId) {
-                // Đất trống -> Có thể mua
                 if (player.money >= cell.price) {
                     action = 'buy';
-                    message = `Đất trống! Giá $${cell.price}. Mua không?`;
+                    message = `Đất trống! Giá $${cell.price}. Mua không bé?`;
                 } else {
-                    message = `Đất trống nhưng bạn không đủ tiền ($${cell.price}).`;
+                    message = `Đất trống nhưng bé không đủ tiền mua ($${cell.price}).`;
                 }
             } else if (ownerId !== player.id) {
-                // Đất người khác -> Trả tiền thuê
                 const rent = this.calculateRent(pos);
                 player.money -= rent;
                 const owner = this.players.find(p => p.id === ownerId);
@@ -104,31 +103,31 @@ class MonopolyGame {
                 
                 action = 'rent_paid';
                 this.log(`💸 ${player.username} trả $${rent} tiền thuê cho ${owner.username}.`);
-                message = `Bạn đã trả $${rent} tiền thuê nhà.`;
+                message = `Bé đã trả $${rent} tiền thuê nhà cho bạn ${owner.username}.`;
             }
         } 
         else if (cell.type === 'tax') {
             player.money -= cell.price;
             this.log(`💸 ${player.username} đóng thuế $${cell.price}.`);
-            message = `Bạn bị trừ $${cell.price} tiền thuế.`;
+            message = `Bé bị trừ $${cell.price} tiền thuế Hành tinh.`;
         }
         else if (cell.type === 'gotojail') {
-            player.position = 10; // Chuyển về ô Thăm Tù
+            player.position = 10; 
             player.isJailed = true;
             player.jailTurns = 3;
-            this.log(`👮 ${player.username} bị bắt vào tù!`);
-            message = "Bạn đã bị bắt vào tù!";
+            this.log(`👮 ${player.username} bị cảnh sát bắt vào tù!`);
+            message = "Ôi không! Bé đã bị bắt vào tù!";
         }
         else if (cell.type === 'chance' || cell.type === 'community') {
             const luck = Math.random();
             if (luck > 0.5) {
-                player.money += 50;
-                this.log(`🍀 ${player.username} nhặt được $50.`);
-                message = "May mắn! Bạn nhặt được $50.";
+                player.money += 100;
+                this.log(`🍀 ${player.username} nhặt được rương kim cương: +$100.`);
+                message = "May mắn quá! Bé được tặng $100.";
             } else {
-                player.money -= 30;
-                this.log(`⚠️ ${player.username} bị phạt $30.`);
-                message = "Xui xẻo! Bạn bị phạt $30.";
+                player.money -= 50;
+                this.log(`⚠️ ${player.username} làm hỏng phi thuyền: -$50.`);
+                message = "Xui xẻo rồi! Bé bị phạt $50.";
             }
         }
 
@@ -143,7 +142,7 @@ class MonopolyGame {
             player.money -= cell.price;
             this.boardState[pos] = player.id;
             player.properties.push(pos);
-            this.log(`🏠 ${player.username} đã mua ${cell.name}.`);
+            this.log(`🏠 ${player.username} đã mua khu đất ${cell.name}.`);
             return true;
         }
         return false;
@@ -151,8 +150,55 @@ class MonopolyGame {
 
     calculateRent(pos) {
         const cell = boardData[pos];
-        // Logic đơn giản: 10% giá đất
+        const houses = this.propertyHouses[pos] || 0;
+
+        if (cell.type === 'property' && cell.rent) {
+            return cell.rent[houses]; 
+        }
+        
+        if (cell.type === 'railroad') {
+            const ownerId = this.boardState[pos];
+            const count = boardData.filter((t, i) => t.type === 'railroad' && this.boardState[i] === ownerId).length;
+            return [25, 50, 100, 200][count - 1] || 25;
+        }
+
         return Math.floor(cell.price * 0.1); 
+    }
+
+    canBuildHouse(playerId, tileId) {
+        const cell = boardData[tileId];
+        if (cell.type !== 'property') return false;
+        if (this.boardState[tileId] !== playerId) return false;
+
+        const sameGroupTiles = boardData.filter(t => t.group === cell.group);
+        const ownsAll = sameGroupTiles.every(t => this.boardState[t.id] === playerId);
+        if (!ownsAll) return false;
+
+        const currentHouses = this.propertyHouses[tileId] || 0;
+        if (currentHouses >= 5) return false; 
+
+        // Quy tắc xây đều
+        for (let t of sameGroupTiles) {
+            const otherHouses = this.propertyHouses[t.id] || 0;
+            if (currentHouses > otherHouses) return false; 
+        }
+        return true;
+    }
+
+    buildHouse(tileId) {
+        const player = this.getCurrentPlayer();
+        const tile = boardData[tileId];
+
+        if (this.canBuildHouse(player.id, tileId)) {
+            if (player.money < tile.housePrice) return false;
+            
+            player.money -= tile.housePrice;
+            this.propertyHouses[tileId] = (this.propertyHouses[tileId] || 0) + 1;
+            
+            this.log(`🏗️ ${player.username} đã nâng cấp thêm nhà tại ${tile.name}.`);
+            return true;
+        }
+        return false;
     }
 
     log(msg) {
