@@ -22,9 +22,27 @@ const PORT = process.env.PORT || 3000;
 
 // --- 2. KẾT NỐI MONGODB ---
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ Đã kết nối MongoDB thành công!"))
-    .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
+    .then(async () => {
+        console.log("✅ Đã kết nối MongoDB thành công!");
 
+        // --- TỰ ĐỘNG KHỞI TẠO ADMIN NẾU CHƯA CÓ ---
+        try {
+            const adminExists = await User.findOne({ username: 'Admin' });
+            if (!adminExists) {
+                const hashedPassword = await bcrypt.hash('Quoc2007@', 10);
+                const admin = new User({
+                    username: 'Admin',
+                    password: hashedPassword,
+                    role: 'admin'
+                });
+                await admin.save();
+                console.log("🚀 Đã tự động tạo tài khoản Admin mặc định (Quoc2007@).");
+            }
+        } catch (error) {
+            console.error("❌ Lỗi khi kiểm tra/tạo Admin:", error);
+        }
+    })
+    .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
 // Schema User (Đầy đủ trường dữ liệu cũ)
 const userSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
