@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Vua Phục Kích - 100 Cấp Độ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -11,26 +12,34 @@
         .game-layout { display: flex; gap: 30px; justify-content: center; padding: 20px; flex-wrap: wrap; }
         
         .board-container { background: #145a32; padding: 15px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 8px solid #0b3d21; }
-        .othello-grid { display: grid; grid-template-columns: repeat(8, 50px); grid-template-rows: repeat(8, 50px); background: #0b3d21; gap: 2px; }
+        .othello-grid { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); background: #0b3d21; gap: 2px; }
         
-        .cell { width: 50px; height: 50px; background: #2ecc71; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+        .cell { width: 45px; height: 45px; background: #2ecc71; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
         .cell:hover { background: #27ae60; }
-        .cell.valid-move::after { content: ''; width: 10px; height: 10px; background: rgba(0,0,0,0.2); border-radius: 50%; }
+        .cell.valid-move::after { content: ''; width: 12px; height: 12px; background: rgba(0,0,0,0.3); border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); }
 
-        .piece { width: 40px; height: 40px; border-radius: 50%; transition: transform 0.4s, background-color 0.4s; box-shadow: 0 4px 5px rgba(0,0,0,0.3); }
-        .piece.black { background: #222; transform: rotateY(0deg); }
-        .piece.white { background: #fff; transform: rotateY(180deg); }
+        .piece { width: 38px; height: 38px; border-radius: 50%; transition: transform 0.4s, background-color 0.4s; box-shadow: 0 3px 5px rgba(0,0,0,0.4); }
+        .piece.black { background: linear-gradient(135deg, #444, #000); }
+        .piece.white { background: linear-gradient(135deg, #fff, #ddd); }
 
         .sidebar { width: 320px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); padding: 25px; border-radius: 20px; text-align: center; }
         .level-badge { background: linear-gradient(45deg, #f1c40f, #e67e22); padding: 15px; border-radius: 15px; margin-bottom: 20px; }
-        .status-box { background: white; color: #333; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
-        .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-family: inherit; font-weight: bold; cursor: pointer; margin-bottom: 10px; color: white; transition: 0.2s; }
-        .score-row { display: flex; justify-content: space-around; font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; }
+        .status-box { background: white; color: #333; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; min-height: 25px;}
+        
+        .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-family: inherit; font-weight: bold; cursor: pointer; margin-bottom: 5px; color: white; transition: 0.2s; }
+        .btn-new { background: #2ecc71; }
+        .btn-online { background: #9b59b6; }
+        .btn-home { background: #7f8c8d; }
+        
+        .score-row { display: flex; justify-content: space-around; font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; }
+        .active-turn { border: 2px solid #f1c40f; box-shadow: 0 0 10px #f1c40f; border-radius: 5px; padding: 0 5px; }
+        
+        input, select { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: none; font-family: inherit; font-weight: bold; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-    <h1 style="text-shadow: 3px 3px 0 #000; margin: 20px 0;">🟢 VUA PHỤC KÍCH (OTHELLO) 🟢</h1>
+    <h1 style="text-shadow: 3px 3px 0 #000; margin: 15px 0;">🟢 VUA PHỤC KÍCH ⚪</h1>
 
     <div class="game-layout">
         <div class="board-container">
@@ -44,19 +53,29 @@
             </div>
 
             <div class="score-row">
-                <span style="color:#000">⚫ <span id="score-b">2</span></span>
-                <span style="color:#fff">⚪ <span id="score-w">2</span></span>
+                <div id="p1-score" class="active-turn"><span style="color:#000">⚫</span> <span id="score-b">2</span></div>
+                <div id="p2-score"><span style="color:#fff">⚪</span> <span id="score-w">2</span></div>
             </div>
 
             <div id="status" class="status-box">Chào mừng bé!</div>
 
             <div id="menu-area">
-                <select id="ai-level" style="width:100%; padding:10px; border-radius:8px; margin-bottom:10px; font-family:inherit; font-weight:bold;"></select>
-                <button class="btn-game" style="background:#2ecc71" onclick="startAiGame()">🤖 Đấu Với Máy</button>
-                <button class="btn-game" style="background:#9b59b6" onclick="findMatch()">🌐 Tìm Trận Online</button>
+                <select id="ai-level"></select>
+                <button class="btn-game btn-new" onclick="startAiGame()">🤖 Đấu Với Máy</button>
+                <button class="btn-game btn-online" onclick="showOnlineMenu()">🌐 Đấu Online</button>
+            </div>
+
+            <div id="online-menu" style="display:none;">
+                <input type="text" id="room-input" placeholder="Nhập mã phòng...">
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-game btn-new" style="flex:1" onclick="createRoom()">Tạo</button>
+                    <button class="btn-game btn-online" style="flex:1" onclick="joinRoom()">Vào</button>
+                </div>
+                <button class="btn-game" style="background:#e67e22" onclick="findRandomMatch()">🎲 Ghép Ngẫu Nhiên</button>
+                <button class="btn-game btn-home" onclick="backToMenu()">Quay lại</button>
             </div>
             
-            <button class="btn-game" style="background:#7f8c8d; margin-top:20px;" onclick="window.location.href='choi-co.html'">🏠 Về Sảnh Cờ</button>
+            <button class="btn-game btn-home" style="margin-top:20px;" onclick="window.location.href='index.html'">🏠 Về Trang Chủ</button>
         </div>
     </div>
 
@@ -66,13 +85,17 @@
         const statusEl = document.getElementById('status');
         let socket = io();
 
-        let board = Array(8).fill(0).map(() => Array(8).fill(0));
-        let turn = 1; // 1: Đen, 2: Trắng
+        let board = [];
+        let turn = 1; // 1: Đen (Đi trước), 2: Trắng
         let userLevel = 1;
         let isOnline = false;
+        let isAiMode = false;
         let myRole = 1; 
+        let currentRoom = null;
+        let validMoves = [];
+        let gameStartTime;
 
-        // --- 1. KHỞI TẠO BÀN CỜ ---
+        // --- 1. KHỞI TẠO ---
         async function init() {
             try {
                 const res = await fetch('/api/user/progress');
@@ -86,34 +109,51 @@
 
         function renderAiLevels() {
             const select = document.getElementById('ai-level');
+            select.innerHTML = '';
             for(let i=1; i<=100; i++) {
                 let opt = document.createElement('option');
                 opt.value = i;
-                opt.textContent = `Thử Thách Cấp ${i} ${i > userLevel ? '(Khóa)' : ''}`;
+                opt.textContent = `Cấp ${i} ${i > userLevel ? '(Khóa)' : ''}`;
                 if(i > userLevel) opt.disabled = true;
                 select.appendChild(opt);
             }
             select.value = userLevel;
         }
 
+        function showOnlineMenu() {
+            document.getElementById('menu-area').style.display = 'none';
+            document.getElementById('online-menu').style.display = 'block';
+        }
+
+        function backToMenu() {
+            document.getElementById('online-menu').style.display = 'none';
+            document.getElementById('menu-area').style.display = 'block';
+        }
+
+        // --- 2. LOGIC GAME CORE ---
         function resetBoard() {
             board = Array(8).fill(0).map(() => Array(8).fill(0));
-            // 4 quân trung tâm mặc định
+            // 4 quân trung tâm
             board[3][3] = 2; board[4][4] = 2;
             board[3][4] = 1; board[4][3] = 1;
             turn = 1;
+            validMoves = getValidMoves(turn);
             renderBoard();
+            updateScores();
         }
 
         function renderBoard() {
             boardEl.innerHTML = '';
-            const validMoves = getValidMoves(turn);
             
             for(let r=0; r<8; r++) {
                 for(let c=0; c<8; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    if(validMoves.some(m => m.r === r && m.c === c)) cell.classList.add('valid-move');
+                    
+                    // Hiển thị gợi ý nước đi (chỉ cho người chơi)
+                    if((!isOnline && !isAiMode) || (isAiMode && turn === 1) || (isOnline && turn === myRole)) {
+                        if(validMoves.some(m => m.r === r && m.c === c)) cell.classList.add('valid-move');
+                    }
                     
                     if(board[r][c] !== 0) {
                         const piece = document.createElement('div');
@@ -125,10 +165,101 @@
                     boardEl.appendChild(cell);
                 }
             }
-            updateScores();
         }
 
-        // --- 2. LOGIC KẸP QUÂN (QUAN TRỌNG) ---
+        function handleCellClick(r, c) {
+            if(isOnline && turn !== myRole) return;
+            if(isAiMode && turn === 2) return; // Máy đang nghĩ
+
+            // Kiểm tra nước đi hợp lệ
+            if (!validMoves.some(m => m.r === r && m.c === c)) return;
+
+            executeMove(r, c, turn);
+
+            if(isOnline) socket.emit('move', { room: currentRoom, move: {r, c} });
+        }
+
+        function executeMove(r, c, player) {
+            const flipList = getPiecesToFlip(r, c, player);
+            board[r][c] = player;
+            flipList.forEach(p => board[p.r][p.c] = player);
+            
+            // Chuyển lượt
+            turn = turn === 1 ? 2 : 1;
+            validMoves = getValidMoves(turn);
+            
+            renderBoard();
+            updateScores();
+
+            // Kiểm tra xem lượt mới có nước đi không
+            if(validMoves.length === 0) {
+                turn = turn === 1 ? 2 : 1; // Quay lại người cũ
+                validMoves = getValidMoves(turn);
+                
+                if(validMoves.length === 0) {
+                    setTimeout(endGame, 500); // Cả 2 đều tắc -> Hết game
+                } else {
+                    statusEl.textContent = `${turn===1?'Trắng':'Đen'} hết nước! ${turn===1?'Đen':'Trắng'} đi tiếp.`;
+                    // Nếu đến lượt máy lại (do người bị tắc)
+                    if(isAiMode && turn === 2) setTimeout(makeAiMove, 1000);
+                }
+            } else {
+                if(isAiMode && turn === 2) setTimeout(makeAiMove, 500);
+            }
+        }
+
+        // --- 3. AI THÔNG MINH (CÂN BẰNG) ---
+        function makeAiMove() {
+            const level = parseInt(document.getElementById('ai-level').value);
+            if (validMoves.length === 0) return;
+
+            let bestMove = validMoves[0];
+            let maxScore = -Infinity;
+
+            // Bảng trọng số (Ưu tiên góc, tránh ô sát góc X)
+            const weights = [
+                [100, -20, 10, 5, 5, 10, -20, 100],
+                [-20, -50, -2, -2, -2, -2, -50, -20],
+                [10, -2, -1, -1, -1, -1, -2, 10],
+                [5, -2, -1, -1, -1, -1, -2, 5],
+                [5, -2, -1, -1, -1, -1, -2, 5],
+                [10, -2, -1, -1, -1, -1, -2, 10],
+                [-20, -50, -2, -2, -2, -2, -50, -20],
+                [100, -20, 10, 5, 5, 10, -20, 100]
+            ];
+
+            validMoves.forEach(m => {
+                let score = 0;
+                
+                // CẤP 1-30: THAM ĂN (GREEDY)
+                if (level <= 30) {
+                    let flips = getPiecesToFlip(m.r, m.c, 2).length;
+                    score = flips + Math.random() * 2; 
+                } 
+                // CẤP 31-100: CHIẾN THUẬT VỊ TRÍ (WEIGHTED)
+                else {
+                    score = weights[m.r][m.c];
+                    // Cấp càng cao càng tính toán kỹ số quân lật được
+                    if (level > 70) score += getPiecesToFlip(m.r, m.c, 2).length * 0.5;
+                }
+
+                if (score > maxScore) { maxScore = score; bestMove = m; }
+            });
+
+            executeMove(bestMove.r, bestMove.c, 2);
+        }
+
+        // --- 4. LOGIC OTHELLO ---
+        function getValidMoves(color) {
+            let moves = [];
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    if(getPiecesToFlip(r, c, color).length > 0) moves.push({r, c});
+                }
+            }
+            return moves;
+        }
+
         function getPiecesToFlip(r, c, color) {
             if (board[r][c] !== 0) return [];
             const opponent = color === 1 ? 2 : 1;
@@ -144,7 +275,6 @@
                     nr += dr; nc += dc;
                 }
                 
-                // Nếu kết thúc đường thẳng bằng quân của mình -> Kẹp thành công
                 if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === color && currentLine.length > 0) {
                     toFlip = toFlip.concat(currentLine);
                 }
@@ -152,82 +282,92 @@
             return toFlip;
         }
 
-        function getValidMoves(color) {
-            let moves = [];
-            for(let r=0; r<8; r++) {
-                for(let c=0; c<8; c++) {
-                    if(getPiecesToFlip(r, c, color).length > 0) moves.push({r, c});
-                }
-            }
-            return moves;
+        // --- 5. ONLINE SOCKET ---
+        function startAiGame() {
+            isAiMode = true; isOnline = false;
+            gameStartTime = Date.now();
+            document.getElementById('menu-area').style.display = 'none';
+            resetBoard();
+            statusEl.textContent = "Bạn (Đen) đi trước";
         }
 
-        function handleCellClick(r, c) {
-            if(isOnline && turn !== myRole) return;
-            
-            const flipList = getPiecesToFlip(r, c, turn);
-            if(flipList.length === 0) return;
-
-            // Đặt quân và lật các quân bị kẹp
-            board[r][c] = turn;
-            flipList.forEach(p => board[p.r][p.c] = turn);
-
-            if(isOnline) socket.emit('move', { room: currentRoom, move: {r, c} });
-            
-            nextTurn();
+        function createRoom() { socket.emit('createOthelloRoom'); }
+        function joinRoom() { 
+            const code = document.getElementById('room-input').value.toUpperCase();
+            if(code) socket.emit('joinOthelloRoom', code); 
+            else alert("Nhập mã phòng!");
+        }
+        function findRandomMatch() { 
+            socket.emit('findMatch', 'othello'); 
+            statusEl.textContent = "Đang tìm đối thủ...";
         }
 
-        function nextTurn() {
-            turn = turn === 1 ? 2 : 1;
-            renderBoard();
+        socket.on('othelloRoomCreated', (id) => {
+            currentRoom = id;
+            statusEl.textContent = `Mã phòng: ${id}. Đợi người vào...`;
+            document.getElementById('online-menu').style.display = 'none';
+        });
 
-            // Kiểm tra xem lượt mới có nước đi không
-            if(getValidMoves(turn).length === 0) {
-                turn = turn === 1 ? 2 : 1; // Bỏ lượt, quay lại người cũ
-                if(getValidMoves(turn).length === 0) return endGame(); // Cả 2 đều ko có nước -> Kết thúc
-                statusEl.textContent = "Một người bị hết đường đi! Bỏ lượt.";
-            }
-
-            if(!isOnline && turn === 2) setTimeout(makeAiMove, 600);
-        }
-
-        // --- 3. AI & GAME END ---
-        function makeAiMove() {
-            const moves = getValidMoves(2);
-            if(moves.length === 0) { nextTurn(); return; }
+        socket.on('matchFound', (data) => {
+            isOnline = true; isAiMode = false;
+            currentRoom = data.room;
+            gameStartTime = Date.now();
             
-            // AI cấp độ bé: Ưu tiên lật nhiều quân nhất (Greedy)
-            let bestMove = moves[0];
-            let maxFlip = -1;
-            moves.forEach(m => {
-                let flips = getPiecesToFlip(m.r, m.c, 2).length;
-                if(flips > maxFlip) { maxFlip = flips; bestMove = m; }
-            });
-            
-            handleCellClick(bestMove.r, bestMove.c);
-        }
+            // Server trả về role: 'b' (chủ) hoặc 'w' (khách) - custom room
+            // Hoặc role: 'O' (đi trước) / 'X' (đi sau) - random match
+            if (data.role === 'b' || data.role === 'O') myRole = 1; // Đen
+            else myRole = 2; // Trắng
 
-        async function endGame() {
-            const b = document.getElementById('score-b').textContent;
-            const w = document.getElementById('score-w').textContent;
-            let msg = b > w ? "Bé thắng (Đen)!" : "Máy thắng (Trắng)!";
-            if(b === w) msg = "Hòa cờ!";
-            
-            alert(`KẾT THÚC!\nĐen: ${b} - Trắng: ${w}\n${msg}`);
-            
-            if(b > w) {
-                confetti();
-                await fetch('/api/game/othello-win', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({level: userLevel}) });
-            }
-            location.reload();
-        }
+            document.getElementById('menu-area').style.display = 'none';
+            document.getElementById('online-menu').style.display = 'none';
+            resetBoard();
+            statusEl.textContent = myRole === 1 ? "Bạn cầm Đen (Đi trước)" : "Bạn cầm Trắng (Đi sau)";
+        });
 
+        socket.on('move', (data) => {
+            executeMove(data.r, data.c, turn);
+        });
+
+        // --- CẬP NHẬT ĐIỂM SỐ & KẾT THÚC ---
         function updateScores() {
             let b=0, w=0;
             board.forEach(row => row.forEach(cell => { if(cell===1) b++; if(cell===2) w++; }));
             document.getElementById('score-b').textContent = b;
             document.getElementById('score-w').textContent = w;
-            statusEl.textContent = `Lượt: ${turn === 1 ? 'Đen' : 'Trắng'}`;
+            
+            document.getElementById('p1-score').classList.toggle('active-turn', turn === 1);
+            document.getElementById('p2-score').classList.toggle('active-turn', turn === 2);
+            
+            if (!isOnline) statusEl.textContent = `Lượt: ${turn === 1 ? 'Đen' : 'Trắng'}`;
+        }
+
+        async function endGame() {
+            const b = parseInt(document.getElementById('score-b').textContent);
+            const w = parseInt(document.getElementById('score-w').textContent);
+            let msg = b > w ? "Bé thắng (Đen)!" : "Máy thắng (Trắng)!";
+            if(b === w) msg = "Hòa cờ!";
+            
+            alert(`KẾT THÚC!\nĐen: ${b} - Trắng: ${w}\n${msg}`);
+            
+            let iWon = (b > w && myRole === 1) || (w > b && myRole === 2);
+            // PVE: myRole mặc định là 1 (Đen)
+            if(isAiMode && b > w) iWon = true;
+
+            if(iWon) {
+                confetti();
+                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+                try {
+                    await fetch('/api/game/othello-win', { 
+                        method: 'POST', 
+                        headers: {'Content-Type':'application/json'}, 
+                        body: JSON.stringify({
+                            level: isAiMode ? parseInt(document.getElementById('ai-level').value) : 0,
+                            timeTaken: timeSpent
+                        }) 
+                    });
+                } catch(e) {}
+            }
+            location.reload();
         }
 
         init();

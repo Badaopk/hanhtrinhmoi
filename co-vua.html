@@ -168,8 +168,20 @@
         let selectedSquare = null; 
 
         try { stockfish = new Worker('stockfish.js'); } catch(e) {}
-
-        // --- HÀM ẢNH SVG CỰC NÉT ---
+        if (stockfish) {
+    stockfish.onmessage = (e) => {
+        if (e.data.includes('bestmove')) {
+            const m = e.data.split(' ')[1];
+            // Thêm kiểm tra nếu game đã kết thúc thì không đi nữa
+            if (isGameActive) {
+                game.move({ from: m.substring(0,2), to: m.substring(2,4), promotion: 'q' });
+                board.position(game.fen());
+                updateStatus();
+            }
+        }
+    };
+}
+                // --- HÀM ẢNH SVG CỰC NÉT ---
         function getPieceImg(piece) {
             const map = {'wP':'plt45','wN':'nlt45','wB':'blt45','wR':'rlt45','wQ':'qlt45','wK':'klt45','bP':'pdt45','bN':'ndt45','bB':'bdt45','bR':'rdt45','bQ':'qdt45','bK':'kdt45'};
             const code = map[piece];
@@ -358,14 +370,7 @@
                 stockfish.postMessage(`setoption name UCI_Elo value ${500 + currentPlayingLevel * 25}`);
                 stockfish.postMessage(`position fen ${game.fen()}`);
                 stockfish.postMessage(`go depth ${depth} movetime ${moveTime}`);
-                stockfish.onmessage = (e) => {
-                    if (e.data.includes('bestmove')) {
-                        const m = e.data.split(' ')[1];
-                        game.move({ from: m.substring(0,2), to: m.substring(2,4), promotion: 'q' });
-                        board.position(game.fen());
-                        updateStatus();
-                    }
-                };
+                
             } else {
                 const moves = game.moves();
                 game.move(moves[Math.floor(Math.random() * moves.length)]);
@@ -394,10 +399,9 @@
             document.getElementById('pvp-status').textContent = myRole === 'w' ? "Bạn đi trước" : "Bạn đi sau";
         });
 
-        socket.on('opponentMove', (move) => {
-            game.move(move); board.position(game.fen()); updateStatus();
+        socket.on('move', (move) => {
+             game.move(move); board.position(game.fen()); updateStatus();
         });
-
         socket.on('opponentLeft', () => { alert("Đối thủ thoát!"); location.reload(); });
 
         async function updateStatus() {

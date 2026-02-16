@@ -37,18 +37,22 @@ const userSchema = new mongoose.Schema({
     history: [{ activity: String, timestamp: { type: Date, default: Date.now } }], 
     quests: { type: Array, default: [] }, 
     playtimeLimitMinutes: { type: Number, default: 0 },
-    // Đầy đủ 11 loại cấp độ game
-    chessLevel: { type: Number, default: 1 },
-    caroLevel: { type: Number, default: 1 },
-    memoryLevel: { type: Number, default: 1 },
-    crosswordLevel: { type: Number, default: 1 },
-    englishSpeechLevel: { type: Number, default: 1 },
-    detectiveLevel: { type: Number, default: 1 },
-    goLevel: { type: Number, default: 1 },
-    othelloLevel: { type: Number, default: 1 },
-    storyLevel: { type: Number, default: 1 },
-    shapeLevel: { type: Number, default: 1 },
-    buildLevel: { type: Number, default: 1 }
+    
+    // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
+    paintingLevel: { type: Number, default: 1 },      // Xưởng vẽ
+    memoryLevel: { type: Number, default: 1 },        // Ghép hình
+    shapeLevel: { type: Number, default: 1 },         // Tạo hình vui nhộn
+    buildLevel: { type: Number, default: 1 },         // Xây dựng ước mơ
+    crosswordLevel: { type: Number, default: 1 },     // Ô chữ
+    detectiveLevel: { type: Number, default: 1 },     // Tìm điểm khác biệt
+    storyLevel: { type: Number, default: 1 },         // Sáng tác truyện
+    vietSpeechLevel: { type: Number, default: 1 },    // Luyện nói Tiếng Việt
+    englishSpeechLevel: { type: Number, default: 1 }, // Luyện nói Tiếng Anh
+    chessLevel: { type: Number, default: 1 },         // Cờ Vua
+    caroLevel: { type: Number, default: 1 },          // Caro
+    goLevel: { type: Number, default: 1 },            // Cờ Vây
+    monopolyLevel: { type: Number, default: 1 },      // Cờ Tỷ Phú
+    othelloLevel: { type: Number, default: 1 }        // Othello
 });
 const User = mongoose.model('User', userSchema);
 // --- 3. CẤU HÌNH MIDDLEWARE ---
@@ -388,6 +392,7 @@ app.post('/api/game/chess-win-level', (req, res) => handleWin(req, res, 'chessLe
 app.post('/api/game/caro-win', (req, res) => handleWin(req, res, 'caroLevel', 20, 'Cờ Caro')); 
 app.post('/api/game/go-win', (req, res) => handleWin(req, res, 'goLevel', 30, 'Cờ Vây'));
 app.post('/api/game/memory-win', (req, res) => handleWin(req, res, 'memoryLevel', 15, 'Ghép Hình'));
+app.post('/api/game/viet-speech-win', (req, res) => handleWin(req, res, 'vietSpeechLevel', 10, 'Luyện Nói Việt'));
 app.post('/api/submit-test', async (req, res) => {
     const { answers } = req.body; 
     let score = Math.floor(Math.random() * 10) + 1; 
@@ -451,7 +456,94 @@ io.on('connection', (socket) => {
             socket.emit('waiting', { message: 'Đang tìm đối thủ...' });
         }
     });
+    // --- BỔ SUNG: LOGIC TẠO PHÒNG & VÀO PHÒNG CỜ VUA ---
+    
+    // 1. Tạo phòng riêng
+    socket.on('createChessRoom', () => {
+        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); // Tạo mã 5 ký tự (VD: X7Z9A)
+        
+        // Lưu thông tin phòng vào bộ nhớ server
+        gameRooms[roomId] = {
+            gameType: 'chess',
+            players: [socket.id],
+            playerNames: { [socket.id]: username },
+            turn: null // Chưa bắt đầu thì chưa có lượt
+        };
+        
+        socket.join(roomId);
+        socket.emit('roomCreated', roomId); // Gửi mã phòng về cho người tạo
+    });
 
+    // 2. Vào phòng bằng mã
+    socket.on('joinChessRoom', (roomId) => {
+        const room = gameRooms[roomId];
+        
+        // Kiểm tra phòng có tồn tại và chưa đầy không
+        if (room && room.players.length < 2 && room.gameType === 'chess') {
+            const opponentId = room.players[0];
+            
+            // Cập nhật thông tin phòng
+            room.players.push(socket.id);
+            room.playerNames[socket.id] = username;
+            room.turn = opponentId; // Chủ phòng đi trước
+            
+            socket.join(roomId);
+
+            // Bắt đầu game cho cả 2 người
+            // Gửi cho người mới vào (Đi sau - Đen)
+            socket.emit('matchFound', { 
+                room: roomId, 
+                role: 'b', // Black
+                opponent: room.playerNames[opponentId],
+                yourTurn: false
+            });
+
+            // Gửi cho chủ phòng (Đi trước - Trắng)
+            io.to(opponentId).emit('matchFound', { 
+                room: roomId, 
+                role: 'w', // White
+                opponent: username,
+                yourTurn: true
+            });
+            
+        } else {
+            // Gửi thông báo lỗi nếu phòng sai
+            socket.emit('notification', '❌ Phòng không tồn tại hoặc đã đầy!');
+        }
+    });
+    // --- LOGIC TẠO PHÒNG & VÀO PHÒNG CARO (MỚI) ---
+    
+    // 1. Tạo phòng Caro
+    socket.on('createCaroRoom', () => {
+        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); 
+        gameRooms[roomId] = {
+            gameType: 'caro',
+            players: [socket.id],
+            playerNames: { [socket.id]: username },
+            turn: null 
+        };
+        socket.join(roomId);
+        socket.emit('roomCreated', roomId); 
+    });
+
+    // 2. Vào phòng Caro
+    socket.on('joinCaroRoom', (roomId) => {
+        const room = gameRooms[roomId];
+        if (room && room.players.length < 2 && room.gameType === 'caro') {
+            const opponentId = room.players[0];
+            room.players.push(socket.id);
+            room.playerNames[socket.id] = username;
+            room.turn = opponentId; 
+            
+            socket.join(roomId);
+
+            // Bắt đầu game: Người tạo đi X (White), Người vào đi O (Black)
+            socket.emit('matchFound', { room: roomId, role: 'O', opponent: room.playerNames[opponentId] });
+            io.to(opponentId).emit('matchFound', { room: roomId, role: 'X', opponent: username });
+        } else {
+            socket.emit('notification', '❌ Phòng không tồn tại hoặc đã đầy!');
+        }
+    });
     // --- LOGIC CARO (KHÔI PHỤC CHI TIẾT) ---
     socket.on('caroMove', ({ room, r, c }) => {
         const gameRoom = gameRooms[room];
@@ -474,107 +566,269 @@ io.on('connection', (socket) => {
             delete gameRooms[roomId];
         }
     });
+    // --- LOGIC CHUYỂN TIẾP NƯỚC ĐI (BẮT BUỘC CHO OTHELLO & CỜ VUA) ---
+    socket.on('move', (data) => {
+        if (data && data.room && data.move) {
+            socket.to(data.room).emit('move', data.move);
+        }
+    });
+    // =========================================================
+    // --- LOGIC CỜ VÂY (GO) - MỚI ---
+    // =========================================================
 
-    // --- LOGIC CỜ VUA / CỜ VÂY (Chuyển tiếp) ---
-    socket.on('move', (data) => socket.to(data.room).emit('move', data.move));
+    // 1. Tạo phòng Cờ Vây (Lưu kích thước bàn)
+    socket.on('createGoRoom', ({ size }) => {
+        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+        gameRooms[roomId] = {
+            gameType: 'go',
+            players: [socket.id],
+            playerNames: { [socket.id]: username },
+            turn: null,
+            size: parseInt(size) || 13 // Lưu kích thước bàn
+        };
+        socket.join(roomId);
+        socket.emit('goRoomCreated', roomId);
+    });
+
+    // 2. Vào phòng Cờ Vây
+    socket.on('joinGoRoom', (roomId) => {
+        const room = gameRooms[roomId];
+        if (room && room.players.length < 2 && room.gameType === 'go') {
+            const opponentId = room.players[0];
+            room.players.push(socket.id);
+            room.playerNames[socket.id] = username;
+            room.turn = opponentId; // Chủ phòng đi trước (Đen)
+            
+            socket.join(roomId);
+
+            // Gửi thông tin bắt đầu (Kèm kích thước bàn của chủ phòng)
+            socket.emit('matchFound', { 
+                room: roomId, role: 'w', // Người vào là Trắng
+                size: room.size,
+                opponent: room.playerNames[opponentId] 
+            });
+            
+            io.to(opponentId).emit('matchFound', { 
+                room: roomId, role: 'b', // Chủ phòng là Đen
+                size: room.size,
+                opponent: username 
+            });
+        } else {
+            socket.emit('notification', '❌ Phòng không tồn tại hoặc đã đầy!');
+        }
+    });
+
+    // 3. Xử lý bỏ lượt (Pass)
+    socket.on('goPass', ({ room }) => {
+        socket.to(room).emit('opponentPassed');
+    });
+
+    // (Giữ nguyên logic move cũ)
     socket.on('goMove', (data) => socket.to(data.room).emit('opponentGoMove', data.move));
+    // =========================================================
+    // --- LOGIC MONOPOLY (CỜ TỶ PHÚ) - HỖ TRỢ 2-8 NGƯỜI ---
+    // =========================================================
 
-    // --- MONOPOLY ---
-    socket.on('joinMonopoly', () => {
-        if (monopolyQueue.includes(socket.id)) return;
-        monopolyQueue.push(socket.id);
+    // Hàm phụ trợ: Thêm người chơi vào phòng
+    function addPlayerToMonopolyRoom(roomId, socket, username) {
+        const room = monopolyGames[roomId];
+        const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
         
-        if (monopolyQueue.length >= 2) {
-            const p1 = monopolyQueue.shift();
-            const p2 = monopolyQueue.shift();
-            const s1 = io.sockets.sockets.get(p1);
-            const s2 = io.sockets.sockets.get(p2);
+        const player = {
+            id: socket.id,
+            username: username,
+            color: colors[room.players.length % colors.length], // Gán màu
+            money: 1000, // Tiền khởi điểm
+            position: 0,
+            isHost: socket.id === room.hostId
+        };
 
-            if (s1 && s2) {
-                const roomId = `monopoly-${Date.now()}`;
-                s1.join(roomId); s2.join(roomId);
-                const game = new MonopolyGame(roomId);
-                game.addPlayer(s1.id, s1.request.session.user?.username || 'Người 1');
-                game.addPlayer(s2.id, s2.request.session.user?.username || 'Người 2');
-                monopolyGames[roomId] = game;
-                io.to(roomId).emit('monopolyMatchFound', { roomId, players: game.players });
+        room.players.push(player);
+        socket.join(roomId);
+
+        // Gửi cập nhật sảnh chờ cho tất cả người trong phòng
+        io.to(roomId).emit('lobbyUpdate', {
+            roomId: roomId,
+            players: room.players,
+            isHost: socket.id === room.hostId
+        });
+    }
+
+    // 1. Tạo phòng riêng
+    socket.on('createMonopolyRoom', () => {
+        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+        monopolyGames[roomId] = {
+            id: roomId,
+            hostId: socket.id,
+            players: [],
+            state: 'waiting', // Trạng thái: đang đợi
+            gameLogic: null
+        };
+        addPlayerToMonopolyRoom(roomId, socket, username);
+        socket.emit('roomCreated', roomId);
+    });
+
+    // 2. Vào phòng bằng mã
+    socket.on('joinMonopolyRoom', (roomId) => {
+        const room = monopolyGames[roomId];
+        if (room && room.state === 'waiting') {
+            if (room.players.length >= 8) {
+                socket.emit('errorMsg', '❌ Phòng đã đầy (Tối đa 8 người)!');
+            } else {
+                addPlayerToMonopolyRoom(roomId, socket, username);
             }
         } else {
-            socket.emit('waitingMonopoly', { count: monopolyQueue.length });
+            socket.emit('errorMsg', '❌ Phòng không tồn tại hoặc đang chơi!');
         }
     });
 
+    // 3. Ghép ngẫu nhiên (Tìm phòng đang chờ còn trống)
+    socket.on('findMonopolyMatch', () => {
+        let foundRoom = null;
+        for (const [id, room] of Object.entries(monopolyGames)) {
+            if (room.state === 'waiting' && room.players.length < 8) {
+                foundRoom = id;
+                break;
+            }
+        }
+
+        if (foundRoom) {
+            addPlayerToMonopolyRoom(foundRoom, socket, username);
+        } else {
+            // Không có phòng nào, tạo phòng mới
+            const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            monopolyGames[roomId] = {
+                id: roomId,
+                hostId: socket.id,
+                players: [],
+                state: 'waiting',
+                gameLogic: null
+            };
+            addPlayerToMonopolyRoom(roomId, socket, username);
+            socket.emit('statusMsg', 'Đã tạo phòng mới, đang đợi người chơi...');
+        }
+    });
+
+    // 4. Chủ phòng BẮT ĐẦU GAME
     socket.on('startMonopoly', (roomId) => {
-        const game = monopolyGames[roomId];
-        if (game && game.startGame()) {
-            io.to(roomId).emit('monopolyStarted', { players: game.players, turn: game.players[game.turnIndex].id });
-            io.to(roomId).emit('gameLog', [`🏁 Bắt đầu game! Lượt của ${game.players[0].username}`]);
+        const room = monopolyGames[roomId];
+        if (room && room.hostId === socket.id) {
+            if (room.players.length < 2) {
+                socket.emit('errorMsg', 'Cần ít nhất 2 người để chơi!');
+                return;
+            }
+
+            room.state = 'playing';
+            // Khởi tạo Logic Game từ file monopoly-logic.js
+            // Lưu ý: Cần đảm bảo file monopoly-logic.js hỗ trợ nạp danh sách players
+            room.gameLogic = new MonopolyGame(roomId); 
+            room.gameLogic.players = room.players; // Gán danh sách người chơi từ sảnh vào game logic
+            
+            // Broadcast bắt đầu
+            io.to(roomId).emit('monopolyUpdate', {
+                gameState: 'playing',
+                players: room.players,
+                turnIndex: 0,
+                logs: ['🏁 Trận đấu bắt đầu!']
+            });
+            
+            io.to(roomId).emit('turnChanged', { turn: room.players[0].id });
         }
     });
 
+    // 5. Xử lý tung xúc xắc (Đã nâng cấp)
     socket.on('rollDice', (roomId) => {
-        const game = monopolyGames[roomId];
-        if (game) {
-            const player = game.getCurrentPlayer();
+        const room = monopolyGames[roomId];
+        if (room && room.state === 'playing') {
+            const game = room.gameLogic;
+            const player = game.players[game.turnIndex];
+            
             if (player.id !== socket.id) return;
+
             const d1 = Math.floor(Math.random() * 6) + 1;
             const d2 = Math.floor(Math.random() * 6) + 1;
+            
             io.to(roomId).emit('diceRolled', { d1, d2 });
+            
+            // Logic di chuyển trong monopoly-logic.js
             const moveRes = game.movePlayer(d1 + d2);
-            io.to(roomId).emit('playerMoved', moveRes);
-            io.to(roomId).emit('gameLog', [moveRes.message]);
-            if (moveRes.action === 'buy') socket.emit('askBuyProperty', moveRes.data);
-            else if (moveRes.action === 'payRent') {
-                io.to(roomId).emit('moneyChanged', game.getAllMoney());
-                io.to(roomId).emit('enableEndTurn'); 
-            } else io.to(roomId).emit('enableEndTurn');
+            
+            // Gửi cập nhật vị trí
+            io.to(roomId).emit('monopolyUpdate', {
+                roomId: roomId,
+                gameState: 'playing',
+                players: game.players, // Gửi lại toàn bộ danh sách để cập nhật vị trí/tiền
+                turnIndex: game.turnIndex,
+                logs: [moveRes.message]
+            });
+
+            if (moveRes.action === 'buy') {
+                socket.emit('askBuyProperty', moveRes.data);
+            } else if (moveRes.action === 'payRent') {
+                // Tiền đã trừ trong logic movePlayer, chỉ cần cập nhật UI
+                io.to(roomId).emit('enableEndTurn');
+            } else {
+                io.to(roomId).emit('enableEndTurn');
+            }
         }
     });
 
+    // 6. Xử lý mua đất
     socket.on('buyProperty', ({ roomId, choice }) => {
-        const game = monopolyGames[roomId];
-        if (game && choice) {
-            if (game.buyProperty(game.players[game.turnIndex].position)) {
-                io.to(roomId).emit('propertyBought', { 
-                    pid: game.players[game.turnIndex].position, 
-                    owner: socket.id,
-                    money: game.players[game.turnIndex].money
-                });
+        const room = monopolyGames[roomId];
+        if (room && room.state === 'playing') {
+            const game = room.gameLogic;
+            if (choice) {
+                // Gọi hàm mua đất trong logic
+                const buyRes = game.buyProperty(game.players[game.turnIndex].position);
+                if (buyRes) {
+                    io.to(roomId).emit('monopolyUpdate', {
+                        players: game.players,
+                        logs: [`💰 ${game.getCurrentPlayer().username} đã mua đất!`]
+                    });
+                }
             }
+            socket.emit('enableEndTurn');
         }
-        socket.emit('enableEndTurn');
     });
 
+    // 7. Kết thúc lượt
     socket.on('endTurn', (roomId) => {
-        const game = monopolyGames[roomId];
-        if (game) {
-            const nextP = game.nextTurn();
+        const room = monopolyGames[roomId];
+        if (room && room.state === 'playing') {
+            const nextP = room.gameLogic.nextTurn();
+            io.to(roomId).emit('monopolyUpdate', {
+                turnIndex: room.gameLogic.turnIndex,
+                players: room.gameLogic.players,
+                gameState: 'playing',
+                logs: [`👉 Lượt của ${nextP.username}`]
+            });
             io.to(roomId).emit('turnChanged', { turn: nextP.id });
-            io.to(roomId).emit('gameLog', [`👉 Lượt của ${nextP.username}`]);
         }
     });
-    // Thêm sự kiện khi có người thắng Cờ Tỷ Phú
+
+    // 8. Xử lý thắng game
     socket.on('monopolyWin', async ({ roomId, winnerId }) => {
-    const game = monopolyGames[roomId];
-    if (game && socket.id === winnerId) {
-        try {
-            const user = await User.findOne({ username: socket.request.session.user.username });
-            if (user) {
-                user.score += 100; 
-                user.monopolyLevel = (user.monopolyLevel || 1) + 1; // <--- DÒNG QUAN TRỌNG: Tăng cấp độ
-                user.history.push({ activity: `Thắng Cờ Tỷ Phú - Lên cấp ${user.monopolyLevel}`, timestamp: new Date() });
-                await user.save();
-                // Gửi thông báo về cho Client kèm cấp độ mới
-                io.to(roomId).emit('monopolyGameOver', { 
-                    winner: user.username, 
-                    newScore: user.score, 
-                    newLevel: user.monopolyLevel 
-                });
-            }
-        } catch (e) { console.error("Lỗi lưu điểm Monopoly:", e); }
-        delete monopolyGames[roomId];
-    }
-});
+        const room = monopolyGames[roomId];
+        if (room && socket.id === winnerId) {
+            try {
+                const user = await User.findOne({ username: socket.request.session.user.username });
+                if (user) {
+                    user.score += 200; // Thắng game lớn thưởng nhiều hơn
+                    user.monopolyLevel = (user.monopolyLevel || 1) + 1;
+                    user.history.push({ activity: `Vô địch Cờ Tỷ Phú - Cấp ${user.monopolyLevel}`, timestamp: new Date() });
+                    await user.save();
+                    
+                    io.to(roomId).emit('monopolyGameOver', { 
+                        winner: user.username, 
+                        newScore: user.score, 
+                        newLevel: user.monopolyLevel 
+                    });
+                }
+            } catch (e) { console.error(e); }
+            delete monopolyGames[roomId];
+        }
+    });
     // --- DISCONNECT ---
     socket.on('disconnecting', () => {
         // Xóa khỏi hàng chờ
@@ -608,8 +862,51 @@ io.on('connection', (socket) => {
             }
         }
     });
-});
+// =========================================================
+    // --- LOGIC OTHELLO (PHỤC KÍCH) - MỚI ---
+    // =========================================================
 
+    // 1. Tạo phòng Othello
+    socket.on('createOthelloRoom', () => {
+        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+        gameRooms[roomId] = {
+            gameType: 'othello',
+            players: [socket.id],
+            playerNames: { [socket.id]: username },
+            turn: null
+        };
+        socket.join(roomId);
+        socket.emit('othelloRoomCreated', roomId);
+    });
+
+    // 2. Vào phòng Othello
+    socket.on('joinOthelloRoom', (roomId) => {
+        const room = gameRooms[roomId];
+        if (room && room.players.length < 2 && room.gameType === 'othello') {
+            const opponentId = room.players[0];
+            room.players.push(socket.id);
+            room.playerNames[socket.id] = username;
+            room.turn = opponentId; // Chủ phòng đi trước (Đen)
+            
+            socket.join(roomId);
+
+            // Gửi thông tin bắt đầu
+            // w = Trắng (Người vào sau), b = Đen (Chủ phòng)
+            socket.emit('matchFound', { 
+                room: roomId, role: 'w', 
+                opponent: room.playerNames[opponentId] 
+            });
+            
+            io.to(opponentId).emit('matchFound', { 
+                room: roomId, role: 'b', 
+                opponent: username 
+            });
+        } else {
+            socket.emit('notification', '❌ Phòng không tồn tại hoặc đã đầy!');
+        }
+    });
+
+});
 server.listen(PORT, () => {
     console.log(`🚀 Server Database đang chạy tại: http://localhost:${PORT}`);
 });

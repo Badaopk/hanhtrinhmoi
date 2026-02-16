@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <style>
         .profile-container {
-            max-width: 1000px; margin: 20px auto;
+            max-width: 1200px; margin: 20px auto;
             background: rgba(255, 255, 255, 0.95);
             padding: 30px; border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.15);
@@ -18,46 +18,45 @@
         .username { color: #e67e22; margin: 0; font-size: 2.5rem; text-shadow: 2px 2px 0 #f1c40f; }
         .score-tag { background: #2ecc71; color: white; padding: 5px 20px; border-radius: 20px; font-weight: bold; font-size: 1.2rem; display: inline-block; margin-top: 10px; box-shadow: 0 3px 0 #27ae60; }
 
-        .trophy-section { margin-bottom: 40px; }
-        .trophy-section h2 { 
-            text-align: left; color: #2c3e50; border-left: 5px solid #3498db; 
-            padding-left: 15px; margin-bottom: 15px; font-size: 1.8rem;
+        /* Style cho từng tủ cúp */
+        .trophy-section { margin-bottom: 40px; background: #fdfdfd; padding: 15px; border-radius: 15px; border: 1px solid #eee; }
+        .trophy-header { 
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;
         }
-        
+        .trophy-header h2 { margin: 0; color: #2c3e50; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+        .current-level-tag { background: #3498db; color: white; padding: 2px 10px; border-radius: 10px; font-size: 0.9rem; }
+
         .trophy-shelf {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 15px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
         }
 
         .trophy-item {
             background: #f1f2f6; border: 2px solid #bdc3c7;
-            border-radius: 12px; padding: 10px; text-align: center;
-            opacity: 0.5; filter: grayscale(100%); transition: all 0.3s ease;
+            border-radius: 8px; padding: 8px; text-align: center;
+            opacity: 0.4; filter: grayscale(100%); transition: all 0.3s ease;
             position: relative; overflow: hidden;
         }
         
         .trophy-item.unlocked {
             opacity: 1; filter: grayscale(0%);
-            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); 
-            border-color: #f1c40f;
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(241, 196, 15, 0.3);
+            background: linear-gradient(135deg, #ffffff 0%, #fff9c4 100%); 
+            border-color: #f1c40f; transform: translateY(-3px);
+            box-shadow: 0 5px 10px rgba(241, 196, 15, 0.3);
         }
 
-        .trophy-icon { font-size: 3rem; display: block; margin-bottom: 5px; }
-        .trophy-title { font-weight: bold; color: #333; font-size: 0.9rem; margin-bottom: 3px; }
-        .trophy-req { font-size: 0.75rem; color: #7f8c8d; }
+        .trophy-icon { font-size: 2rem; display: block; margin-bottom: 5px; }
+        .trophy-title { font-weight: bold; color: #333; font-size: 0.8rem; line-height: 1.2; height: 32px; display: flex; align-items: center; justify-content: center; }
+        .trophy-req { font-size: 0.7rem; color: #7f8c8d; margin-top: 5px; }
+        .trophy-item.unlocked .trophy-req { color: #27ae60; font-weight: bold; }
 
-        /* Style Bảng Xếp Hạng */
-        .leaderboard-section {
-            background: #fffbe6; padding: 25px; border-radius: 15px;
-            border: 3px solid #f1c40f; margin-top: 50px;
-        }
+        /* Bảng xếp hạng */
+        .leaderboard-section { background: #fffbe6; padding: 25px; border-radius: 15px; border: 3px solid #f1c40f; margin-top: 50px; }
         .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 10px; overflow: hidden; }
         .leaderboard-table th { background: #f1c40f; color: #333; padding: 12px; }
         .leaderboard-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; }
         .top-1 { color: #d35400; background: #fff4d1; }
-        .rank-medal { font-size: 1.5rem; }
 
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
     </style>
@@ -73,35 +72,16 @@
             <div class="score-tag">Tổng điểm tích lũy: <span id="display-score">0</span></div>
         </div>
 
-        <div class="trophy-section">
-            <h2>♟️ Tủ Cúp Cờ Vua</h2>
-            <div class="trophy-shelf" id="shelf-chess"></div>
-        </div>
-
-        <div class="trophy-section">
-            <h2>⭕❌ Tủ Cúp Cờ Caro</h2>
-            <div class="trophy-shelf" id="shelf-caro"></div>
-        </div>
-
-        <div class="trophy-section">
-            <h2>🎨 Tủ Cúp Sáng Tạo</h2>
-            <div class="trophy-shelf" id="shelf-shape"></div>
-        </div>
+        <div id="all-trophies-container">
+            </div>
 
         <div class="leaderboard-section">
             <h2 style="text-align: center; color: #d35400; margin: 0;">🏆 BẢNG VÀNG CỦA HÀNH TINH 🏆</h2>
             <table class="leaderboard-table">
                 <thead>
-                    <tr>
-                        <th>Hạng</th>
-                        <th>Tên Bé</th>
-                        <th>Điểm Số</th>
-                        <th>Cấp Cờ Vua</th>
-                    </tr>
+                    <tr><th>Hạng</th><th>Tên Bé</th><th>Điểm Số</th><th>Danh Hiệu Cao Nhất</th></tr>
                 </thead>
-                <tbody id="leaderboard-body">
-                    <tr><td colspan="4">Đang tính toán thứ hạng...</td></tr>
-                </tbody>
+                <tbody id="leaderboard-body"><tr><td colspan="4">Đang tải...</td></tr></tbody>
             </table>
         </div>
         
@@ -111,74 +91,131 @@
     </div>
 
     <script>
-        // Dữ liệu danh hiệu
-        const trophiesData = {
-            chess: [ { lvl: 10, name: "Tân Binh", icon: "🥉" }, { lvl: 30, name: "Chiến Binh", icon: "🥈" }, { lvl: 60, name: "Kiện Tướng", icon: "🥇" }, { lvl: 100, name: "Vua Cờ", icon: "👑" } ],
-            caro: [ { lvl: 10, name: "Tập Sự", icon: "🌱" }, { lvl: 25, name: "Cao Thủ", icon: "⚔️" }, { lvl: 50, name: "Bất Bại", icon: "🏆" } ],
-            shape: [ { lvl: 5, name: "Bé Tập Vẽ", icon: "🖍️" }, { lvl: 20, name: "Kiến Trúc Sư", icon: "🏰" }, { lvl: 50, name: "Sáng Tạo", icon: "✨" } ],
-            detective: [{ lvl: 10, name: "Thám Tử Tập Sự", icon: "🕵️‍♂️" },{ lvl: 40, name: "Thám Tử Tài Ba", icon: "🔍" },{ lvl: 80, name: "Siêu Thám Tử", icon: "🕶️" },{ lvl: 100, name: "Huyền Thoại Thám Tử", icon: "💎" }]
+        // --- CẤU HÌNH DANH HIỆU (10 Cấp/Danh hiệu) ---
+        const GAME_TITLES = {
+            xuongVe: { 
+                name: "Xưởng Vẽ", key: "paintingLevel", icon: "🎨",
+                titles: ["Họa Sĩ Nhí", "Bút Chì Màu", "Pha Màu", "Họa Sĩ Tài Ba", "Nghệ Sĩ", "Sắc Màu", "Tranh Sơn Dầu", "Picasso Nhí", "Đại Danh Họa", "Thần Vẽ"] 
+            },
+            ghepHinh: { 
+                name: "Ghép Hình", key: "memoryLevel", icon: "🧩",
+                titles: ["Tập Ghép", "Trí Nhớ Tốt", "Mắt Tinh", "Ghép Nhanh", "Siêu Trí Nhớ", "Bậc Thầy Ghép", "Vua Ghép Hình", "Mắt Thần", "Trí Tuệ Siêu Việt", "Thần Đồng"] 
+            },
+            taoHinh: { 
+                name: "Tạo Hình Vui", key: "shapeLevel", icon: "🔺",
+                titles: ["Nhận Biết", "Xếp Hình", "Sáng Tạo", "Khéo Tay", "Nghệ Nhân", "Điêu Khắc", "Kiến Tạo", "Biến Hóa", "Phù Thủy Hình", "Đấng Sáng Tạo"] 
+            },
+            xayDung: { 
+                name: "Xây Dựng", key: "buildLevel", icon: "🏗️",
+                titles: ["Thợ Phụ", "Thợ Nề", "Thợ Cả", "Kỹ Sư", "Kiến Trúc Sư", "Nhà Thầu", "Quy Hoạch", "Xây Thành Phố", "Trùm Bất Động Sản", "Tổ Sư Nghề"] 
+            },
+            oChu: { 
+                name: "Ô Chữ", key: "crosswordLevel", icon: "🔠",
+                titles: ["Biết Chữ", "Đánh Vần", "Ghép Từ", "Vốn Từ Rộng", "Thông Thái", "Nhà Ngôn Ngữ", "Từ Điển Sống", "Bác Học", "Vua Tiếng Việt", "Thần Chữ"] 
+            },
+            timDiem: { 
+                name: "Thám Tử", key: "detectiveLevel", icon: "🕵️",
+                titles: ["Tập Sự", "Tinh Mắt", "Trinh Sát", "Thám Tử", "Thám Tử Tài Ba", "Thám Tử Lừng Danh", "Sherlock", "Nhìn Xuyên Thấu", "Siêu Thám Tử", "Thần Thám"] 
+            },
+            sangTac: { 
+                name: "Sáng Tác", key: "storyLevel", icon: "✍️",
+                titles: ["Kể Chuyện", "Viết Văn", "Nhà Văn Nhí", "Tiểu Thuyết Gia", "Biên Kịch", "Nhà Thơ", "Văn Hào", "Bút Thần", "Đại Văn Hào", "Thần Văn"] 
+            },
+            luyenNoi: { 
+                name: "Luyện Nói Việt", key: "vietSpeechLevel", icon: "🗣️",
+                titles: ["Bi bô", "Nói Sõi", "Lưu Loát", "MC Nhí", "Thuyết Trình", "Hùng Biện", "Nhà Ngoại Giao", "Miệng Vàng", "Khéo Ăn Nói", "Thần Ngôn Ngữ"] 
+            },
+            luyenNoiAnh: { 
+                name: "Tiếng Anh", key: "englishSpeechLevel", icon: "🇬🇧",
+                titles: ["Hello", "Beginner", "Elementary", "Pre-Inter", "Intermediate", "Advanced", "Fluent", "Native Like", "Professor", "Master English"] 
+            },
+            coVua: { 
+                name: "Cờ Vua", key: "chessLevel", icon: "♟️",
+                titles: ["Tốt Đen", "Mã Sắt", "Tượng Gỗ", "Xe Pháo", "Hậu Vệ", "Kiện Tướng", "Đại Kiện Tướng", "Siêu Đại Kiện Tướng", "Vua Cờ", "Thần Cờ"] 
+            },
+            caro: { 
+                name: "Cờ Caro", key: "caroLevel", icon: "⭕",
+                titles: ["Tập Chơi", "Biết Đánh", "Cao Thủ Lớp", "Cao Thủ Trường", "Bất Bại", "Độc Cô Cầu Bại", "Thánh Caro", "Vua Caro", "Huyền Thoại", "Caro God"] 
+            },
+            coVay: { 
+                name: "Cờ Vây", key: "goLevel", icon: "⚫",
+                titles: ["Nhập Môn", "9 Kyu", "5 Kyu", "1 Kyu", "1 Dan", "3 Dan", "5 Dan", "9 Dan", "Kỳ Thánh", "Thần Cờ Vây"] 
+            },
+            tyPhu: { 
+                name: "Cờ Tỷ Phú", key: "monopolyLevel", icon: "💰",
+                titles: ["Khởi Nghiệp", "Tiểu Thương", "Chủ Shop", "Doanh Nhân", "Triệu Phú", "Đại Gia", "Tỷ Phú", "Trùm Tài Chính", "Vua Tiền Tệ", "Chủ Tịch"] 
+            },
+            othello: { 
+                name: "Othello", key: "othelloLevel", icon: "⚪",
+                titles: ["Tập Lật", "Biết Lật", "Lật Hay", "Chiến Thuật", "Cao Thủ", "Bậc Thầy", "Đại Sư", "Vô Địch", "Huyền Thoại", "Thần Othello"] 
+            }
         };
 
         async function loadAllData() {
             try {
-                // 1. Tải Tiến trình cá nhân
-                const resProgress = await fetch('/api/user/progress');
-                
-                // Xử lý khi chưa đăng nhập
-                if (resProgress.status === 401) {
+                // 1. Tải thông tin người dùng
+                const res = await fetch('/api/user/progress');
+                if (res.status === 401) {
                     document.getElementById('display-name').textContent = "Khách (Chưa đăng nhập)";
                     return;
                 }
+                const userData = await res.json();
                 
-                const data = await resProgress.json();
-                
-                // --- ĐOẠN CODE MỚI ĐỂ HIỆN TÊN BÉ ---
+                // Hiển thị tên
                 const role = localStorage.getItem('role');
                 const childrenRaw = localStorage.getItem('children');
-                let displayName = data.username;
-
+                let displayName = userData.username;
                 if (role === 'parent' && childrenRaw) {
                     try {
                         const children = JSON.parse(childrenRaw);
-                        if (children.length > 0) {
-                            displayName = `${data.username} (Phụ huynh của: ${children.join(', ')})`;
-                            document.getElementById('display-name').style.fontSize = "1.8rem"; // Chỉnh chữ nhỏ lại xíu nếu dài
-                        }
-                    } catch (e) { console.log('Lỗi đọc danh sách con', e); }
+                        if (children.length > 0) displayName = `${userData.username} (PH của: ${children.join(', ')})`;
+                    } catch (e) {}
                 }
-                
                 document.getElementById('display-name').textContent = displayName;
-                // --- KẾT THÚC ĐOẠN MỚI ---
+                document.getElementById('display-score').textContent = (userData.score || 0).toLocaleString();
 
-                document.getElementById('display-score').textContent = (data.score || 0).toLocaleString();
+                // 2. Render tất cả tủ cúp
+                const container = document.getElementById('all-trophies-container');
+                container.innerHTML = ''; // Xóa cũ
 
-                // Render các tủ cúp (giữ nguyên logic của bạn)
-                renderShelf('shelf-chess', trophiesData.chess, data.chessLevel || 1);
-                renderShelf('shelf-caro', trophiesData.caro, data.caroLevel || 1);
-                renderShelf('shelf-shape', trophiesData.shape, data.shapeLevel || 1);
-                // Lưu ý: Bạn đang thiếu khai báo trophiesData.detective ở bên trên, nhớ kiểm tra lại nhé!
+                for (const [gameKey, config] of Object.entries(GAME_TITLES)) {
+                    const currentLvl = userData[config.key] || 1;
+                    
+                    // Tạo khung tủ cúp cho game này
+                    const section = document.createElement('div');
+                    section.className = 'trophy-section';
+                    section.innerHTML = `
+                        <div class="trophy-header">
+                            <h2>${config.icon} ${config.name}</h2>
+                            <div class="current-level-tag">Hiện tại: Cấp ${currentLvl}</div>
+                        </div>
+                        <div class="trophy-shelf" id="shelf-${gameKey}"></div>
+                    `;
+                    container.appendChild(section);
 
-                // 2. Tải Bảng xếp hạng
-                const resLeaderboard = await fetch('/api/leaderboard');
-                const topUsers = await resLeaderboard.json();
+                    // Điền 10 cúp vào tủ
+                    const shelf = section.querySelector(`#shelf-${gameKey}`);
+                    config.titles.forEach((title, index) => {
+                        const reqLevel = (index + 1) * 10; // Cấp 10, 20, 30... 100
+                        const isUnlocked = currentLvl >= reqLevel;
+                        
+                        const item = document.createElement('div');
+                        item.className = `trophy-item ${isUnlocked ? 'unlocked' : ''}`;
+                        item.innerHTML = `
+                            <span class="trophy-icon">${isUnlocked ? '🏆' : '🔒'}</span>
+                            <div class="trophy-title">${title}</div>
+                            <div class="trophy-req">${isUnlocked ? 'Đã đạt!' : `Cần cấp ${reqLevel}`}</div>
+                        `;
+                        shelf.appendChild(item);
+                    });
+                }
+
+                // 3. Tải bảng xếp hạng
+                const resLb = await fetch('/api/leaderboard');
+                const topUsers = await resLb.json();
                 renderLeaderboard(topUsers);
 
             } catch (err) { console.error(err); }
-        }
-        function renderShelf(elementId, list, currentLevel) {
-            const container = document.getElementById(elementId);
-            container.innerHTML = '';
-            list.forEach(t => {
-                const isUnlocked = currentLevel >= t.lvl;
-                const div = document.createElement('div');
-                div.className = `trophy-item ${isUnlocked ? 'unlocked' : ''}`;
-                div.innerHTML = `
-                    <span class="trophy-icon">${t.icon}</span>
-                    <div class="trophy-title">${t.name}</div>
-                    <div class="trophy-req">${isUnlocked ? 'Đã nhận!' : `Cần cấp ${t.lvl}`}</div>
-                `;
-                container.appendChild(div);
-            });
         }
 
         function renderLeaderboard(users) {
@@ -188,16 +225,14 @@
                 const row = document.createElement('tr');
                 if (index === 0) row.className = 'top-1';
                 
-                let rankIcon = index + 1;
-                if (index === 0) rankIcon = '<span class="rank-medal">🥇</span>';
-                if (index === 1) rankIcon = '<span class="rank-medal">🥈</span>';
-                if (index === 2) rankIcon = '<span class="rank-medal">🥉</span>';
+                let rank = index + 1;
+                if (index === 0) rank = '🥇'; else if (index === 1) rank = '🥈'; else if (index === 2) rank = '🥉';
 
                 row.innerHTML = `
-                    <td>${rankIcon}</td>
+                    <td>${rank}</td>
                     <td>${user.username}</td>
                     <td style="color: #27ae60;">${user.score.toLocaleString()}</td>
-                    <td>Cấp ${user.chessLevel}</td>
+                    <td>Cấp ${user.chessLevel || 1}</td>
                 `;
                 body.appendChild(row);
             });

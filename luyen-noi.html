@@ -1,95 +1,94 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Luyện Nói Cùng Bé</title>
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <style>
-        body {
-            background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
-            font-family: 'Baloo 2', cursive;
-            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
-        }
-        
-        .mic-container {
-            position: relative;
-            margin: 30px auto;
-            width: 100px; height: 100px;
-        }
+    <meta charset="UTF-8">
+    <title>Luyện Nói Cùng Bé</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
+            font-family: 'Baloo 2', cursive;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+        
+        .mic-container {
+            position: relative;
+            margin: 30px auto;
+            width: 100px; height: 100px;
+        }
 
-        .mic-btn {
-            width: 100%; height: 100%;
-            border-radius: 50%; border: none;
-            background: #3498db; color: white; font-size: 3rem;
-            cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            transition: 0.3s;
-            position: relative; z-index: 2;
-        }
+        .mic-btn {
+            width: 100%; height: 100%;
+            border-radius: 50%; border: none;
+            background: #3498db; color: white; font-size: 3rem;
+            cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: 0.3s;
+            position: relative; z-index: 2;
+        }
 
-        /* Hiệu ứng sóng âm khi đang nghe */
-        .listening-ring {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            border-radius: 50%; background: rgba(52, 152, 219, 0.5);
-            z-index: 1; opacity: 0;
-        }
-        .mic-btn.active + .listening-ring { animation: ripple 1.5s infinite; }
-        .mic-btn.active { background: #e74c3c; transform: scale(1.1); }
+        /* Hiệu ứng sóng âm khi đang nghe */
+        .listening-ring {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; background: rgba(52, 152, 219, 0.5);
+            z-index: 1; opacity: 0;
+        }
+        .mic-btn.active + .listening-ring { animation: ripple 1.5s infinite; }
+        .mic-btn.active { background: #e74c3c; transform: scale(1.1); }
 
-        @keyframes ripple {
-            0% { transform: scale(1); opacity: 0.8; }
-            100% { transform: scale(2); opacity: 0; }
-        }
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2); opacity: 0; }
+        }
 
-        .sentence-card {
-            background: white; padding: 20px 40px; border-radius: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 20px;
-            border: 3px solid #f1c40f;
-        }
+        .sentence-card {
+            background: white; padding: 20px 40px; border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 20px;
+            border: 3px solid #f1c40f;
+        }
 
-        .nav-btn {
-            padding: 10px 25px; border-radius: 30px; border: none; font-weight: bold;
-            font-size: 1.1rem; cursor: pointer; color: white; font-family: inherit;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: 0.2s;
-        }
-        .nav-btn:active { transform: translateY(3px); box-shadow: none; }
-        
-        .level-info {
-            background: rgba(255, 255, 255, 0.8);
-            padding: 5px 15px; border-radius: 15px;
-            margin-bottom: 10px; color: #27ae60; font-weight: bold;
-        }
-    </style>
+        .nav-btn {
+            padding: 10px 25px; border-radius: 30px; border: none; font-weight: bold;
+            font-size: 1.1rem; cursor: pointer; color: white; font-family: inherit;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: 0.2s;
+        }
+        .nav-btn:active { transform: translateY(3px); box-shadow: none; }
+        
+        .level-info {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 15px; border-radius: 15px;
+            margin-bottom: 10px; color: #27ae60; font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 
-    <h1 style="color: #2c3e50; text-shadow: 2px 2px 0 white; font-size: 3rem; margin-top: 20px;">🎤 Họa Mi Tập Hót 🎤</h1>
-    
-    <div class="level-info">Cấp độ hiện tại: <span id="current-level-display">1</span></div>
+    <h1 style="color: #2c3e50; text-shadow: 2px 2px 0 white; font-size: 3rem; margin-top: 20px;">🎤 Họa Mi Tập Hót 🎤</h1>
+    
+    <div class="level-info">Cấp độ hiện tại: <span id="current-level-display">1</span></div>
 
-    <div style="text-align: center; max-width: 600px; padding: 20px;">
-        
-        <div class="sentence-card">
-            <p style="color: #7f8c8d; font-size: 1.1rem; margin:0;">Hãy đọc to câu này:</p>
-            <h2 id="target-phrase" style="color: #d35400; font-size: 2.2rem; margin: 10px 0;">"Con mèo trèo cây cau"</h2>
-        </div>
-        
-        <div class="mic-container">
-            <button id="record-btn" class="mic-btn">🎙️</button>
-            <div class="listening-ring"></div>
-        </div>
-        
-        <p id="result-text" style="font-size: 1.3rem; color: #34495e; min-height: 30px; font-style: italic;">Nhấn micro để bắt đầu...</p>
-        <div id="score-area" style="min-height: 40px;"></div>
-        
-        <div style="margin-top: 30px; display: flex; gap: 20px; justify-content: center;">
-            <button onclick="window.location.href='index.html'" class="nav-btn" style="background: #95a5a6;">🏠 Về Nhà</button>
-            <button id="next-btn" class="nav-btn" style="background: #2ecc71; display: none;" onclick="nextSentence()">Câu Tiếp Theo ➡️</button>
-        </div>
+    <div style="text-align: center; max-width: 600px; padding: 20px;">
+        
+        <div class="sentence-card">
+            <p style="color: #7f8c8d; font-size: 1.1rem; margin:0;">Hãy đọc to câu này:</p>
+            <h2 id="target-phrase" style="color: #d35400; font-size: 2.2rem; margin: 10px 0;">"Con mèo trèo cây cau"</h2>
+        </div>
+        
+        <div class="mic-container">
+            <button id="record-btn" class="mic-btn">🎙️</button>
+            <div class="listening-ring"></div>
+        </div>
+        
+        <p id="result-text" style="font-size: 1.3rem; color: #34495e; min-height: 30px; font-style: italic;">Nhấn micro để bắt đầu...</p>
+        <div id="score-area" style="min-height: 40px;"></div>
+        
+        <div style="margin-top: 30px; display: flex; gap: 20px; justify-content: center;">
+            <button onclick="window.location.href='index.html'" class="nav-btn" style="background: #95a5a6;">🏠 Về Nhà</button>
+            <button id="next-btn" class="nav-btn" style="background: #2ecc71; display: none;" onclick="nextSentence()">Câu Tiếp Theo ➡️</button>
+        </div>
 
-    </div>
-
-    <script>
+    </div>
+<script>
         // --- DANH SÁCH CÂU LUYỆN TẬP ---
         const phrases = [
             "Con mèo trèo cây cau", "Bà đi chợ mua rau", "Trời hôm nay rất đẹp",
@@ -99,22 +98,21 @@
         ];
         
         let currentIndex = 0;
-        let currentLevel = 1; // Biến lưu cấp độ hiện tại
+        let currentLevel = 1;
 
-        // 1. Tự động tải cấp độ khi vào trang
+        // 1. Tự động tải cấp độ tiếng Việt
         window.onload = async () => {
             try {
                 const res = await fetch('/api/user/progress');
                 if (res.ok) {
                     const data = await res.json();
-                    currentLevel = data.englishSpeechLevel || 1;
+                    // SỬA: Lấy đúng cấp độ Tiếng Việt
+                    currentLevel = data.vietSpeechLevel || 1; 
                     document.getElementById('current-level-display').textContent = currentLevel;
-                    console.log("Cấp độ luyện nói hiện tại:", currentLevel);
                 }
-            } catch(e) { console.log("Chưa đăng nhập hoặc lỗi tải cấp độ"); }
+            } catch(e) {}
         };
 
-        // KIỂM TRA TRÌNH DUYỆT
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const btn = document.getElementById('record-btn');
         const resultText = document.getElementById('result-text');
@@ -123,9 +121,8 @@
         const nextBtn = document.getElementById('next-btn');
 
         if (!SpeechRecognition) {
-            alert("Trình duyệt này chưa hỗ trợ giọng nói. Hãy dùng Google Chrome hoặc Edge nhé!");
+            alert("Trình duyệt không hỗ trợ. Hãy dùng Google Chrome!");
             btn.disabled = true;
-            resultText.textContent = "Thiết bị không hỗ trợ 😢";
         } else {
             const recognition = new SpeechRecognition();
             recognition.lang = 'vi-VN';
@@ -136,18 +133,14 @@
                 try {
                     recognition.start();
                     btn.classList.add('active');
-                    resultText.textContent = "Đang nghe... bé nói đi!";
+                    resultText.textContent = "Đang nghe...";
                     resultText.style.color = "#e67e22";
                     scoreArea.innerHTML = "";
                     nextBtn.style.display = 'none';
-                } catch(e) {
-                    console.log("Mic đang bật rồi");
-                }
+                } catch(e) {}
             };
 
-            recognition.onend = () => {
-                btn.classList.remove('active');
-            };
+            recognition.onend = () => { btn.classList.remove('active'); };
 
             recognition.onresult = (event) => {
                 const text = event.results[0][0].transcript;
@@ -155,59 +148,80 @@
                 resultText.style.color = "#34495e";
                 checkResult(text);
             };
-
-            recognition.onerror = (event) => {
-                btn.classList.remove('active');
-                resultText.textContent = "Không nghe rõ, thử lại nhé! 👂";
-            };
         }
 
-        // Hàm kiểm tra kết quả và gọi API
+        // --- THUẬT TOÁN SO SÁNH CHÍNH XÁC (LEVENSHTEIN) ---
+        function similarity(s1, s2) {
+            let longer = s1, shorter = s2;
+            if (s1.length < s2.length) { longer = s2; shorter = s1; }
+            let longerLength = longer.length;
+            if (longerLength === 0) return 1.0;
+            return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+        }
+
+        function editDistance(s1, s2) {
+            s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
+            let costs = new Array();
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i == 0) costs[j] = j;
+                    else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) costs[s2.length] = lastValue;
+            }
+            return costs[s2.length];
+        }
+
         function checkResult(spokenText) {
             const target = phrases[currentIndex];
-            const cleanSpoken = spokenText.toLowerCase().replace(/[.,!?;]/g, '').trim();
-            const cleanTarget = target.toLowerCase().replace(/[.,!?;]/g, '').trim();
+            const cleanSpoken = spokenText.toLowerCase().replace(/[.,!?;:"-]/g, '').trim().replace(/\s+/g, ' ');
+            const cleanTarget = target.toLowerCase().replace(/[.,!?;:"-]/g, '').trim().replace(/\s+/g, ' ');
 
-            if (cleanSpoken.includes(cleanTarget) || cleanTarget.includes(cleanSpoken)) {
-                scoreArea.innerHTML = "<h3 style='color:#27ae60; margin:0;'>🎉 CHÍNH XÁC! 🎉</h3>";
+            // Tính độ chính xác (0.0 -> 1.0)
+            const score = similarity(cleanSpoken, cleanTarget);
+            const percent = Math.round(score * 100);
+            
+            console.log(`Độ giống: ${percent}%`);
+
+            // Đúng trên 75% là đạt
+            if (percent >= 75) {
+                scoreArea.innerHTML = `<h3 style='color:#27ae60; margin:0;'>🎉 CHÍNH XÁC! (${percent}%) 🎉</h3>`;
                 nextBtn.style.display = 'block';
                 
-                // GỌI API CHÍNH XÁC ĐỂ CỘNG ĐIỂM VÀ TĂNG CẤP
-                fetch('/api/game/english-speech-win', { 
+                // SỬA: Gọi đúng API viet-speech-win
+                fetch('/api/game/viet-speech-win', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        level: currentLevel, 
-                        timeTaken: 0 
-                    }) 
+                    body: JSON.stringify({ level: currentLevel, timeTaken: 0 }) 
                 })        
                 .then(res => res.json())
                 .then(data => {
-                    console.log("Kết quả:", data);
                     if (data.newLevel) {
                         currentLevel = data.newLevel;
                         document.getElementById('current-level-display').textContent = currentLevel;
-                        alert("Chúc mừng! Bé đã lên cấp độ " + currentLevel);
                     }
-                })
-                .catch(err => console.error("Lỗi lưu điểm:", err));
-
+                });
             } else {
-                scoreArea.innerHTML = "<h3 style='color:#e74c3c; margin:0;'>Thử lại nhé! 💪</h3>";
+                scoreArea.innerHTML = `<h3 style='color:#e74c3c; margin:0;'>Chưa đúng lắm (${percent}%)! Thử lại nhé 💪</h3>`;
             }
         }
 
         function nextSentence() {
             currentIndex = (currentIndex + 1) % phrases.length;
             targetEl.textContent = `"${phrases[currentIndex]}"`;
-            targetEl.style.animation = 'none';
-            targetEl.offsetHeight; /* trigger reflow */
-            targetEl.style.animation = null; 
-            
             scoreArea.innerHTML = "";
             resultText.textContent = "Nhấn micro để bắt đầu...";
             nextBtn.style.display = 'none';
         }
-    </script>
+    </script>    
 </body>
 </html>

@@ -3,55 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xưởng Vẽ Diệu Kỳ</title>
+    <title>Xưởng Vẽ Diệu Kỳ - 100 Cấp Độ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         .drawing-workspace { display: flex; justify-content: center; align-items: flex-start; gap: 30px; margin-top: 30px; flex-wrap: wrap; }
-        .toolbar { width: 200px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .toolbar h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .color-palette { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .toolbar { width: 220px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .toolbar h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #2c3e50; }
+        
+        .level-badge {
+            background: linear-gradient(45deg, #f1c40f, #e67e22);
+            color: white; padding: 10px; border-radius: 10px;
+            text-align: center; font-weight: bold; margin-bottom: 15px;
+            box-shadow: 0 4px 0 #d35400;
+        }
+
+        .color-palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .color-box { width: 45px; height: 45px; border-radius: 50%; cursor: pointer; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s, border-color 0.2s; }
         .color-box:hover { transform: scale(1.1); }
-        .color-box.selected { border-color: #ff6347; transform: scale(1.1); }
+        .color-box.selected { border-color: #333; transform: scale(1.2); box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+        
         .canvas-container { text-align: center; }
-        .canvas { width: 600px; height: 500px; background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+        .canvas { width: 600px; height: 500px; background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; position: relative; }
         .canvas svg { width: 90%; height: 90%; display: none; }
         .canvas svg.active { display: block; }
-        .canvas .colorable { cursor: pointer; transition: fill 0.2s; }
-        .thumbnail-gallery { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
-        .thumbnail { width: 80px; height: 80px; border: 3px solid #ccc; border-radius: 10px; cursor: pointer; padding: 5px; background-color: white; }
-        .thumbnail.selected { border-color: #ff6347; }
+        .canvas .colorable { cursor: pointer; transition: fill 0.2s, opacity 0.2s; }
+        .canvas .colorable:hover { opacity: 0.8; }
+
+        .thumbnail-gallery { display: flex; justify-content: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; max-width: 600px; }
+        .thumbnail { width: 80px; height: 80px; border: 3px solid #ccc; border-radius: 10px; cursor: pointer; padding: 5px; background-color: white; transition: 0.2s; display: none; /* Mặc định ẩn */ }
+        .thumbnail.unlocked { display: block; /* Hiện khi mở khóa */ }
+        .thumbnail:hover { transform: translateY(-3px); }
+        .thumbnail.selected { border-color: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
         .thumbnail svg { width: 100%; height: 100%; pointer-events: none; }
-        .score-display { font-size: 1.5rem; font-weight: bold; }
+        .lock-icon { font-size: 20px; position: absolute; top: -10px; right: -10px; background: #e74c3c; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        .score-display { font-size: 1.8rem; font-weight: bold; color: #2c3e50; margin: 10px 0; }
+        .btn-action { width: 100%; padding: 12px; border: none; border-radius: 50px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; transition: 0.2s; }
+        .btn-check { background-color: #2ecc71; box-shadow: 0 4px 0 #27ae60; }
+        .btn-save { background-color: #3498db; box-shadow: 0 4px 0 #2980b9; }
+        .btn-home { background-color: #95a5a6; box-shadow: 0 4px 0 #7f8c8d; }
+        .btn-action:active { transform: translateY(3px); box-shadow: none; }
     </style>
 </head>
 <body class="creative-city-bg">
-    <div id="personalized-greeting" class="personalized-greeting" style="position: absolute; top: 10px; left: 10px; font-size: 1rem; font-weight: bold;"></div>
+    
     <h1 class="page-header header-creative">🎨 Xưởng Vẽ Diệu Kỳ 🎨</h1>
+    
     <div class="drawing-workspace">
         <div class="toolbar">
+            <div class="level-badge">
+                CẤP ĐỘ: <span id="current-level">1</span>
+            </div>
+
             <h3>Bảng Màu</h3>
             <div class="color-palette"></div>
+            
             <h3 style="margin-top: 20px;">Công Cụ</h3>
-            <button id="complete-btn" class="back-button" style="margin-top: 10px; width: 100%; box-sizing: border-box; background-color: #2ecc71;">⭐ Chấm Điểm!</button>
-            <button id="save-btn" class="back-button" style="margin-top: 10px; width: 100%; box-sizing: border-box; background-color: #3498db; display: none;">Lưu vào Phòng Trưng Bày</button>
-            <div id="scoring-area" style="text-align: center; margin-top: 10px;"></div>
+            <button id="complete-btn" class="btn-action btn-check">⭐ Chấm Điểm</button>
+            <button id="save-btn" class="btn-action btn-save" style="display: none;">💾 Lưu Tranh</button>
+            <button class="btn-action btn-home" onclick="window.location.href='thanh-pho-sang-tao.html'">🏠 Thoát</button>
+            
+            <div id="scoring-area" style="text-align: center; margin-top: 15px;"></div>
         </div>
+
         <div class="canvas-container">
             <div class="canvas">
-                <svg id="svg-house" class="active" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg"><g stroke="#000" stroke-width="5" fill="#FFF"><path class="colorable" d="M125,450 L125,250 L250,125 L375,250 L375,450 Z" /><path class="colorable" d="M100,250 L250,100 L400,250 Z" /><rect class="colorable" x="175" y="325" width="150" height="125" /><circle class="colorable" cx="280" cy="388" r="10"/></g></svg>
-                <svg id="svg-flower" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><g stroke="#000" stroke-width="1" fill="#FFF"><circle class="colorable" cx="50" cy="50" r="15"/><circle class="colorable" cx="50" cy="25" r="12"/><circle class="colorable" cx="75" cy="40" r="12"/><circle class="colorable" cx="75" cy="65" r="12"/><circle class="colorable" cx="50" cy="80" r="12"/><circle class="colorable" cx="25" cy="65" r="12"/><circle class="colorable" cx="25" cy="40" r="12"/></g></svg>
-                <svg id="svg-car" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg"><g stroke="#000" stroke-width="2" fill="#FFF"><path class="colorable" d="M 20,70 A 20,20 0 0,0 20,30 L 60,30 L 80,10 L 150,10 L 170,30 L 180,50 L 180,70 Z" /><circle class="colorable" cx="50" cy="70" r="15"/><circle class="colorable" cx="150" cy="70" r="15"/></g></svg>
+                <svg id="svg-house" class="active" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="#000" stroke-width="5" fill="#FFF">
+                        <path class="colorable" d="M125,450 L125,250 L250,125 L375,250 L375,450 Z" />
+                        <path class="colorable" d="M100,250 L250,100 L400,250 Z" />
+                        <rect class="colorable" x="175" y="325" width="150" height="125" />
+                        <circle class="colorable" cx="280" cy="388" r="10"/>
+                        <circle class="colorable" cx="100" cy="100" r="40"/>
+                    </g>
+                </svg>
+                <svg id="svg-flower" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="#000" stroke-width="1" fill="#FFF">
+                        <path class="colorable" d="M50,50 Q70,20 50,5 Q30,20 50,50" />
+                        <path class="colorable" d="M50,50 Q80,70 95,50 Q80,30 50,50" />
+                        <path class="colorable" d="M50,50 Q30,80 50,95 Q70,80 50,50" />
+                        <path class="colorable" d="M50,50 Q20,30 5,50 Q20,70 50,50" />
+                        <circle class="colorable" cx="50" cy="50" r="10"/>
+                        <rect class="colorable" x="48" y="50" width="4" height="50" fill="green"/>
+                    </g>
+                </svg>
+                <svg id="svg-car" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="#000" stroke-width="2" fill="#FFF">
+                        <path class="colorable" d="M 20,70 A 20,20 0 0,0 20,30 L 60,30 L 80,10 L 150,10 L 170,30 L 180,50 L 180,70 Z" />
+                        <rect class="colorable" x="90" y="20" width="50" height="20" />
+                        <circle class="colorable" cx="50" cy="70" r="15"/>
+                        <circle class="colorable" cx="150" cy="70" r="15"/>
+                    </g>
+                </svg>
+                
+                <svg id="svg-castle" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="#000" stroke-width="2" fill="#FFF">
+                        <rect class="colorable" x="50" y="100" width="100" height="80" /> <rect class="colorable" x="20" y="80" width="30" height="100" /> <rect class="colorable" x="150" y="80" width="30" height="100" /> <path class="colorable" d="M20,80 L35,50 L50,80 Z" /> <path class="colorable" d="M150,80 L165,50 L180,80 Z" /> <rect class="colorable" x="80" y="140" width="40" height="40" /> <circle class="colorable" cx="100" cy="140" r="20" fill="none"/>
+                    </g>
+                </svg>
+
+                <svg id="svg-dragon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="#000" stroke-width="2" fill="#FFF">
+                        <path class="colorable" d="M50,150 Q30,100 60,80 Q80,60 100,80 Q120,60 140,80 Q160,100 150,130 Q140,160 100,150 Z" /> <circle class="colorable" cx="80" cy="90" r="5" fill="black"/> <circle class="colorable" cx="120" cy="90" r="5" fill="black"/> <path class="colorable" d="M40,120 L20,100 L40,100 Z" /> <path class="colorable" d="M160,120 L180,100 L160,100 Z" /> <path class="colorable" d="M100,150 Q120,180 140,170" fill="none" stroke-width="3"/> </g>
+                </svg>
             </div>
+
             <div class="thumbnail-gallery">
-                <div class="thumbnail selected" data-target="svg-house"><svg viewBox="0 0 500 500"><g stroke="#000" stroke-width="15" fill="#FFF"><path d="M125,450 L125,250 L250,125 L375,250 L375,450 Z" /><path d="M100,250 L250,100 L400,250 Z" /></g></svg></div>
-                <div class="thumbnail" data-target="svg-flower"><svg viewBox="0 0 100 100"><g stroke="#000" stroke-width="3" fill="#FFF"><circle cx="50" cy="50" r="15"/><circle cx="50" cy="25" r="12"/><circle cx="75"cy="40" r="12"/><circle cx="75" cy="65" r="12"/><circle cx="50" cy="80" r="12"/><circle cx="25" cy="65" r="12"/><circle cx="25" cy="40" r="12"/></g></svg></div>
-                <div class="thumbnail" data-target="svg-car"><svg viewBox="0 0 200 100"><g stroke="#000" stroke-width="5" fill="#FFF"><path d="M 20,70 A 20,20 0 0,0 20,30 L 60,30 L 80,10 L 150,10 L 170,30 L 180,50 L 180,70 Z" /><circle cx="50" cy="70" r="15"/><circle cx="150" cy="70" r="15"/></g></svg></div>
+                <div class="thumbnail unlocked selected" data-target="svg-house"><svg viewBox="0 0 500 500"><g stroke="#000" stroke-width="15" fill="#FFF"><path d="M125,450 L125,250 L250,125 L375,250 L375,450 Z" /><path d="M100,250 L250,100 L400,250 Z" /></g></svg></div>
+                <div class="thumbnail unlocked" data-target="svg-flower"><svg viewBox="0 0 100 100"><g stroke="#000" stroke-width="3" fill="#FFF"><circle cx="50" cy="50" r="15"/><circle cx="50" cy="25" r="12"/><circle cx="75"cy="40" r="12"/><circle cx="75" cy="65" r="12"/></g></svg></div>
+                <div class="thumbnail unlocked" data-target="svg-car"><svg viewBox="0 0 200 100"><g stroke="#000" stroke-width="5" fill="#FFF"><path d="M 20,70 A 20,20 0 0,0 20,30 L 60,30 L 80,10 L 150,10 L 170,30 L 180,50 L 180,70 Z" /><circle cx="50" cy="70" r="15"/><circle cx="150" cy="70" r="15"/></g></svg></div>
+                
+                <div class="thumbnail" id="thumb-castle" data-target="svg-castle" data-req="10">
+                    <svg viewBox="0 0 200 200"><g stroke="#000" stroke-width="5" fill="#FFF"><rect x="50" y="100" width="100" height="80" /><rect x="20" y="80" width="30" height="100" /><rect x="150" y="80" width="30" height="100" /></g></svg>
+                </div>
+
+                <div class="thumbnail" id="thumb-dragon" data-target="svg-dragon" data-req="20">
+                    <svg viewBox="0 0 200 200"><g stroke="#000" stroke-width="5" fill="#FFF"><path d="M50,150 Q100,50 150,150 Z" /></g></svg>
+                </div>
             </div>
         </div>
     </div>
-    <a href="thanh-pho-sang-tao.html" class="back-button">Về Thành Phố Sáng Tạo</a>
 
     <script>
         const colorPalette = document.querySelector('.color-palette');
@@ -59,49 +132,98 @@
         const completeButton = document.getElementById('complete-btn');
         const scoringArea = document.getElementById('scoring-area');
         const saveButton = document.getElementById('save-btn');
+        const currentLevelEl = document.getElementById('current-level');
+        
         let selectedColor = '#e74c3c';
+        let currentLevel = 1;
+        let gameStartTime;
 
-        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#ecf0f1', '#34495e'];
-        colors.forEach(color => {
-            const box = document.createElement('div');
-            box.className = 'color-box';
-            box.style.backgroundColor = color;
-            if (color === '#ecf0f1') box.style.border = '1px solid #ddd';
-            colorPalette.appendChild(box);
+        // Bảng màu phong phú hơn
+        const colors = [
+            '#e74c3c', '#e67e22', '#f1c40f', 
+            '#2ecc71', '#1abc9c', '#3498db', 
+            '#9b59b6', '#34495e', '#ecf0f1',
+            '#8e44ad', '#2c3e50', '#d35400'
+        ];
+
+        // 1. KHỞI TẠO
+        window.addEventListener('load', async function() {
+            createPalette();
+            activateCanvas();
+            gameStartTime = Date.now();
+            
+            // Tải cấp độ từ Server
+            try {
+                const res = await fetch('/api/user/progress');
+                if (res.ok) {
+                    const data = await res.json();
+                    currentLevel = data.shapeLevel || 1;
+                    currentLevelEl.textContent = currentLevel;
+                    unlockArtworks(currentLevel); // Mở khóa tranh
+                }
+            } catch(e) { console.log("Chơi chế độ offline"); }
         });
 
-        const colorBoxes = document.querySelectorAll('.color-box');
-        
-        function selectColor(box) {
-             document.querySelector('.color-box.selected')?.classList.remove('selected');
-             box.classList.add('selected');
-             selectedColor = box.style.backgroundColor;
+        function unlockArtworks(level) {
+            thumbnails.forEach(thumb => {
+                const req = parseInt(thumb.dataset.req || 0);
+                if (level >= req) {
+                    thumb.classList.add('unlocked');
+                }
+            });
         }
 
-        colorBoxes.forEach(box => box.addEventListener('click', () => selectColor(box)));
-        
+        function createPalette() {
+            colors.forEach((color, index) => {
+                const box = document.createElement('div');
+                box.className = 'color-box';
+                box.style.backgroundColor = color;
+                if (color === '#ecf0f1') box.style.border = '3px solid #bdc3c7';
+                
+                box.addEventListener('click', () => {
+                    document.querySelector('.color-box.selected')?.classList.remove('selected');
+                    box.classList.add('selected');
+                    selectedColor = color;
+                });
+                
+                if (index === 0) box.classList.add('selected');
+                colorPalette.appendChild(box);
+            });
+        }
+
+        // 2. LOGIC TÔ MÀU
         function activateCanvas() {
             document.querySelectorAll('svg').forEach(svg => {
                 svg.querySelectorAll('.colorable').forEach(part => {
-                    part.addEventListener('click', () => { if(svg.classList.contains('active')) part.style.fill = selectedColor; });
+                    part.addEventListener('click', () => { 
+                        if(svg.classList.contains('active')) {
+                            part.style.fill = selectedColor;
+                            part.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.05)' }, { transform: 'scale(1)' }], { duration: 200, transformOrigin: 'center' });
+                        } 
+                    });
                 });
             });
         }
         
         thumbnails.forEach(thumb => {
             thumb.addEventListener('click', () => {
+                if (!thumb.classList.contains('unlocked')) return; // Không cho chọn nếu chưa mở
+
                 document.querySelector('.thumbnail.selected')?.classList.remove('selected');
                 document.querySelector('svg.active')?.classList.remove('active');
                 
                 thumb.classList.add('selected');
                 const targetId = thumb.dataset.target;
                 document.getElementById(targetId).classList.add('active');
+                
                 scoringArea.innerHTML = '';
                 saveButton.style.display = 'none';
+                gameStartTime = Date.now();
             });
         });
 
-        completeButton.addEventListener('click', () => {
+        // 3. CHẤM ĐIỂM & LƯU SERVER
+        completeButton.addEventListener('click', async () => {
             const activeSvg = document.querySelector('svg.active');
             const allParts = activeSvg.querySelectorAll('.colorable');
             let coloredParts = 0;
@@ -109,7 +231,7 @@
 
             allParts.forEach(part => {
                 const partColor = part.style.fill;
-                if (partColor && partColor !== '' && partColor !== 'rgb(255, 255, 255)') {
+                if (partColor && partColor !== '' && partColor !== 'rgb(255, 255, 255)' && partColor !== '#FFF') {
                     coloredParts++;
                     usedColors.add(partColor);
                 }
@@ -117,11 +239,44 @@
 
             const totalParts = allParts.length;
             const completionScore = totalParts > 0 ? (coloredParts / totalParts) * 6 : 0;
-            const varietyScore = (usedColors.size / (colors.length - 1)) * 4;
-            const finalScore = Math.min(10, Math.round(completionScore + varietyScore));
+            const varietyScore = Math.min(4, usedColors.size); 
+            
+            let finalScore = Math.round(completionScore + varietyScore);
+            if (finalScore === 9 && coloredParts === totalParts) finalScore = 10; 
 
-            scoringArea.innerHTML = `<div class="score-display">Điểm: ${finalScore} / 10</div>` + '⭐'.repeat(Math.ceil(finalScore/2)) + '☆'.repeat(5 - Math.ceil(finalScore/2));
-            saveButton.style.display = 'block';
+            let starStr = '⭐'.repeat(finalScore);
+            scoringArea.innerHTML = `<div class="score-display">Điểm: ${finalScore}/10</div><div style="font-size:1.2rem">${starStr}</div>`;
+
+            if (finalScore >= 9) {
+                confetti();
+                scoringArea.innerHTML += `<div style="color:#27ae60; font-weight:bold; margin-top:5px;">Tuyệt vời! Bé đã qua màn!</div>`;
+                saveButton.style.display = 'block';
+
+                // --- GỬI ĐIỂM VỀ SERVER ---
+                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+                try {
+                    const res = await fetch('/api/game/shape-win', { 
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ 
+                            level: currentLevel, 
+                            timeTaken: timeSpent 
+                        }) 
+                    });
+                    
+                    const data = await res.json();
+                    if (data.newLevel && data.newLevel > currentLevel) {
+                        currentLevel = data.newLevel;
+                        currentLevelEl.textContent = currentLevel;
+                        unlockArtworks(currentLevel); // Kiểm tra mở khóa tranh mới
+                        setTimeout(() => alert(`🎉 CHÚC MỪNG! Bé đã thăng cấp lên Level ${currentLevel}! Tranh mới đã được mở khóa!`), 500);
+                    }
+                } catch(e) { console.error("Lỗi lưu điểm:", e); }
+
+            } else {
+                scoringArea.innerHTML += `<div style="color:#e74c3c; margin-top:5px;">Cố lên! Hãy tô kín và dùng nhiều màu hơn nhé!</div>`;
+                saveButton.style.display = 'none';
+            }
         });
 
         saveButton.addEventListener('click', () => {
@@ -129,27 +284,15 @@
             const svgData = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(activeSvg.outerHTML)));
             
             const savedArtworks = JSON.parse(localStorage.getItem('artworks')) || [];
-            savedArtworks.unshift({ src: svgData, alt: 'Tác phẩm của bé' });
-            if (savedArtworks.length > 6) savedArtworks.pop(); // Giới hạn 6 tác phẩm
+            savedArtworks.unshift({ src: svgData, alt: `Tranh cấp độ ${currentLevel}` });
+            if (savedArtworks.length > 10) savedArtworks.pop(); 
             localStorage.setItem('artworks', JSON.stringify(savedArtworks));
             
-            const savedBadges = JSON.parse(localStorage.getItem('badges')) || [];
-            if (!savedBadges.includes('🎨')) {
-                savedBadges.push('🎨');
-                localStorage.setItem('badges', JSON.stringify(savedBadges));
-            }
-            alert('Đã lưu tranh vào Phòng Trưng Bày!');
-            saveButton.style.display = 'none';
+            alert('Đã lưu tranh vào Phòng Trưng Bày của bé!');
+            saveButton.disabled = true;
+            saveButton.textContent = "Đã Lưu ✔️";
         });
 
-        window.addEventListener('load', function() {
-            const currentUserName = localStorage.getItem('currentUser');
-            if (currentUserName) {
-                document.getElementById('personalized-greeting').innerHTML = `Xin chào bé <span class="user-name">${currentUserName}</span>!`;
-            }
-            selectColor(colorBoxes[0]);
-            activateCanvas();
-        });
     </script>
 </body>
 </html>
