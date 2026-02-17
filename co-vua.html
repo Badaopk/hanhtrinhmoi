@@ -254,7 +254,7 @@ function startTournamentTimer(mins) {
         }
 
         // --- XỬ LÝ CLICK (TAP TO MOVE) ---
-function onSquareClick() {
+async function onSquareClick() {
         if (!isGameActive) return;
         
         if (currentMode === 'pvp' && game.turn() !== myRole) return;
@@ -283,7 +283,7 @@ function onSquareClick() {
                 selectedSquare = null;
 
                 // Kiểm tra thắng thua TRƯỚC
-                updateStatus(); 
+                await updateStatus(); 
                 
                 // Nếu chưa kết thúc thì mới cho máy đi
                 if (currentMode === 'pve' && isGameActive && game.turn() === 'b') {
@@ -490,7 +490,7 @@ async function updateStatus() {
                 statusEl.textContent = "😢 MÁY THẮNG!";
                 statusEl.style.color = "#e74c3c";
                 showResultModal(false); // Hiện bảng thông báo thua cuộc
-            }
+          
         } else {
             // Chế độ Online (PVP)
             statusEl.textContent = "🏁 KẾT THÚC";
