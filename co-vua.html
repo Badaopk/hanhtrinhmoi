@@ -57,15 +57,15 @@
         }
 
         /* SIDEBAR */
-        .sidebar {
-            width: 95vw; max-width: 500px;
-            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
-            padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
-            text-align: center; display: flex; flex-direction: column; gap: 10px;
-            height: auto; max-height: 40vh; /* Giới hạn chiều cao để không bị dài quá */
-        }
-
-        /* TABS */
+.sidebar {
+    width: 95vw; max-width: 500px;
+    background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
+    padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
+    text-align: center; display: flex; flex-direction: column; gap: 10px;
+    /* Bỏ max-height cũ để hiện đầy đủ danh sách */
+    min-height: 300px; 
+}
+                /* TABS */
         .mode-tabs { display: flex; gap: 10px; margin-bottom: 5px; }
         .tab-btn {
             flex: 1; padding: 10px; border: none; border-radius: 10px;
@@ -156,40 +156,38 @@
     <script src="/socket.io/socket.io.js"></script>
 
     <script>
-        let board = null, game = new Chess(), socket = io();
-        let stockfish = null;
-        
-        let currentMode = 'pve'; 
-        let userLevel = 1;
-        let currentPlayingLevel = 1; 
-        let isGameActive = false;
-        let myRole = 'w'; 
-        let currentRoom = null;
-        let gameStartTime;
-        let matchTimer = null;    // <--- THÊM DÒNG NÀY
-        let secondsLeft = 600;
-        // Biến xử lý Click (Thay cho Drag)
-        let selectedSquare = null; 
-// --- KHỞI TẠO BỘ NÃO THÔNG MINH ---
-try { 
-    stockfish = new Worker('stockfish.js'); 
-    stockfish.postMessage('uci'); // Kích hoạt bộ não
-    stockfish.postMessage('isready');
+  let board = null, game = new Chess(), socket = io();
+    let stockfish = null;
+    let currentMode = 'pve'; 
+    let userLevel = 1;
+    let currentPlayingLevel = 1; 
+    let isGameActive = false;
+    let myRole = 'w'; 
+    let currentRoom = null;
+    let gameStartTime;
+    let matchTimer = null;
+    let secondsLeft = 600;
+    let selectedSquare = null;
 
-    stockfish.onmessage = (e) => {
-        if (e.data.includes('bestmove')) {
-            // Khi máy đã trả lời, xóa lệnh "tự cứu" để không đi 2 lần
-            clearTimeout(window.aiSafetyTimeout);
+    // --- KHỞI TẠO BỘ NÃO AI DUY NHẤT ---
+    try { 
+        stockfish = new Worker('stockfish.js'); 
+        stockfish.postMessage('uci');
+        stockfish.postMessage('isready');
 
-            const m = e.data.split(' ')[1];
-            if (isGameActive && m && m !== '(none)') {
-                game.move({ from: m.substring(0,2), to: m.substring(2,4), promotion: 'q' });
-                board.position(game.fen());
-                updateStatus();
+        stockfish.onmessage = (e) => {
+            if (e.data.includes('bestmove')) {
+                clearTimeout(window.aiSafetyTimeout);
+                const m = e.data.split(' ')[1];
+                // Chỉ cho phép máy đi nếu game đang chạy và đúng lượt máy (đen)
+                if (isGameActive && game.turn() === 'b' && m && m !== '(none)') {
+                    game.move({ from: m.substring(0,2), to: m.substring(2,4), promotion: 'q' });
+                    board.position(game.fen());
+                    updateStatus();
+                }
             }
-        }
-    };
-} catch(e) { console.error("Lỗi Stockfish:", e); }
+        };
+    } catch(e) { console.error("Lỗi Stockfish:", e); }
                         // --- HÀM ẢNH SVG CỰC NÉT ---
         function getPieceImg(piece) {
             const map = {'wP':'plt45','wN':'nlt45','wB':'blt45','wR':'rlt45','wQ':'qlt45','wK':'klt45','bP':'pdt45','bN':'ndt45','bB':'bdt45','bR':'rdt45','bQ':'qdt45','bK':'kdt45'};
@@ -256,68 +254,62 @@ function startTournamentTimer(mins) {
         }
 
         // --- XỬ LÝ CLICK (TAP TO MOVE) ---
-        function onSquareClick() {
-            if (!isGameActive) return;
-            
-            // Nếu là PVP và chưa đến lượt -> Bỏ qua
-            if (currentMode === 'pvp' && game.turn() !== myRole) return;
-            // Nếu PVE và máy đang nghĩ -> Bỏ qua
-            if (currentMode === 'pve' && game.turn() !== 'w') return;
+function onSquareClick() {
+        if (!isGameActive) return;
+        
+        if (currentMode === 'pvp' && game.turn() !== myRole) return;
+        if (currentMode === 'pve' && game.turn() !== 'w') return;
 
-            const square = $(this).data('square');
-            const piece = game.get(square);
+        const square = $(this).data('square');
+        const piece = game.get(square);
 
-            // 1. Nếu đã chọn quân cờ trước đó
-            if (selectedSquare) {
-                // Nếu bấm lại vào chính quân đó -> Bỏ chọn
-                if (selectedSquare === square) {
-                    removeHighlights();
-                    selectedSquare = null;
-                    return;
-                }
+        // 1. Xử lý khi đã chọn quân và bấm vào ô muốn đến
+        if (selectedSquare) {
+            if (selectedSquare === square) {
+                removeHighlights();
+                selectedSquare = null;
+                return;
+            }
 
-                // Kiểm tra xem nước đi có hợp lệ không
-                const move = game.move({
-                    from: selectedSquare,
-                    to: square,
-                    promotion: 'q' // Luôn phong Hậu cho đơn giản
-                });
+            const move = game.move({
+                from: selectedSquare,
+                to: square,
+                promotion: 'q'
+            });
 
-  if (move) {
-    // DI CHUYỂN THÀNH CÔNG
-    board.position(game.fen());
-    removeHighlights();
-    selectedSquare = null;
+            if (move) {
+                board.position(game.fen());
+                removeHighlights();
+                selectedSquare = null;
 
-    // 1. Kiểm tra trạng thái ván cờ TRƯỚC
-    updateStatus(); 
-    
-    // 2. CHỈ cho máy đi nếu ván cờ CÒN hoạt động và đang là lượt của máy (đen)
-    if (currentMode === 'pve' && isGameActive && game.turn() === 'b') {
-        document.getElementById('pve-status').textContent = "🤖 Máy đang suy nghĩ...";
-        setTimeout(makeAiMove, 500);
-    } else if (currentMode === 'pvp') {
-        socket.emit('move', { room: currentRoom, move: move });
-        document.getElementById('pvp-status').textContent = "Đợi đối thủ...";
-    }
-    return;
-}
-            // 2. Nếu chưa chọn hoặc chọn sai -> Chọn quân mới
-            if (piece) {
-                // Chỉ cho chọn quân của mình
-                const isMyPiece = (currentMode === 'pve' && piece.color === 'w') || 
-                                  (currentMode === 'pvp' && piece.color === myRole);
+                // Kiểm tra thắng thua TRƯỚC
+                updateStatus(); 
                 
-                if (isMyPiece) {
-                    removeHighlights();
-                    selectedSquare = square;
-                    highlightSquare(square); // Tô màu ô đang chọn
-                    highlightMoves(square);  // Hiện chấm các nước đi được
+                // Nếu chưa kết thúc thì mới cho máy đi
+                if (currentMode === 'pve' && isGameActive && game.turn() === 'b') {
+                    document.getElementById('pve-status').textContent = "🤖 Máy đang suy nghĩ...";
+                    setTimeout(makeAiMove, 500);
+                } else if (currentMode === 'pvp') {
+                    socket.emit('move', { room: currentRoom, move: move });
                 }
+                return;
             }
         }
 
-        // Các hàm tô màu bàn cờ
+        // 2. Xử lý khi chọn quân mới (Lưu ý: Dấu ngoặc } ở trên rất quan trọng)
+        if (piece) {
+            const isMyPiece = (currentMode === 'pve' && piece.color === 'w') || 
+                              (currentMode === 'pvp' && piece.color === myRole);
+            
+            if (isMyPiece) {
+                removeHighlights();
+                selectedSquare = square;
+                highlightSquare(square);
+                highlightMoves(square); 
+            }
+        }
+    }
+                // Các hàm tô màu bàn cờ
         function removeHighlights() {
             $('#myBoard .square-55d63').removeClass('highlight-selected');
             $('#myBoard .square-55d63').removeClass('highlight-dest');
@@ -452,19 +444,20 @@ async function updateStatus() {
     const isCheckmate = game.in_checkmate();
     const isDraw = game.in_draw() || game.in_stalemate() || game.in_threefold_repetition();
 
-    // Nếu ván cờ kết thúc, khóa trạng thái ngay lập tức
+    // Nếu ván cờ kết thúc (Thắng/Thua/Hòa), khóa máy tính ngay lập tức
     if (isCheckmate || isDraw) {
-        isGameActive = false; // Chốt chặn: Máy sẽ không được phép nghĩ hay đi nữa
+        isGameActive = false; 
+        clearTimeout(window.aiSafetyTimeout); // Hủy bộ đếm bảo hiểm AI
     }
 
-    // 1. XỬ LÝ CHIẾU BÍ (THẮNG / THUA)
+    // 1. XỬ LÝ KHI CÓ CHIẾU BÍ (THẮNG HOẶC THUA)
     if (isCheckmate) {
         if (currentMode === 'pve') {
-            // Lượt hiện tại là 'b' (Máy) mà bị chiếu bí -> Bé cầm quân trắng đã thắng
+            // Nếu đến lượt Đen (Máy) mà bị chiếu bí -> Bé cầm quân Trắng đã THẮNG
             if (game.turn() === 'b') {
-                statusEl.textContent = "🏆 BẠN THẮNG! (Chiếu bí)";
+                statusEl.textContent = "🏆 BẠN THẮNG!";
                 statusEl.style.color = "#2ecc71";
-                confetti(); // Hiệu ứng pháo hoa
+                confetti(); // Hiệu ứng pháo hoa chúc mừng
 
                 const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
                 
@@ -480,55 +473,56 @@ async function updateStatus() {
                     });
                     const d = await res.json();
                     
-                    // Cập nhật mốc Level cao nhất bé đạt được
+                    // Cập nhật mốc Level cao nhất bé đạt được trên máy chủ
                     if(d.newLevel) {
                         userLevel = d.newLevel; 
-                        renderLevelList(); // Cập nhật lại màu sắc các nút trên tháp
+                        renderLevelList(); // Vẽ lại danh sách nút bấm (mở khóa nút mới)
                     }
                     
-                    // Hiện Modal chúc mừng
+                    // Hiện Modal thông báo thắng cuộc
                     showResultModal(true, d.addedPoints, d.message);
                 } catch(e) { 
                     console.error("Lỗi kết nối:", e);
                     showResultModal(true, 0, "Bé chơi rất giỏi!");
                 }
             } else {
-                // Lượt hiện tại là 'w' (Bé) mà bị chiếu bí -> Máy thắng
-                statusEl.textContent = "😢 MÁY THẮNG! (Bé bị chiếu bí)";
+                // Nếu đến lượt Trắng (Bé) mà bị chiếu bí -> Máy THẮNG
+                statusEl.textContent = "😢 MÁY THẮNG!";
                 statusEl.style.color = "#e74c3c";
-                showResultModal(false); // Hiện bảng thua cho bé chơi lại
+                showResultModal(false); // Hiện bảng thông báo thua cuộc
             }
         } else {
             // Chế độ Online (PVP)
-            statusEl.textContent = "🏁 KẾT THÚC TRẬN ĐẤU";
+            statusEl.textContent = "🏁 KẾT THÚC";
             const winner = game.turn() !== myRole ? "Bé" : "Đối thủ";
             alert(`Trận đấu kết thúc! ${winner} đã chiến thắng.`);
         }
 
-    // 2. XỬ LÝ HÒA CỜ (KHÔNG LÊN CẤP)
+    // 2. XỬ LÝ KHI HÒA CỜ (KHÔNG CHO LÊN CẤP - PHẢI CHƠI LẠI)
     } else if (isDraw) {
-        statusEl.textContent = "🤝 HÒA CỜ! (Không tính thắng)";
+        statusEl.textContent = "🤝 HÒA CỜ!";
         statusEl.style.color = "#f1c40f";
         
         // Thông báo cho bé biết hòa không được qua màn
         setTimeout(() => {
-            alert("Ván cờ Hòa rồi! Bé cần phải Chiếu Bí (Checkmate) máy để được lên cấp nhé.");
-            if(typeof backToMenu === 'function') backToMenu();
+            alert("Ván cờ Hòa rồi! Bé phải thắng (Chiếu Bí) máy mới được lên cấp nhé. Hãy thử lại nào!");
+            // Tự động cho bé chơi lại đúng cấp độ đó
+            startAiGame(currentPlayingLevel); 
         }, 1500);
 
-    // 3. VÁN CỜ VẪN ĐANG DIỄN RA
+    // 3. VÁN CỜ VẪN ĐANG DIỄN RA (CẬP NHẬT LƯỢT ĐI)
     } else {
         if (currentMode === 'pve') {
-            // Trạng thái theo lượt khi đấu máy
+            // Hiển thị lượt đi trong chế độ đấu máy
             if (game.turn() === 'w') {
                 statusEl.textContent = `Cấp ${currentPlayingLevel}: Lượt của BẠN`;
                 statusEl.style.color = "white";
             } else {
-                statusEl.textContent = "🤖 Máy đang suy nghĩ...";
+                statusEl.textContent = "🤖 Máy đang nghĩ...";
                 statusEl.style.color = "#bdc3c7";
             }
         } else {
-            // Trạng thái theo lượt khi đấu Online
+            // Hiển thị lượt đi trong chế độ Online
             statusEl.textContent = (game.turn() === myRole ? "🟢 Đến lượt BẠN đi!" : "🔴 Đợi đối thủ đi...");
             statusEl.style.color = "white";
         }
