@@ -386,73 +386,112 @@ const levels = {
     }
 
     // --- 4. CHẤM ĐIỂM "AI" ---
-    async function evaluateDrawing() {
-        if(isProcessing) return;
-        isProcessing = true;
+async function evaluateDrawing() {
+        if(isProcessing) return;
+        isProcessing = true;
 
-        let score = 0;
-        if (currentLevel <= 20) {
-            const parts = svgLayer.querySelectorAll('.colorable');
-            let colored = 0; const colorsUsed = new Set();
-            parts.forEach(p => {
-                if (p.style.fill && p.style.fill !== 'rgb(255, 255, 255)' && p.style.fill !== '#fff') {
-                    colored++; colorsUsed.add(p.style.fill);
+        let score = 0;
+        
+        // --- LOGIC CHẤM ĐIỂM THỬ THÁCH CHO CẤP 1-20 ---
+        if (currentLevel <= 20) {
+            const parts = svgLayer.querySelectorAll('.colorable');
+            let colored = 0;
+            const colorsUsed = new Set();
+            
+            parts.forEach(p => {
+                // Kiểm tra xem đã tô màu chưa (Khác màu gốc/trắng/trong suốt)
+                const fill = p.style.fill;
+                if (fill && fill !== 'rgb(255, 255, 255)' && fill !== '#fff' && fill !== 'none' && fill !== '') {
+                    colored++;
+                    colorsUsed.add(fill);
+                }
+            });
+
+            if (parts.length > 0) {
+                const completion = colored / parts.length; // Tỷ lệ hoàn thành (0.0 -> 1.0)
+                let rawScore = 0;
+
+                // QUY TẮC 1: PHẢI TÔ KÍN (Trên 95% diện tích)
+                if (completion < 0.95) {
+                    // Nếu còn sót nhiều chỗ trắng: Điểm tối đa chỉ là 7 (Rớt)
+                    // Tính theo tỷ lệ: ví dụ tô một nửa (0.5) thì được 3.5đ -> làm tròn thành 4.
+                    rawScore = completion * 7.4; 
+                } else {
+                    // Nếu đã tô kín hết: Bắt đầu tính điểm "Thử thách"
+                    
+                    // Trường hợp đặc biệt: Hình chỉ có 1 miếng (vd: Ngôi sao, Quả táo)
+                    if (parts.length === 1) {
+                         // Tô kín là được 10 luôn vì không thể phối màu
+                        rawScore = 10;
+                    } else {
+                        // Trường hợp hình phức tạp (nhiều miếng)
+                        // Điểm sàn khi tô kín là 7.5
+                        rawScore = 7.5; 
+                        
+                        // QUY TẮC 2: THƯỞNG ĐA DẠNG MÀU SẮC (Chống lười)
+                        // Nếu dùng > 1 màu, mỗi màu thêm 1 điểm. Tối đa thêm 2.5 điểm.
+                        // Ví dụ: Dùng 1 màu -> cộng 0đ -> Tổng 7.5 (Làm tròn 8 - Vừa đủ đậu)
+                        // Ví dụ: Dùng 2 màu -> cộng 1đ -> Tổng 8.5 (Làm tròn 9 - Tốt)
+                        // Ví dụ: Dùng 3 màu -> cộng 2đ -> Tổng 9.5 (Làm tròn 10 - Xuất sắc)
+                        if (colorsUsed.size > 1) {
+                            rawScore += Math.min((colorsUsed.size - 1) * 1, 2.5);
+                        }
+                    }
                 }
-            });
-            score = Math.round((colored / parts.length) * 6 + Math.min(4, colorsUsed.size));
-        } else {
-            // LOGIC CHẤM ĐIỂM DỄ TÍNH HƠN
-            const imgData = ctx.getImageData(0, 0, 500, 500).data;
-            let drawPixels = 0; 
-            const usedColors = new Set();
-            
-            for (let i = 0; i < imgData.length; i += 4) {
-                // Kiểm tra pixel không phải màu trắng (độ lệch màu nhẹ cũng tính)
-                if (imgData[i] < 250 || imgData[i+1] < 250 || imgData[i+2] < 250) {
-                    drawPixels++;
-                    // Làm tròn mã màu để dễ tính đa dạng (ví dụ: gộp các màu gần giống nhau)
-                    const r = Math.floor(imgData[i]/10)*10;
-                    const g = Math.floor(imgData[i+1]/10)*10;
-                    const b = Math.floor(imgData[i+2]/10)*10;
-                    usedColors.add(`${r},${g},${b}`);
-                }
-            }
-            
-            const coverage = drawPixels / (500 * 500);
-            
-            // QUY TẮC MỚI:
-            // 1. Chỉ cần vẽ > 1% diện tích là được tính (thay vì 5%)
-            // 2. Điểm thưởng màu sắc dễ hơn
-            if (coverage < 0.01) {
-                score = 2; // Vẽ quá ít
-            } else {
-                // Công thức: Độ phủ * 20 + Số màu * 2
-                // Ví dụ: Phủ 10% (0.1 * 20 = 2đ) + Dùng 3 màu (3 * 2 = 6đ) => 8 điểm (ĐẬU)
-                let rawScore = (coverage * 20) + (usedColors.size * 1.5);
+                
                 score = Math.round(rawScore);
-                // Giới hạn max 10, min 5 (để bé không bị điểm quá thấp nếu đã cố gắng)
-                score = Math.min(10, Math.max(5, score));
             }
-        }
-        score = Math.min(10, Math.max(1, score));
-        
-        // Show Modal
-        document.getElementById('score-val').innerText = score;
-        document.getElementById('star-row').innerText = '⭐'.repeat(score);
-        document.getElementById('score-msg').innerText = score >= 8 ? "TUYỆT VỜI! 🥳" : "CỐ GẮNG LÊN BÉ NHÉ! 💪";
-        document.getElementById('result-modal').style.display = 'flex';
+        
+        // --- LOGIC CHO CẤP 21-100 (Vẽ tự do - Giữ nguyên) ---
+        } else {
+            const imgData = ctx.getImageData(0, 0, 500, 500).data;
+            let drawPixels = 0; 
+            const usedColors = new Set();
+            for (let i = 0; i < imgData.length; i += 4) {
+                if (imgData[i] < 250 || imgData[i+1] < 250 || imgData[i+2] < 250) {
+                    drawPixels++;
+                    const r = Math.floor(imgData[i]/10)*10;
+                    const g = Math.floor(imgData[i+1]/10)*10;
+                    const b = Math.floor(imgData[i+2]/10)*10;
+                    usedColors.add(`${r},${g},${b}`);
+                }
+            }
+            const coverage = drawPixels / (500 * 500);
+            if (coverage < 0.01) {
+                score = 2; 
+            } else {
+                let rawScore = (coverage * 20) + (usedColors.size * 1.5);
+                score = Math.min(10, Math.max(6, Math.round(rawScore)));
+            }
+        }
 
-        if (score >= 8) {
-            confetti();
-            // CHỈ GỬI LÊN SERVER NẾU LÀ CẤP ĐỘ CAO NHẤT ĐANG CÓ
-            if (currentLevel === maxLevelReached) {
-                await saveWin(score);
-            }
-            // Lưu triển lãm nếu 9-10 điểm
-            if (score >= 9) await saveToGallery();
-        }
-        isProcessing = false;
-    }
+        // Giới hạn điểm từ 1 đến 10
+        score = Math.min(10, Math.max(1, score));
+
+        // Show Modal Kết Quả
+        document.getElementById('score-val').innerText = score;
+        document.getElementById('star-row').innerText = '⭐'.repeat(score);
+        
+        // Thông báo dựa trên điểm số (Cần 8 điểm để qua)
+        const scoreMsg = document.getElementById('score-msg');
+        if (score >= 8) {
+            scoreMsg.innerText = score === 10 ? "TUYỆT ĐỐI! HOÀN HẢO! 🤩" : "LÀM TỐT LẮM! 🥳";
+            scoreMsg.style.color = "#2ecc71";
+            confetti();
+            if (currentLevel === maxLevelReached) {
+                await saveWin(score);
+            }
+            if (score >= 9) await saveToGallery();
+        } else {
+            // Thông báo cụ thể hơn khi điểm thấp
+            if (score <= 4) scoreMsg.innerText = "Bé nhớ tô kín hình nhé! 💪";
+            else scoreMsg.innerText = "Thử phối thêm màu sắc xem sao? 🎨";
+            scoreMsg.style.color = "#e67e22";
+        }
+        
+        document.getElementById('result-modal').style.display = 'flex';
+        isProcessing = false;
+    }
 
     async function saveWin(s) {
         try {
