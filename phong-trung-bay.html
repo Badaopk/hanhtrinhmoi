@@ -153,6 +153,7 @@
     border: 10px solid #5d4037; /* Khung gỗ */
     box-shadow: 5px 10px 20px rgba(0,0,0,0.3);
     transition: 0.3s;
+    transform: rotate(calc(var(--r, 0) * 1deg));
 }
 .art-card:hover { transform: scale(1.05); }
 .art-card img { width: 100%; border: 1px solid #eee; }
@@ -180,7 +181,10 @@
 </style>
 </head>
 <body>
-
+<div class="header">
+    <h1>🏛️ PHÒNG TRƯNG BÀY SƯU TẬP</h1>
+    <div class="currency">💎 Kim cương của bé: <span id="user-score">0</span></div>
+</div>
 <div class="main-category-tabs">
     <button class="tab-main-btn active" id="btn-tab-souvenir" onclick="switchGallery('souvenir')">
         🎁 Quà Lưu Niệm
@@ -216,26 +220,26 @@
         let userInventory = [];
         let currentScore = 0;
         let fullShopReference = []; // Lưu danh sách gốc để tra cứu icon/tên
-
 async function init() {
     try {
         const res = await fetch('/api/house/info');
         if(res.status === 401) return window.location.href = 'login.html';
         const data = await res.json();
 
-        currentScore = data.score;
+        currentScore = data.score || 0;
         userInventory = data.inventory || [];
-        fullShopReference = data.shopItems || []; // Lưu lại toàn bộ để tra cứu
+        fullShopReference = data.shopItems || [];
         
-        // 1. Lọc đồ để BÁN (chỉ hiện souvenir)
         allItems = fullShopReference.filter(item => item.category === 'souvenir');
 
-        document.getElementById('user-score').innerText = currentScore.toLocaleString();
+        // Cập nhật số tiền hiển thị
+        const scoreEl = document.getElementById('user-score');
+        if(scoreEl) scoreEl.innerText = currentScore.toLocaleString();
         
-        showEvent('Tet'); // Hiện shop
-        updateGalleryInventory(); // Hiện kho đồ lưu niệm riêng
+        showEvent('Tet'); 
+        updateGalleryInventory();
 
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("Lỗi khởi tạo:", e); }
 }
 async function switchGallery(type) {
     // 1. Cập nhật trạng thái nút Tab chính

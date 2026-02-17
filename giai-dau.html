@@ -213,8 +213,12 @@ socket.on('tournamentUpdated', () => {
         gameTitle.textContent = `Môn thi: ${tour.gameType.toUpperCase()}`;
         
         if (tour.status === 'open') {
-            statusText.innerHTML = `<span class="status-badge status-open">Đang mở đăng ký</span><br><br>Số vận động viên: <b>${tour.participants.length}</b>`;
-            
+            const deadline = new Date(tour.registrationDeadline);
+            statusText.innerHTML = `
+                <span class="status-badge status-open">Đang mở đăng ký</span><br>
+                <p style="color:#f1c40f">⏰ Hạn chót: <b>${deadline.toLocaleString()}</b></p>
+                <p>Số vận động viên: <b>${tour.participants.length}</b></p>
+            `;            
             // VÁ LỖI: Kiểm tra nếu bé đã đăng ký
             if (tour.participants.includes(currentUser)) {
                 joinBtn.style.display = 'none';
@@ -390,28 +394,29 @@ function getMatchHtml(m, gameType) {
     const isMe = (m.p1 === currentUser || m.p2 === currentUser);
     const now = new Date();
     const start = new Date(m.startTime);
-    const diff = (now - start) / 60000; // phút
-    // Thay đoạn if-else cũ bằng đoạn này trong getMatchHtml:
-let statusClass = "match-upcoming";
-let statusLabel = `<span style="color:#95a5a6">${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`;
+    const diff = (now - start) / 60000; 
 
-if (m.winner) {
-    statusLabel = `<b style="color:#27ae60">🏆 ${m.winner} thắng</b>`;
-} else if (diff > 10) {
-    statusLabel = `<b style="color:#e74c3c">Hủy</b>`;
-} else if (diff >= 0) {
-    statusLabel = `<b class="match-live" style="padding:2px 8px; border-radius:10px; color:#e67e22;">🔥 LIVE</b>`;
-    if (isMe) actionBtn = `<button onclick="enterMatch('${gameType}', '${m.matchId}')" class="btn-play" style="padding:5px 15px; font-size:0.8rem; margin:0;">Vào</button>`;
-}
+    let statusLabel = `<span style="color:#95a5a6">${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`;
+    let actionBtn = ""; // Khởi tạo rỗng ở đây để tránh lỗi undefined
 
-// Sau đó return HTML dùng biến statusLabel
+    if (m.winner) {
+        statusLabel = `<b style="color:#27ae60">🏆 ${m.winner} thắng</b>`;
+    } else if (diff > 10) {
+        statusLabel = `<b style="color:#e74c3c">Hủy</b>`;
+    } else if (diff >= 0) {
+        statusLabel = `<b class="match-live" style="padding:2px 8px; border-radius:10px; color:#e67e22; border:1px solid #e67e22">🔥 LIVE</b>`;
+        if (isMe) {
+            actionBtn = `<button onclick="enterMatch('${gameType}', '${m.matchId}')" class="btn-play" style="padding:5px 15px; font-size:0.8rem; margin-left:10px;">Vào</button>`;
+        }
+    }
+
     return `
         <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px dashed #ccc; ${isMe ? 'background:#fffbf0' : ''}">
             <div style="font-size:0.9rem; flex:1">
                 ${m.p1} <b style="color:#e74c3c">vs</b> ${m.p2}
             </div>
-            <div style="text-align:right;">
-                ${statusText} ${actionBtn}
+            <div style="text-align:right; display: flex; align-items: center; justify-content: flex-end;">
+                ${statusLabel} ${actionBtn}
             </div>
         </div>
     `;

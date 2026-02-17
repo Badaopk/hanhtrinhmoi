@@ -86,6 +86,64 @@
             font-size: 1.1rem;
             color: #333;
         }
+/* Container chứa chuông */
+.notif-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.2);
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    transition: 0.3s;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.notif-wrapper:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+/* Biểu tượng chuông */
+.notif-bell-icon {
+    font-size: 1.5rem;
+}
+
+/* Vòng tròn đỏ báo số tin nhắn */
+.notif-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ff4757;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    border: 2px solid white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Hiệu ứng chuông reo khi có tin mới */
+.ringing {
+    animation: ring-animation 0.5s ease-in-out infinite;
+}
+
+@keyframes ring-animation {
+    0% { transform: rotate(0); }
+    15% { transform: rotate(15deg); }
+    30% { transform: rotate(-15deg); }
+    45% { transform: rotate(10deg); }
+    60% { transform: rotate(-10deg); }
+    100% { transform: rotate(0); }
+}
     </style>
 </head>
 <body>
@@ -125,7 +183,37 @@
     <script>
 // Khởi tạo socket nếu chưa có (đặt ở đầu thẻ script)
 const socket = io();
+// Hàm lấy số lượng thông báo từ server
+async function updateNotificationCount() {
+    try {
+        const res = await fetch('/api/notifications');
+        const data = await res.json();
+        const badge = document.getElementById('notif-count-badge');
+        
+        if (data.length > 0) {
+            badge.innerText = data.length > 9 ? '9+' : data.length;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch (e) { console.error("Không lấy được số thông báo"); }
+}
 
+// Lắng nghe Socket để rung chuông khi Admin vừa đăng tin mới
+socket.on('adminNotification', (data) => {
+    // 1. Cập nhật số lượng trên badge
+    const badge = document.getElementById('notif-count-badge');
+    let currentCount = parseInt(badge.innerText) || 0;
+    badge.innerText = currentCount + 1;
+    badge.style.display = 'flex';
+
+    // 2. Làm chuông rung lên trong 3 giây để thu hút bé
+    const bell = document.getElementById('bell-container');
+    if (bell) {
+        bell.classList.add('ringing');
+        setTimeout(() => bell.classList.remove('ringing'), 3000);
+    }
+});
 // Lắng nghe thông báo nhắc lịch thi đấu từ Server
 socket.on('matchNotice', (data) => {
     // Tạo phần tử thông báo
@@ -198,11 +286,18 @@ socket.on('tournamentUpdated', () => {
                 }
 
                 authContainer.innerHTML = `
+                    <div class="notif-wrapper" onclick="window.location.href='thong-bao.html'" id="bell-container">
+                    <span class="notif-bell-icon">🔔</span>
+                    <span id="notif-count-badge" class="notif-badge" style="display:none">0</span>
+                    </div>
+
                     <span class="user-greeting">Chào, ${user.username}!</span>
                     ${specialButton}
                     <button id="logout-btn" class="auth-btn">Đăng Xuất</button>
                 `;
 
+                // Gọi hàm lấy số lượng thông báo ngay khi tải xong
+                updateNotificationCount();
                 document.getElementById('logout-btn').addEventListener('click', async () => {
                     await fetch('/api/logout', { method: 'POST' });
                     // Cần thiết để global-client.js ngừng hoạt động

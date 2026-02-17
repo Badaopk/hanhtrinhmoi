@@ -64,6 +64,9 @@ const tournamentSchema = new mongoose.Schema({
     phase: { type: String, default: 'registration' },
     status: { type: String, default: 'open' }, // open (đăng ký), playing (đang đấu), finished
     matchDuration: Number, // Số phút mỗi trận
+    registrationDeadline: Date, // Thời điểm tự động đóng đơn
+    dailyStartHour: { type: Number, default: 8 },
+    dailyEndHour: { type: Number, default: 18 },
     durationDays: { type: Number, default: 7 },
     participants: [String], // Danh sách tên các bé tham gia
     brackets: { type: Array, default: [] }, // Sơ đồ trận đấu/bảng đấu
@@ -185,7 +188,15 @@ const MATERIALS = [
 ];
 
 const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
-// --- DANH SÁCH 22 VẬT PHẨM NÂNG CẤP ---
+const notificationSchema = new mongoose.Schema({
+    title: String,
+    content: String,
+    type: { type: String, default: 'info' }, // 'info' (xanh), 'event' (vàng), 'warning' (đỏ)
+    date: { type: Date, default: Date.now }
+});
+
+const Notification = mongoose.model('Notification', notificationSchema);
+
 // --- DANH SÁCH VẬT PHẨM NÂNG CẤP (FULL OPTION) ---
 const Tournament = mongoose.model('Tournament', tournamentSchema);
 const User = mongoose.model('User', userSchema);
@@ -401,13 +412,50 @@ app.get('/api/user/progress', async (req, res) => {
 });
 
 // --- 6. API ADMIN (ĐÃ KHÔI PHỤC ĐẦY ĐỦ) ---
+// 1. Admin gửi thông báo chính thức (Lưu vào DB)
+app.post('/api/admin/post-notification', async (req, res) => {
+    const { title, content, type } = req.body;
+    const newNotify = new Notification({ title, content, type });
+    await newNotify.save();
+
+    // Vừa lưu vào DB, vừa gửi thông báo trực tiếp (real-time) cho những bé đang online
+    io.emit('adminNotification', { title, message: content });
+    res.json({ message: "Đã đăng thông báo thành công!" });
+});
+
+// 2. Bé lấy danh sách thông báo để xem
+app.get('/api/notifications', async (req, res) => {
+    // Lấy 20 thông báo mới nhất
+    const list = await Notification.find().sort({ date: -1 }).limit(20);
+    res.json(list);
+});
 app.post('/api/admin/create-tournament', async (req, res) => {
-    const { gameType, format, matchDuration } = req.body;
-    await Tournament.deleteMany({ status: { $ne: 'finished' } }); // Xóa giải cũ chưa xong
-    const newTourney = new Tournament({ gameType, format, matchDuration });
+    const { gameType, matchDuration, regDays, dailyStart, dailyEnd, tourDays } = req.body;
+    
+    // Xóa giải cũ
+    await Tournament.deleteMany({ status: { $ne: 'finished' } });
+
+    // Tính toán hạn chót: Hiện tại + số ngày Admin chọn
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + parseInt(regDays));
+
+    const newTourney = new Tournament({ 
+        gameType, 
+        matchDuration: parseInt(matchDuration),
+        registrationDeadline: deadline,
+        dailyStartHour: parseInt(dailyStart),
+        dailyEndHour: parseInt(dailyEnd),
+        durationDays: parseInt(tourDays),
+        status: 'open'
+    });
+
     await newTourney.save();
-    io.emit('adminNotification', { title: '🏆 GIẢI ĐẤU MỚI', message: `Môn ${gameType.toUpperCase()} đã mở đăng ký!` });
-    res.json({ message: "Đã mở giải thành công!" });
+    
+    io.emit('adminNotification', { 
+        title: '🏆 GIẢI ĐẤU MỚI', 
+        message: `Môn ${gameType.toUpperCase()} mở đăng ký trong ${regDays} ngày!` 
+    });
+    res.json({ message: `Đã mở giải! Hạn chót đăng ký: ${deadline.toLocaleString()}` });
 });
 // Admin chốt danh sách và chia bảng
 // (Code Mới - Đã sửa lỗi)
@@ -760,6 +808,7 @@ async function handleWin(req, res, gameKey, points = 10, taskName = '') {
         res.status(500).send("Lỗi: " + e.message); 
     }
 }
+
 // Cập nhật các dòng gọi API để truyền thêm Tên Nhiệm Vụ (Tham số thứ 3)
 app.post('/api/game/music-win', (req, res) => handleWin(req, res, 'musicLevel', 20, 'Âm Nhạc'));
 app.post('/api/game/detective-win', (req, res) => handleWin(req, res, 'detectiveLevel', 20, 'Thám tử'));
@@ -1530,6 +1579,142 @@ async function sendMatchReminders() {
 setInterval(sendMatchReminders, 60000); // Kiểm tra mỗi phút
 // Cứ mỗi 1 phút, Server sẽ tự thực hiện kiểm tra 1 lần
 setInterval(autoCheckForfeit, 60000);
+function calculateAutoSchedule(matchIndex, totalMatches, startH, endH, days) {
+    const matchesPerDay = Math.ceil(totalMatches / days);
+    const dayIndex = Math.floor(matchIndex / matchesPerDay);
+    const matchInDayIndex = matchIndex % matchesPerDay;
+
+    // Tính khoảng cách giữa các trận trong khung giờ (đổi ra phút)
+    const availableMinutes = (endH - startH) * 60;
+    const intervalMinutes = availableMinutes / (matchesPerDay + 1);
+
+    let scheduleDate = new Date();
+    // Bắt đầu từ ngày mai để các bé có thời gian chuẩn bị
+    scheduleDate.setDate(scheduleDate.getDate() + dayIndex + 1); 
+    scheduleDate.setHours(startH, 0, 0, 0);
+    scheduleDate.setMinutes((matchInDayIndex + 1) * intervalMinutes);
+
+    return scheduleDate;
+}
+
+async function autoStartTourneyLogic() {
+    try {
+        const now = new Date();
+        // 1. Tìm giải đấu đang mở đăng ký mà đã đến/quá hạn chót
+        const tourney = await Tournament.findOne({ 
+            status: 'open', 
+            registrationDeadline: { $lte: now } 
+        });
+
+        if (!tourney) return; // Không có giải nào hết hạn thì thoát
+
+        // 2. Kiểm tra số lượng người tham gia
+        if (tourney.participants.length < 2) {
+            console.log(`[System] Giải ${tourney.gameType} không đủ người ( < 2). Tự động hủy.`);
+            tourney.status = 'finished';
+            await tourney.save();
+            io.emit('adminNotification', { title: '❌ HỦY GIẢI ĐẤU', message: `Môn ${tourney.gameType.toUpperCase()} bị hủy do không đủ người tham gia.` });
+            return;
+        }
+
+        console.log(`[System] Đang tự động lập lịch cho giải: ${tourney.gameType}`);
+        
+        // Trộn ngẫu nhiên danh sách thí sinh
+        const players = [...tourney.participants].sort(() => Math.random() - 0.5);
+        const count = players.length;
+        const { dailyStartHour, dailyEndHour, durationDays } = tourney;
+
+        // 3. CHIA BẢNG DỰA TRÊN SỐ NGƯỜI
+        if (count > 8) {
+            // --- THỂ THỨC VÒNG BẢNG (Groups) ---
+            tourney.phase = 'groups';
+            let groupCount = Math.ceil(count / 4);
+            let brackets = [];
+            let allGroupMatchesList = [];
+
+            // Bước A: Tạo danh sách cặp đấu thô
+            for (let g = 0; g < groupCount; g++) {
+                let members = players.slice(g * 4, (g + 1) * 4);
+                for (let i = 0; i < members.length; i++) {
+                    for (let j = i + 1; j < members.length; j++) {
+                        allGroupMatchesList.push({ g: g, p1: members[i], p2: members[j] });
+                    }
+                }
+            }
+
+            // Bước B: Gán thời gian cho từng trận và phân vào bảng
+            const totalMatches = allGroupMatchesList.length;
+            for (let g = 0; g < groupCount; g++) {
+                let members = players.slice(g * 4, (g + 1) * 4);
+                let matchesInThisGroup = allGroupMatchesList
+                    .filter(m => m.g === g)
+                    .map((m, idx) => {
+                        // Tìm vị trí thực tế của trận này trong danh sách tổng để lấy giờ
+                        const globalIdx = allGroupMatchesList.indexOf(m);
+                        return {
+                            matchId: `TOUR-${Math.random().toString(36).substr(2, 9)}`,
+                            p1: m.p1, p2: m.p2, winner: null,
+                            startTime: calculateAutoSchedule(globalIdx, totalMatches, dailyStartHour, dailyEndHour, durationDays)
+                        };
+                    });
+                
+                brackets.push({ 
+                    groupName: `Bảng ${String.fromCharCode(65 + g)}`, 
+                    members, 
+                    matches: matchesInThisGroup 
+                });
+            }
+            tourney.brackets = brackets;
+
+        } else {
+            // --- THỂ THỨC LOẠI TRỰC TIẾP (Knockout) ---
+            tourney.phase = 'knockout';
+            let knockoutMatches = [];
+            const totalMatches = Math.floor(count / 2);
+
+            for (let i = 0; i < count; i += 2) {
+                if (players[i+1]) {
+                    const matchIdx = i / 2;
+                    knockoutMatches.push({
+                        matchId: `TOUR-${Math.random().toString(36).substr(2, 9)}`,
+                        p1: players[i],
+                        p2: players[i+1],
+                        winner: null,
+                        startTime: calculateAutoSchedule(matchIdx, totalMatches, dailyStartHour, dailyEndHour, durationDays)
+                    });
+                } else {
+                    // Nếu lẻ người, người cuối cùng được đặc cách (BYE)
+                    knockoutMatches.push({
+                        matchId: `BYE-${Math.random().toString(36).substr(2, 5)}`,
+                        p1: players[i],
+                        p2: "Đặc Cách",
+                        winner: players[i],
+                        startTime: now
+                    });
+                }
+            }
+            tourney.brackets = knockoutMatches;
+        }
+
+        // 4. CẬP NHẬT TRẠNG THÁI VÀ GỬI THÔNG BÁO
+        tourney.status = 'playing';
+        tourney.markModified('brackets'); // Báo cho Mongoose biết mảng brackets đã thay đổi
+        await tourney.save();
+
+        io.emit('adminNotification', { 
+            title: '📣 ĐÃ CHIA BẢNG ĐẤU', 
+            message: `Giải ${tourney.gameType.toUpperCase()} đã bắt đầu! Bé hãy vào xem lịch thi đấu của mình.` 
+        });
+        io.emit('tournamentUpdated'); // Lệnh để các máy khách (Client) load lại dữ liệu giải đấu
+        console.log(`[System] Tự động kích hoạt giải đấu ${tourney.gameType} thành công.`);
+
+    } catch (error) {
+        console.error("❌ Lỗi hệ thống tự động chia bảng:", error);
+    }
+}
+
+// Cứ mỗi 1 phút (60000ms), hệ thống sẽ tự quét xem có giải nào đến hạn không
+setInterval(autoStartTourneyLogic, 60000);
 server.listen(PORT, () => {
     console.log(`🚀 Server Database đang chạy tại: http://localhost:${PORT}`);
 });

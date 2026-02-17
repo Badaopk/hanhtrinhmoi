@@ -129,6 +129,26 @@
     </style>
 </head>
 <body>
+<div class="admin-create-form" style="background: #e3f2fd; border: 2px solid #2196f3;">
+    <h2>📢 ĐĂNG THÔNG BÁO CHÍNH THỨC</h2>
+    <div class="form-group">
+        <label>Tiêu đề:</label>
+        <input type="text" id="notif-title" placeholder="Ví dụ: Lịch bảo trì Server">
+    </div>
+    <div class="form-group">
+        <label>Nội dung:</label>
+        <textarea id="notif-content" rows="3"></textarea>
+    </div>
+    <div class="form-group">
+        <label>Loại tin:</label>
+        <select id="notif-type">
+            <option value="info">💡 Thông tin chung</option>
+            <option value="event">🏆 Giải đấu / Sự kiện</option>
+            <option value="warning">⚠️ Bảo trì / Cảnh báo</option>
+        </select>
+    </div>
+    <button class="create-btn" onclick="postOfficialNotification()" style="background:#2196f3; width:100%">ĐĂNG THÔNG BÁO</button>
+</div>
     <div class="admin-container">
         <h1>Bảng Điều Khiển Admin</h1>
         <p>Quản lý dữ liệu người chơi. (Chỉ Admin mới thấy trang này)</p>
@@ -191,6 +211,10 @@
             </select>
         </div>
         <div class="form-group">
+            <label>Mở đăng ký trong (Ngày):</label>
+            <input type="number" id="reg-days" value="1" min="1">
+        </div>
+        <div class="form-group">
             <label>Thời gian (phút/trận):</label>
             <input type="number" id="tour-time" value="10" min="1">
         </div>
@@ -215,9 +239,8 @@
 
     <div style="display:flex; gap:10px; flex-wrap: wrap;">
         <button class="create-btn" onclick="apiCall('/api/admin/create-tournament', 'POST', getTourData())" style="background:#2ecc71; flex:1;">
-            1. Mở Đăng Ký
-        </button>
-        
+            1. Thiết Lập & Mở Đăng Ký
+        </button>        
         <button class="create-btn" onclick="startSmartTourney()" style="background:#e74c3c; flex:1;">
             2. Chốt & Lập Lịch Tự Động
         </button>
@@ -331,6 +354,24 @@
         const maintenanceToggleBtn = document.getElementById('maintenance-toggle-btn');
         const maintenanceStatusText = document.getElementById('maintenance-status');
 // Đặt hàm này vào vùng script chính
+async function postOfficialNotification() {
+    const data = {
+        title: document.getElementById('notif-title').value,
+        content: document.getElementById('notif-content').value,
+        type: document.getElementById('notif-type').value
+    };
+    if(!data.title || !data.content) return alert("Vui lòng nhập đủ thông tin!");
+
+    const res = await fetch('/api/admin/post-notification', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    alert(result.message);
+    document.getElementById('notif-title').value = '';
+    document.getElementById('notif-content').value = '';
+}
 async function finishTourney() {
     const top1 = prompt("Nhập Username người giải NHẤT (Cộng 500đ):");
     if(!top1) return;
@@ -359,11 +400,13 @@ setInterval(updateAdminTourInfo, 3000);
 function getTourData() {
     return {
         gameType: document.getElementById('tour-game').value,
-       
-        matchDuration: parseInt(document.getElementById('tour-time').value) || 10
+        matchDuration: parseInt(document.getElementById('tour-time').value) || 10,
+        regDays: parseInt(document.getElementById('reg-days').value) || 1, // Số ngày cho phép đăng ký
+        tourDays: parseInt(document.getElementById('tour-duration').value) || 7, // Tổng ngày thi đấu
+        dailyStart: parseInt(document.getElementById('start-hour').value) || 8, // Giờ bắt đầu
+        dailyEnd: parseInt(document.getElementById('end-hour').value) || 18     // Giờ kết thúc
     };
 }
-
 async function apiCall(url, method, data) {
     const res = await fetch(url, {
         method, headers: {'Content-Type':'application/json'},
