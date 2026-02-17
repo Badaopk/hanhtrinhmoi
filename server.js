@@ -1,6 +1,9 @@
 // =================================================================
-// --- SERVER TRUNG TÂM: HÀNH TINH MƠ ƯỚC (DATABASE + FULL FEATURES) ---
+// --- SERVER TRUNG TÂM: HÀNH TINH MƠ ƯỚC (LUXURY SECURE EDITION) ---
 // =================================================================
+// 1. Kích hoạt chế độ bảo mật (ĐỌC FILE .env NGAY DÒNG ĐẦU TIÊN)
+require('dotenv').config(); 
+
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
@@ -9,8 +12,10 @@ const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const onlineUsers = {};
 const MongoStore = require('connect-mongo');
-// --- CẤU HÌNH DATABASE (THAY CHUỖI KẾT NỐI CỦA BẠN VÀO ĐÂY) ---
-const MONGO_URI = 'mongodb+srv://admin:Quoc2007%40@cluster0.fme5rgw.mongodb.net/?appName=Cluster0'; 
+
+// 2. LẤY CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG (KHÔNG CÒN LỘ MẬT KHẨU)
+const MONGO_URI = process.env.MONGO_URI; 
+const PORT = process.env.PORT || 3000;
 
 // --- 1. IMPORT DỮ LIỆU & LOGIC ---
 const { tests, maths } = require('./question-data.js'); 
@@ -19,8 +24,6 @@ const MonopolyGame = require('./monopoly-logic.js');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const PORT = process.env.PORT || 3000;
-
 // --- 2. KẾT NỐI MONGODB ---
 // Schema User (Đầy đủ trường dữ liệu cũ)
 const userSchema = new mongoose.Schema({
@@ -105,37 +108,40 @@ mongoose.connect(MONGO_URI)
         try {
             const adminExists = await User.findOne({ username: 'Admin' });
             if (!adminExists) {
-                const hashedPassword = await bcrypt.hash('Quoc2007@', 10);
-                // Tìm đoạn này trong server.js và thay bằng:
-const admin = new User({
-    username: 'Admin',
-    password: hashedPassword,
-    role: 'admin',
-    // Cấp ngay 100 cấp độ cho Admin để test toàn bộ tính năng
-    chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
-    detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
-    shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
-    vietSpeechLevel: 100, englishSpeechLevel: 100,
-    score: 9999
-});
+                // Lấy mật khẩu từ file .env cho an toàn
+                // Nếu chưa cấu hình .env thì mới dùng mật khẩu dự phòng bên phải
+                const adminPass = process.env.ADMIN_PASSWORD || 'MatKhauDuPhongAnToan123';                
+                const hashedPassword = await bcrypt.hash(adminPass, 10);
+                
+                const admin = new User({
+                    username: 'Admin',
+                    password: hashedPassword,
+                    role: 'admin',
+                    // Cấp ngay 100 cấp độ cho Admin để test toàn bộ tính năng
+                    chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
+                    detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
+                    shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
+                    vietSpeechLevel: 100, englishSpeechLevel: 100,
+                    score: 9999
+                });
                 await admin.save();
-                console.log("🚀 Đã tự động tạo tài khoản Admin mặc định (Quoc2007@).");
+                console.log("🚀 Đã tự động tạo tài khoản Admin từ cấu hình bảo mật.");
             }
         } catch (error) {
             console.error("❌ Lỗi khi kiểm tra/tạo Admin:", error);
         }
     })
     .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
-
 // --- 3. CẤU HÌNH MIDDLEWARE ---
 const sessionMiddleware = session({
-    secret: 'hanh-tinh-mo-uoc-vinh-cuu-merged-2026',
+    // Lấy secret từ file .env, nếu không có thì dùng chuỗi dự phòng
+    secret: process.env.SESSION_SECRET || 'hanh-tinh-mo-uoc-vinh-cuu-merged-2026',
     resave: false,
-    saveUninitialized: false, // Đổi thành false để tiết kiệm database
-    store: MongoStore.create({ mongoUrl: MONGO_URI }), // <--- QUAN TRỌNG: Dòng này giúp lưu phiên đăng nhập vào MongoDB
+    saveUninitialized: false, 
+    store: MongoStore.create({ mongoUrl: MONGO_URI }), 
     cookie: { 
-        secure: false, // Nếu sau này bạn có https xịn thì đổi thành true
-        maxAge: 24 * 60 * 60 * 1000 // Lưu đăng nhập trong 24 giờ
+        secure: false, 
+        maxAge: 24 * 60 * 60 * 1000 
     } 
 });
 app.use(sessionMiddleware);
