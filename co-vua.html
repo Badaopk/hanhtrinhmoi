@@ -433,8 +433,8 @@
             if (moves.length > 0) {
                 // Ở ELO thấp (dưới 1000), máy rất "ham ăn" mà không tính toán
                 const captureMoves = game.moves({ verbose: true }).filter(m => m.flags.includes('c') || m.flags.includes('e'));
-                
-                if (estimatedElo < 1000 && captureMoves.length > 0 && Math.random() > 0.3) {
+                let captureThreshold = currentPlayingLevel <= 15 ? 0.7 : 0.3;
+                if (estimatedElo < 1000 && captureMoves.length > 0 && Math.random() > captureThreshold) {
                      // Thấy quân là ăn ngay (70% tỉ lệ sập bẫy)
                      const m = captureMoves[Math.floor(Math.random() * captureMoves.length)];
                      game.move(m.san);
