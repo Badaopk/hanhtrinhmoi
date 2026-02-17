@@ -170,22 +170,27 @@
         let secondsLeft = 600;
         // Biến xử lý Click (Thay cho Drag)
         let selectedSquare = null; 
+// --- KHỞI TẠO BỘ NÃO THÔNG MINH ---
+try { 
+    stockfish = new Worker('stockfish.js'); 
+    stockfish.postMessage('uci'); // Kích hoạt bộ não
+    stockfish.postMessage('isready');
 
-        try { stockfish = new Worker('stockfish.js'); } catch(e) {}
-        if (stockfish) {
     stockfish.onmessage = (e) => {
         if (e.data.includes('bestmove')) {
+            // Khi máy đã trả lời, xóa lệnh "tự cứu" để không đi 2 lần
+            clearTimeout(window.aiSafetyTimeout);
+
             const m = e.data.split(' ')[1];
-            // Thêm kiểm tra nếu game đã kết thúc thì không đi nữa
-            if (isGameActive) {
+            if (isGameActive && m && m !== '(none)') {
                 game.move({ from: m.substring(0,2), to: m.substring(2,4), promotion: 'q' });
                 board.position(game.fen());
                 updateStatus();
             }
         }
     };
-}
-                // --- HÀM ẢNH SVG CỰC NÉT ---
+} catch(e) { console.error("Lỗi Stockfish:", e); }
+                        // --- HÀM ẢNH SVG CỰC NÉT ---
         function getPieceImg(piece) {
             const map = {'wP':'plt45','wN':'nlt45','wB':'blt45','wR':'rlt45','wQ':'qlt45','wK':'klt45','bP':'pdt45','bN':'ndt45','bB':'bdt45','bR':'rdt45','bQ':'qdt45','bK':'kdt45'};
             const code = map[piece];
@@ -390,33 +395,56 @@ function startTournamentTimer(mins) {
             }
         };
 
-        function makeAiMove() {
-            if (!isGameActive) return;
-            let blunderChance = Math.max(0, 45 - (currentPlayingLevel * 0.5)); 
-            if (Math.random() * 100 < blunderChance) {
-                const moves = game.moves();
-                game.move(moves[Math.floor(Math.random() * moves.length)]);
-                board.position(game.fen());
-                updateStatus();
-                return; 
-            }
-            if (stockfish) {
-                let depth = Math.floor(1 + (currentPlayingLevel / 10)); 
-                let skill = Math.floor((currentPlayingLevel / 100) * 20);
-                let moveTime = 100 + (currentPlayingLevel * 14);
-                stockfish.postMessage(`setoption name Skill Level value ${skill}`);
-                stockfish.postMessage(`setoption name UCI_LimitStrength value true`);
-                stockfish.postMessage(`setoption name UCI_Elo value ${500 + currentPlayingLevel * 25}`);
-                stockfish.postMessage(`position fen ${game.fen()}`);
-                stockfish.postMessage(`go depth ${depth} movetime ${moveTime}`);
-                
-            } else {
-                const moves = game.moves();
-                game.move(moves[Math.floor(Math.random() * moves.length)]);
-                board.position(game.fen());
-                updateStatus();
-            }
+ function makeAiMove() {
+    if (!isGameActive) return;
+
+    // 1. Tỉ lệ đi lỗi để bé dễ thắng (Giữ nguyên logic của bạn)
+    let blunderChance = Math.max(0, 45 - (currentPlayingLevel * 0.5)); 
+    if (Math.random() * 100 < blunderChance) {
+        const moves = game.moves();
+        if (moves.length > 0) {
+            game.move(moves[Math.floor(Math.random() * moves.length)]);
+            board.position(game.fen());
+            updateStatus();
+            return; 
         }
+    }
+
+    if (stockfish) {
+        let depth = Math.min(15, Math.floor(1 + (currentPlayingLevel / 10))); 
+        let skill = Math.floor((currentPlayingLevel / 100) * 20);
+        let moveTime = 100 + (currentPlayingLevel * 14);
+
+        // Gửi lệnh cho máy tính toán
+        stockfish.postMessage(`setoption name Skill Level value ${skill}`);
+        stockfish.postMessage(`position fen ${game.fen()}`);
+        stockfish.postMessage(`go depth ${depth} movetime ${moveTime}`);
+
+        // --- CƠ CHẾ BẢO HIỂM CHỐNG TREO ---
+        // Nếu sau 5 giây máy không phản hồi, ép máy đi 1 nước ngẫu nhiên
+        clearTimeout(window.aiSafetyTimeout); 
+        window.aiSafetyTimeout = setTimeout(() => {
+            if (game.turn() === 'b' && isGameActive) {
+                console.warn("Máy suy nghĩ quá lâu, đang dùng nước đi dự phòng...");
+                const fallbackMoves = game.moves();
+                if (fallbackMoves.length > 0) {
+                    game.move(fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)]);
+                    board.position(game.fen());
+                    updateStatus();
+                }
+            }
+        }, 5000); 
+
+    } else {
+        // Nếu không có Stockfish, bốc đại một nước đi
+        const moves = game.moves();
+        if (moves.length > 0) {
+            game.move(moves[Math.floor(Math.random() * moves.length)]);
+            board.position(game.fen());
+            updateStatus();
+        }
+    }
+}
 async function updateStatus() {
     let statusEl = document.getElementById(currentMode === 'pve' ? 'pve-status' : 'pvp-status');
     
