@@ -394,32 +394,62 @@
     function makeAiMove() {
         if (!isGameActive) return;
 
-        // Tỉ lệ đi lỗi (Blunder) để bé dễ thắng
-        let blunderChance = Math.max(0, 45 - (currentPlayingLevel * 0.5)); 
+        // --- 1. TÍNH TOÁN CHỈ SỐ THEO CÔNG THỨC TUYẾN TÍNH (MƯỢT MÀ TỪNG CẤP) ---
+        
+        // Tỷ lệ đi lỗi: Cấp 1 (45%) -> Giảm 0.45% mỗi cấp -> Cấp 100 (0%)
+        let blunderChance = Math.max(0, 45 - (currentPlayingLevel * 0.45)); 
+
+        // Độ sâu (Depth): Cứ 7 cấp tăng 1 độ sâu. 
+        // Cấp 1 (Depth 1) -> Cấp 100 (Depth 15)
+        let depth = Math.floor(1 + (currentPlayingLevel / 7)); 
+
+        // Trình độ (Skill): Tăng đều từ 0 đến 20
+        let skill = Math.floor((currentPlayingLevel / 100) * 20);
+
+        // Contempt (Thái độ thi đấu): Tăng dần từ -50 lên 50
+        // Cấp 1 (-50): Né hòa tuyệt đối.
+        // Cấp 50 (0): Đánh công bằng.
+        // Cấp 100 (+50): Đánh rát, ép sân.
+        let contempt = -50 + currentPlayingLevel; 
+        if (contempt > 50) contempt = 50; // Giới hạn tối đa là 50
+
+        // --- 2. THỰC HIỆN ĐI QUÂN (LOGIC ƯU TIÊN ĂN QUÂN) ---
         if (Math.random() * 100 < blunderChance) {
             const moves = game.moves();
             if (moves.length > 0) {
-                game.move(moves[Math.floor(Math.random() * moves.length)]);
+                // Lọc các nước ăn quân
+                const captureMoves = game.moves({ verbose: true }).filter(m => m.flags.includes('c') || m.flags.includes('e'));
+                
+                // 70% trường hợp đi lỗi sẽ chọn nước "ăn quân" (để game đỡ chán)
+                if (captureMoves.length > 0 && Math.random() > 0.3) {
+                     const m = captureMoves[Math.floor(Math.random() * captureMoves.length)];
+                     game.move(m.san);
+                } else {
+                     // 30% đi ngẫu nhiên hoàn toàn
+                     game.move(moves[Math.floor(Math.random() * moves.length)]);
+                }
+                
                 board.position(game.fen());
                 updateStatus();
                 return; 
             }
         }
 
+        // --- 3. GỌI STOCKFISH ---
         if (stockfish) {
-            let depth = Math.min(15, Math.floor(1 + (currentPlayingLevel / 10))); 
-            let skill = Math.floor((currentPlayingLevel / 100) * 20);
-            let moveTime = 100 + (currentPlayingLevel * 14);
+            // Thời gian nghĩ cũng tăng dần: Cấp 1 (260ms) -> Cấp 100 (1250ms)
+            let moveTime = 250 + (currentPlayingLevel * 10);
 
             stockfish.postMessage(`setoption name Skill Level value ${skill}`);
+            stockfish.postMessage(`setoption name Contempt value ${contempt}`); 
             stockfish.postMessage(`position fen ${game.fen()}`);
             stockfish.postMessage(`go depth ${depth} movetime ${moveTime}`);
 
-            // BẢO HIỂM: Nếu máy đơ quá 5 giây thì tự đi random
+            // Bảo hiểm 5 giây chống treo
             clearTimeout(window.aiSafetyTimeout); 
             window.aiSafetyTimeout = setTimeout(() => {
                 if (game.turn() === 'b' && isGameActive) {
-                    console.warn("Máy suy nghĩ quá lâu, đi random...");
+                    console.warn("Máy lag, đi random...");
                     const fallbackMoves = game.moves();
                     if (fallbackMoves.length > 0) {
                         game.move(fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)]);
@@ -430,7 +460,6 @@
             }, 5000); 
 
         } else {
-            // Nếu không có stockfish
             const moves = game.moves();
             if (moves.length > 0) {
                 game.move(moves[Math.floor(Math.random() * moves.length)]);
@@ -439,7 +468,6 @@
             }
         }
     }
-
     // --- KIỂM TRA THẮNG THUA (CỰC KỲ QUAN TRỌNG) ---
     async function updateStatus() {
         let statusEl = document.getElementById(currentMode === 'pve' ? 'pve-status' : 'pvp-status');
