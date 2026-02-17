@@ -417,7 +417,81 @@ function startTournamentTimer(mins) {
                 updateStatus();
             }
         }
+async function updateStatus() {
+    let statusEl = document.getElementById(currentMode === 'pve' ? 'pve-status' : 'pvp-status');
+    
+    // 1. Kiểm tra Chiếu Bí (Hết cờ)
+    if (game.in_checkmate()) {
+        isGameActive = false; // Dừng game ngay lập tức
 
+        if (currentMode === 'pve') {
+            // --- LOGIC ĐẤU VỚI MÁY ---
+            if (game.turn() === 'b') { 
+                // Nếu lượt đi hiện tại là của Đen (Máy) => Máy bị chiếu bí => BẠN THẮNG
+                statusEl.textContent = "🏆 BẠN THẮNG!";
+                confetti(); // Bắn pháo hoa
+                
+                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+                
+                try {
+                    // GỌI API LƯU ĐIỂM (Đã sửa tên biến thành 'level')
+                    const res = await fetch('/api/game/chess-win-level', { 
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ 
+                            level: currentPlayingLevel, // <--- Đã sửa đúng tên biến
+                            timeTaken: timeSpent,
+                            tournamentRoomId: currentRoom
+                        })                            
+                    });
+                    const d = await res.json();
+                    
+                    // Hiện Modal kết quả (Truyền vào: Thắng/Thua, Điểm cộng, Lời nhắn)
+                    showResultModal(true, d.addedPoints, d.message);
+                    
+                    // Nếu có điểm cộng (tức là qua màn mới), cập nhật lại danh sách level
+                    if(d.addedPoints > 0) {
+                        userLevel = d.newLevel; 
+                        renderLevelList(); 
+                    }
+                } catch(e) { 
+                    console.error("Lỗi kết nối:", e);
+                    // Vẫn hiện bảng thắng dù lỗi mạng để bé không buồn
+                    showResultModal(true, 0, "Lỗi kết nối, nhưng bé chơi rất hay!");
+                }
+            } else {
+                // Nếu lượt đi là Trắng (Bạn) => Bạn bị chiếu bí => MÁY THẮNG
+                statusEl.textContent = "😢 MÁY THẮNG!";
+                showResultModal(false); // Hiện bảng thua
+            }
+        } else {
+            // --- LOGIC ĐẤU ONLINE (PVP) ---
+            statusEl.textContent = "🏁 KẾT THÚC";
+            // Kiểm tra ai là người thắng dựa trên lượt đi cuối cùng
+            if (game.turn() !== myRole) {
+                alert("CHÚC MỪNG! BẠN ĐÃ CHIẾN THẮNG ĐỐI THỦ!");
+            } else {
+                alert("TIẾC QUÁ! BẠN ĐÃ THUA TRẬN NÀY.");
+            }
+        }
+
+    // 2. Kiểm tra Hòa Cờ (Draw)
+    } else if (game.in_draw()) {
+        statusEl.textContent = "🤝 HÒA CỜ!"; 
+        isGameActive = false;
+        alert("Ván cờ kết thúc với tỷ số HÒA!");
+
+    // 3. Ván cờ vẫn đang diễn ra
+    } else {
+        if (currentMode === 'pve') {
+            // Hiển thị trạng thái khi đấu máy
+            statusEl.textContent = (game.turn() === 'w' ? `Cấp ${currentPlayingLevel}: Đến lượt BẠN` : "🤖 Máy đang suy nghĩ...");
+        } else {
+            // Hiển thị trạng thái khi đấu Online
+            statusEl.textContent = (game.turn() === myRole ? "🟢 Đến lượt BẠN đi!" : "🔴 Đợi đối thủ đi...");
+        }
+    }
+}
         window.createGroup = () => { socket.emit('createChessRoom'); document.getElementById('pvp-status').textContent = "Đang tạo..."; };
         window.joinGroup = () => { socket.emit('joinChessRoom', document.getElementById('room-code-input').value.toUpperCase()); };
         window.findRandomMatch = () => { socket.emit('findMatch', 'chess'); document.getElementById('pvp-status').textContent = "Đang tìm..."; };
@@ -452,46 +526,53 @@ socket.on('gameOver', (data) => {
     }
     location.href = 'giai-dau.html'; // Quay lại trang giải đấu
 });
-        async function updateStatus() {
-            let statusEl = document.getElementById(currentMode === 'pve' ? 'pve-status' : 'pvp-status');
-            if (game.in_checkmate()) {
-                isGameActive = false;
-                if (currentMode === 'pve') {
-                    if (game.turn() === 'b') { 
-                        statusEl.textContent = "🏆 BẠN THẮNG!";
-                        const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-                        try {
-                            const res = await fetch('/api/game/chess-win-level', { 
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ 
-                                    playedLevel: currentPlayingLevel,
-                                    timeTaken: timeSpent, // <--- THÊM BIẾN NÀY VÀO ĐÂY
-                                    tournamentRoomId: currentRoom
-                                })                            
-                            });
-                            const d = await res.json();
-                            if(d.newLevel) { 
-                                alert(d.message); userLevel = d.newLevel; renderLevelList(); 
-                            } else { alert(d.message); }
-                        } catch(e) {}
-                    } else { statusEl.textContent = "😢 MÁY THẮNG!"; }
-                } else {
-                    statusEl.textContent = "🏁 KẾT THÚC";
-                    alert(game.turn() !== myRole ? "BẠN THẮNG!" : "BẠN THUA!");
-                }
-            } else if (game.in_draw()) {
-                statusEl.textContent = "🤝 HÒA!"; isGameActive = false;
-            } else {
-                if (currentMode === 'pve') {
-                    statusEl.textContent = (game.turn() === 'w' ? `Cấp ${currentPlayingLevel}: Lượt bạn` : "Máy đang nghĩ...");
-                } else {
-                    statusEl.textContent = (game.turn() === myRole ? "Đến lượt BẠN!" : "Đối thủ đang đi...");
-                }
-            }
-        }
+function showResultModal(isWin, points = 0, serverMsg = "") {
+    const modal = document.getElementById('result-modal');
+    const title = document.getElementById('modal-title');
+    const msg = document.getElementById('modal-msg');
+    const btnNext = document.getElementById('btn-next-lvl');
 
+    if (isWin) {
+        title.textContent = "🏆 CHIẾN THẮNG!";
+        title.style.color = "#2ecc71";
+        msg.textContent = points > 0 ? `Bé nhận được ${points} 💎!` : "Bé đã thắng lại cấp này rất giỏi!";
+        btnNext.style.display = "block";
+    } else {
+        title.textContent = "😢 TIẾC QUÁ!";
+        title.style.color = "#e74c3c";
+        msg.textContent = "Máy thắng rồi, bé hãy thử lại nhé!";
+        btnNext.style.display = "none";
+    }
+    modal.style.display = 'flex';
+}
+
+function goToNextLevel() {
+    closeResultModal();
+    if (userLevel <= 100) {
+        startAiGame(userLevel); // Bắt đầu màn cao nhất vừa mở
+    }
+}
+
+function replayLevel() {
+    closeResultModal();
+    startAiGame(currentPlayingLevel);
+}
+
+function closeResultModal() {
+    document.getElementById('result-modal').style.display = 'none';
+}
         init();
     </script>
+<div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+    <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333; font-family: 'Baloo 2', cursive;">
+        <h2 id="modal-title" style="margin: 0; color: #e67e22; font-size: 2rem;">🏆 CHIẾN THẮNG!</h2>
+        <div style="font-size: 2.5rem; margin: 15px 0;">👑</div>
+        <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã vượt qua Cấp độ!</p>
+        
+        <button class="action-btn btn-green" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
+        <button class="action-btn btn-blue" onclick="replayLevel()">CHƠI LẠI 🔄</button>
+        <button class="action-btn" style="background:#95a5a6" onclick="closeResultModal()">QUAY LẠI MENU</button>
+    </div>
+</div>
 </body>
 </html>

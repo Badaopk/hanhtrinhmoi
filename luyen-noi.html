@@ -90,29 +90,123 @@
     </div>
 <script>
         // --- DANH SÁCH CÂU LUYỆN TẬP ---
-        const phrases = [
-            "Con mèo trèo cây cau", "Bà đi chợ mua rau", "Trời hôm nay rất đẹp",
-            "Em yêu trường em", "Cây bàng lá xanh", "Mẹ đi làm từ sáng sớm", "Bé tập tô màu",
-            "Con ong chăm chỉ", "Bông hoa nở rộ", "Chú ếch con", "Mặt trời mọc",
-            "Cánh đồng lúa chín", "Dòng sông xanh mát", "Đàn chim bay lượn"
-        ];
-        
-        let currentIndex = 0;
+        // --- DANH SÁCH 100 CÂU LUYỆN NÓI (TỪ DỄ ĐẾN KHÓ) ---
+const phrases = [
+    // Cấp 1-10: Từ đơn và từ đôi đơn giản
+    "Bà", "Mẹ", "Bố", "Cá", "Gà", 
+    "Quả cam", "Con mèo", "Cái bàn", "Quyển sách", "Đi học",
+
+    // Cấp 11-20: Câu 3 chữ
+    "Bé đi học", "Mẹ đi làm", "Bố đọc báo", "Bà kể chuyện", "Em ăn cơm",
+    "Gà cục tác", "Mèo meo meo", "Chó gâu gâu", "Cây xanh xanh", "Hoa đỏ thắm",
+
+    // Cấp 21-30: Từ láy và phụ âm khó (L/N, Tr/Ch)
+    "Lấp lánh", "Lung linh", "Náo nức", "Ninh ních", "Tròn trĩnh",
+    "Chăm chỉ", "Sạch sẽ", "Xinh xắn", "Mũm mĩm", "Lon ton",
+
+    // Cấp 31-40: Câu 4-5 chữ về gia đình & nhà trường
+    "Gia đình em rất vui", "Trường của em rất đẹp", "Cô giáo em hiền dịu",
+    "Bạn bè cùng trang lứa", "Học tập thật chăm chỉ", "Vâng lời ông bà cha mẹ",
+    "Giúp đỡ bạn bè khó khăn", "Giữ gìn vệ sinh chung", "Ăn quả nhớ kẻ trồng cây",
+    "Uống nước nhớ nguồn",
+
+    // Cấp 41-50: Các câu nói líu lưỡi (Tongue Twisters) - Mức dễ
+    "Lúa nếp là lúa nếp làng", "Lúa lên lớp lớp lòng nàng lâng lâng",
+    "Con lươn nó luồn qua lườn", "Chị lặt rau rồi luộc", 
+    "Buổi trưa ăn bưởi chua", "Lá lành đùm lá rách",
+    "Ông bụt ở chùa bùi cầm bùa đuổi chuột", "Đầu làng có con lợn nái",
+    "Con cá rô rục rịch trong rổ", "Trèo trẹo chân trượt trẹo chân",
+
+    // Cấp 51-60: Ca dao, Tục ngữ quen thuộc
+    "Công cha như núi Thái Sơn", "Nghĩa mẹ như nước trong nguồn chảy ra",
+    "Bầu ơi thương lấy bí cùng", "Tuy rằng khác giống nhưng chung một giàn",
+    "Nhiễu điều phủ lấy giá gương", "Người trong một nước phải thương nhau cùng",
+    "Anh em như thể tay chân", "Rách lành đùm bọc dở hay đỡ đần",
+    "Một cây làm chẳng nên non", "Ba cây chụm lại nên hòn núi cao",
+
+    // Cấp 61-70: Câu miêu tả thiên nhiên & Cảm xúc
+    "Bầu trời hôm nay trong xanh và cao vút", 
+    "Những đám mây trắng bồng bềnh trôi nhẹ nhàng",
+    "Tiếng chim hót líu lo chào ngày mới",
+    "Cánh đồng lúa chín vàng ươm trải dài tít tắp",
+    "Em cảm thấy rất hạnh phúc khi được điểm mười",
+    "Mùa hè ve kêu râm ran khắp phố phường",
+    "Mùa thu lá vàng rơi xào xạc trên sân trường",
+    "Mùa đông gió bấc thổi lạnh buốt đôi bàn tay",
+    "Mùa xuân hoa đào nở rực rỡ cả một góc trời",
+    "Dòng sông quê hương hiền hòa chảy quanh năm",
+
+    // Cấp 71-80: Các câu nói líu lưỡi - Mức khó (Thử thách L/N, R/D/Gi)
+    "Nồi đồng nấu ốc nồi đất nấu ếch", 
+    "Ông nấu ốc nồi đồng tôi nấu ếch nồi đất",
+    "Lúc nào lên núi lấy nứa về làm lán",
+    "Phụ nữ Việt Nam trung hậu đảm đang",
+    "Giặc đến nhà đàn bà cũng đánh",
+    "Con két con kẹp con két cái",
+    "Con cá mòi béo để gốc quéo cho mèo đói ăn",
+    "Luộc hột vịt lộn luộc lộn hột vịt lạc",
+    "Ăn hột vịt lộn lại luộc lại hột vịt lộn",
+    "Vạch vách đút bánh đúc cho chồng ăn",
+
+    // Cấp 81-90: Đoạn văn ngắn & Thơ
+    "Hạt gạo làng ta / Có vị phù sa / Của sông Kinh Thầy",
+    "Có hương sen thơm / Trong hồ nước đầy / Có lời mẹ hát",
+    "Đường vô xứ Nghệ quanh quanh / Non xanh nước biếc như tranh họa đồ",
+    "Tháp Mười đẹp nhất bông sen / Việt Nam đẹp nhất có tên Bác Hồ",
+    "Trăm năm trong cõi người ta / Chữ tài chữ mệnh khéo là ghét nhau",
+    "Cày đồng đang buổi ban trưa / Mồ hôi thánh thót như mưa ruộng cày",
+    "Ai ơi bưng bát cơm đầy / Dẻo thơm một hạt đắng cay muôn phần",
+    "Quê hương là chùm khế ngọt / Cho con trèo hái mỗi ngày",
+    "Quê hương là đường đi học / Con về rợp bướm vàng bay",
+    "Việt Nam đất nước ta ơi / Mênh mông biển lúa đâu trời đẹp hơn",
+
+    // Cấp 91-100: Thử thách Thần đồng Tiếng Việt (Câu dài & Phức tạp)
+    "Tôi yêu tiếng nước tôi từ khi mới ra đời người ơi",
+    "Tiếng Việt phong phú và giàu bản sắc văn hóa dân tộc",
+    "Giữ gìn sự trong sáng của Tiếng Việt là trách nhiệm của mỗi người",
+    "Dù ai đi ngược về xuôi nhớ ngày giỗ tổ mùng mười tháng ba",
+    "Non sông gấm vóc Việt Nam do phụ nữ ta trẻ cũng như già dệt thêu mà thêm tốt đẹp rực rỡ",
+    "Đoàn kết đoàn kết đại đoàn kết thành công thành công đại thành công",
+    "Học thầy không tày học bạn học vạn sự đời",
+    "Đi một ngày đàng học một sàng khôn",
+    "Lá rụng về cội nước chảy về nguồn con người nhớ về tổ tiên",
+    "Chúc mừng bé đã hoàn thành xuất sắc thử thách luyện nói tiếng Việt"
+];        
         let currentLevel = 1;
+    let currentIndex = 0;
 
-        // 1. Tự động tải cấp độ tiếng Việt
-        window.onload = async () => {
-            try {
-                const res = await fetch('/api/user/progress');
-                if (res.ok) {
-                    const data = await res.json();
-                    // SỬA: Lấy đúng cấp độ Tiếng Việt
-                    currentLevel = data.vietSpeechLevel || 1; 
-                    document.getElementById('current-level-display').textContent = currentLevel;
-                }
-            } catch(e) {}
-        };
+    // Hàm khởi tạo thông minh (Thay cho window.onload)
+    async function init() {
+        try {
+            const res = await fetch('/api/user/progress');
+            if (res.ok) {
+                const data = await res.json();
+                // Lấy đúng biến vietSpeechLevel
+                currentLevel = data.vietSpeechLevel || 1; 
+            }
+        } catch(e) { console.error("Lỗi tải cấp độ:", e); }
 
+        // --- LOGIC ĐỒNG BỘ QUAN TRỌNG ---
+        // Cấp 1 tương ứng với phần tử 0 trong mảng
+        currentIndex = currentLevel - 1; 
+        
+        // Cập nhật giao diện số cấp độ
+        document.getElementById('current-level-display').textContent = currentLevel;
+
+        // Cập nhật câu chữ hiển thị
+        showCurrentSentence();
+    }
+
+    // Hàm hiển thị câu (Tách riêng để dùng lại)
+    function showCurrentSentence() {
+        // Đảm bảo không bị lỗi nếu phá đảo 100 cấp
+        if (currentIndex >= phrases.length) currentIndex = phrases.length - 1;
+        
+        targetEl.textContent = `"${phrases[currentIndex]}"`;
+        scoreArea.innerHTML = "";
+        resultText.textContent = "Nhấn micro để bắt đầu...";
+        nextBtn.style.display = 'none';
+    }
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const btn = document.getElementById('record-btn');
         const resultText = document.getElementById('result-text');

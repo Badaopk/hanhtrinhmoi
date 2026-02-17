@@ -54,14 +54,42 @@
         .modal-content { background: white; padding: 30px; border-radius: 40px; text-align: center; width: 100%; max-width: 350px; animation: pop 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.49); }
         @keyframes pop { from { transform: scale(0.5); } to { transform: scale(1); } }
         .star-row { font-size: 2.5rem; margin: 15px 0; color: var(--accent); text-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+/* TỐI ƯU CHO ĐIỆN THOẠI */
+@media (max-width: 768px) {
+    .workspace { 
+        padding: 5px; 
+        gap: 10px;
+        flex-direction: column; /* Xếp dọc */
+    }
+    
+    /* 1. Đưa Khung vẽ lên đầu tiên */
+    .canvas-area { 
+        order: -1; 
+        width: 100% !important; 
+        max-width: 100%;
+        aspect-ratio: 1/1; /* Giữ khung vuông */
+        border-width: 5px; /* Viền mỏng lại */
+    }
 
-        /* Mobile */
-        @media (max-width: 768px) {
-            .workspace { flex-direction: column; align-items: center; padding: 10px; }
-            .sidebar, .mission-panel, .canvas-area { width: 100%; max-width: 450px; }
-            .canvas-area { order: -1; }
-        }
-    </style>
+    /* 2. Gom nhóm Công cụ & Nhiệm vụ xuống dưới */
+    .sidebar, .mission-panel { 
+        width: 100%; 
+        max-width: 100%;
+    }
+
+    /* 3. Tối ưu bảng màu cho ngón tay chạm */
+    .palette {
+        grid-template-columns: repeat(8, 1fr); /* 2 hàng ngang */
+    }
+    .color-btn {
+        width: 35px; height: 35px;
+    }
+    
+    .level-grid {
+        grid-template-columns: repeat(8, 1fr); /* Nhiều cột hơn trên mobile */
+    }
+}
+</style>
 </head>
 <body>
 
@@ -321,9 +349,14 @@ const levels = {
     function setupCanvasDrawing() {
         const getPos = (e) => {
             const rect = canvas.getBoundingClientRect();
+            // Hỗ trợ cả Touch và Mouse
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: (clientX - rect.left) * (500/rect.width), y: (clientY - rect.top) * (500/rect.height) };
+            
+            return { 
+                x: (clientX - rect.left) * (500 / rect.width), 
+                y: (clientY - rect.top) * (500 / rect.height) 
+            };
         };
 
         const start = (e) => { isDrawing = true; ctx.beginPath(); draw(e); };
@@ -368,19 +401,39 @@ const levels = {
             });
             score = Math.round((colored / parts.length) * 6 + Math.min(4, colorsUsed.size));
         } else {
+            // LOGIC CHẤM ĐIỂM DỄ TÍNH HƠN
             const imgData = ctx.getImageData(0, 0, 500, 500).data;
-            let drawPixels = 0; const usedColors = new Set();
+            let drawPixels = 0; 
+            const usedColors = new Set();
+            
             for (let i = 0; i < imgData.length; i += 4) {
+                // Kiểm tra pixel không phải màu trắng (độ lệch màu nhẹ cũng tính)
                 if (imgData[i] < 250 || imgData[i+1] < 250 || imgData[i+2] < 250) {
-                    drawPixels++; usedColors.add(`${imgData[i]},${imgData[i+1]},${imgData[i+2]}`);
+                    drawPixels++;
+                    // Làm tròn mã màu để dễ tính đa dạng (ví dụ: gộp các màu gần giống nhau)
+                    const r = Math.floor(imgData[i]/10)*10;
+                    const g = Math.floor(imgData[i+1]/10)*10;
+                    const b = Math.floor(imgData[i+2]/10)*10;
+                    usedColors.add(`${r},${g},${b}`);
                 }
             }
+            
             const coverage = drawPixels / (500 * 500);
-            if (coverage < 0.05) score = 3;
-            else if (coverage > 0.85) score = 5; // Bôi bẩn cả trang
-            else score = Math.round(coverage * 10 + (usedColors.size / 2));
+            
+            // QUY TẮC MỚI:
+            // 1. Chỉ cần vẽ > 1% diện tích là được tính (thay vì 5%)
+            // 2. Điểm thưởng màu sắc dễ hơn
+            if (coverage < 0.01) {
+                score = 2; // Vẽ quá ít
+            } else {
+                // Công thức: Độ phủ * 20 + Số màu * 2
+                // Ví dụ: Phủ 10% (0.1 * 20 = 2đ) + Dùng 3 màu (3 * 2 = 6đ) => 8 điểm (ĐẬU)
+                let rawScore = (coverage * 20) + (usedColors.size * 1.5);
+                score = Math.round(rawScore);
+                // Giới hạn max 10, min 5 (để bé không bị điểm quá thấp nếu đã cố gắng)
+                score = Math.min(10, Math.max(5, score));
+            }
         }
-
         score = Math.min(10, Math.max(1, score));
         
         // Show Modal

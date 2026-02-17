@@ -90,24 +90,129 @@
         }
 
         // --- DỮ LIỆU LEVEL ---
-        const levels = [
-            { id: 1, text: 'Cat', trans: 'Con mèo' },
-            { id: 2, text: 'Dog', trans: 'Con chó' },
-            { id: 3, text: 'Apple', trans: 'Quả táo' },
-            { id: 4, text: 'Ball', trans: 'Quả bóng' },
-            { id: 5, text: 'Hello', trans: 'Xin chào' },
-            { id: 6, text: 'Red', trans: 'Màu đỏ' },
-            { id: 7, text: 'Blue', trans: 'Màu xanh dương' },
-            { id: 8, text: 'Good morning', trans: 'Chào buổi sáng' },
-            { id: 9, text: 'Thank you', trans: 'Cảm ơn' },
-            { id: 10, text: 'I like milk', trans: 'Tôi thích sữa' }
-        ];
-        // Tạo thêm level giả
-        while(levels.length < 100) {
-            let nextId = levels.length + 1;
-            levels.push({ id: nextId, text: 'I can speak English', trans: 'Tôi có thể nói tiếng Anh' });
-        }
+        // --- DỮ LIỆU 100 LEVEL (TỪ DỄ ĐẾN KHÓ) ---
+const levels = [
+    // --- CẤP 1-10: Từ vựng cơ bản ---
+    { id: 1, text: 'Cat', trans: 'Con mèo' },
+    { id: 2, text: 'Dog', trans: 'Con chó' },
+    { id: 3, text: 'Apple', trans: 'Quả táo' },
+    { id: 4, text: 'Hello', trans: 'Xin chào' },
+    { id: 5, text: 'Thank you', trans: 'Cảm ơn' },
+    { id: 6, text: 'Goodbye', trans: 'Tạm biệt' },
+    { id: 7, text: 'Water', trans: 'Nước' },
+    { id: 8, text: 'Happy', trans: 'Hạnh phúc' },
+    { id: 9, text: 'Family', trans: 'Gia đình' },
+    { id: 10, text: 'Friend', trans: 'Bạn bè' },
 
+    // --- CẤP 11-20: Cụm từ ngắn ---
+    { id: 11, text: 'Good morning', trans: 'Chào buổi sáng' },
+    { id: 12, text: 'Good night', trans: 'Chúc ngủ ngon' },
+    { id: 13, text: 'See you later', trans: 'Hẹn gặp lại sau' },
+    { id: 14, text: 'I am sorry', trans: 'Tôi xin lỗi' },
+    { id: 15, text: 'Excuse me', trans: 'Xin lỗi (làm phiền)' },
+    { id: 16, text: 'Come here', trans: 'Lại đây' },
+    { id: 17, text: 'Sit down', trans: 'Ngồi xuống' },
+    { id: 18, text: 'Stand up', trans: 'Đứng lên' },
+    { id: 19, text: 'Open the door', trans: 'Mở cửa ra' },
+    { id: 20, text: 'Close the book', trans: 'Đóng sách lại' },
+
+    // --- CẤP 21-30: Câu đơn giản (Hiện tại đơn) ---
+    { id: 21, text: 'I like ice cream', trans: 'Tôi thích kem' },
+    { id: 22, text: 'She runs fast', trans: 'Cô ấy chạy nhanh' },
+    { id: 23, text: 'He is my brother', trans: 'Anh ấy là anh trai tôi' },
+    { id: 24, text: 'This is my house', trans: 'Đây là nhà của tôi' },
+    { id: 25, text: 'The sky is blue', trans: 'Bầu trời màu xanh' },
+    { id: 26, text: 'I have a car', trans: 'Tôi có một chiếc xe hơi' },
+    { id: 27, text: 'We are students', trans: 'Chúng tôi là học sinh' },
+    { id: 28, text: 'It is raining', trans: 'Trời đang mưa' },
+    { id: 29, text: 'I love my mom', trans: 'Tôi yêu mẹ tôi' },
+    { id: 30, text: 'Do you speak English', trans: 'Bạn có nói tiếng Anh không?' },
+
+    // --- CẤP 31-40: Câu hỏi & Nhu cầu hàng ngày ---
+    { id: 31, text: 'What is your name', trans: 'Tên bạn là gì?' },
+    { id: 32, text: 'How are you', trans: 'Bạn khỏe không?' },
+    { id: 33, text: 'Where are you from', trans: 'Bạn đến từ đâu?' },
+    { id: 34, text: 'I am hungry', trans: 'Tôi đói bụng' },
+    { id: 35, text: 'Can you help me', trans: 'Bạn giúp tôi được không?' },
+    { id: 36, text: 'How much is this', trans: 'Cái này bao nhiêu tiền?' },
+    { id: 37, text: 'I need some water', trans: 'Tôi cần một ít nước' },
+    { id: 38, text: 'Where is the bathroom', trans: 'Nhà vệ sinh ở đâu?' },
+    { id: 39, text: 'What time is it', trans: 'Bây giờ là mấy giờ?' },
+    { id: 40, text: 'Nice to meet you', trans: 'Rất vui được gặp bạn' },
+
+    // --- CẤP 41-50: Thì quá khứ & Tương lai ---
+    { id: 41, text: 'I went to the park yesterday', trans: 'Hôm qua tôi đã đi công viên' },
+    { id: 42, text: 'She cooked dinner', trans: 'Cô ấy đã nấu bữa tối' },
+    { id: 43, text: 'We watched a movie', trans: 'Chúng tôi đã xem một bộ phim' },
+    { id: 44, text: 'I will call you tomorrow', trans: 'Tôi sẽ gọi bạn vào ngày mai' },
+    { id: 45, text: 'He will buy a new phone', trans: 'Anh ấy sẽ mua điện thoại mới' },
+    { id: 46, text: 'Did you sleep well', trans: 'Bạn ngủ có ngon không?' },
+    { id: 47, text: 'I was very tired', trans: 'Tôi đã rất mệt' },
+    { id: 48, text: 'They were playing football', trans: 'Họ đang chơi bóng đá (lúc đó)' },
+    { id: 49, text: 'I have never been there', trans: 'Tôi chưa từng đến đó' },
+    { id: 50, text: 'Have you seen this movie', trans: 'Bạn đã xem phim này chưa?' },
+
+    // --- CẤP 51-60: Câu ghép & Mệnh đề ---
+    { id: 51, text: 'I stayed home because it was raining', trans: 'Tôi ở nhà vì trời mưa' },
+    { id: 52, text: 'Although he is tired he keeps working', trans: 'Dù mệt anh ấy vẫn làm việc' },
+    { id: 53, text: 'If you study hard you will pass', trans: 'Nếu học chăm bạn sẽ đậu' },
+    { id: 54, text: 'I think that this idea is great', trans: 'Tôi nghĩ ý tưởng này rất tuyệt' },
+    { id: 55, text: 'The man who called you is my dad', trans: 'Người đàn ông gọi bạn là bố tôi' },
+    { id: 56, text: 'She speaks English very well', trans: 'Cô ấy nói tiếng Anh rất tốt' },
+    { id: 57, text: 'I prefer tea over coffee', trans: 'Tôi thích trà hơn cà phê' },
+    { id: 58, text: 'Would you like something to drink', trans: 'Bạn muốn uống gì không?' },
+    { id: 59, text: 'Let me know when you are ready', trans: 'Cho tôi biết khi nào bạn sẵn sàng' },
+    { id: 60, text: 'It is important to be healthy', trans: 'Sức khỏe là điều quan trọng' },
+
+    // --- CẤP 61-70: Chủ đề công việc & Cuộc sống ---
+    { id: 61, text: 'Can I have the menu please', trans: 'Cho tôi xem thực đơn được không?' },
+    { id: 62, text: 'I am looking for a job', trans: 'Tôi đang tìm việc làm' },
+    { id: 63, text: 'My hobby is reading books', trans: 'Sở thích của tôi là đọc sách' },
+    { id: 64, text: 'Technology changes the world', trans: 'Công nghệ thay đổi thế giới' },
+    { id: 65, text: 'We should protect the environment', trans: 'Chúng ta nên bảo vệ môi trường' },
+    { id: 66, text: 'Traffic is very heavy today', trans: 'Giao thông hôm nay rất đông đúc' },
+    { id: 67, text: 'This exercise is quite difficult', trans: 'Bài tập này khá khó' },
+    { id: 68, text: 'I totally agree with you', trans: 'Tôi hoàn toàn đồng ý với bạn' },
+    { id: 69, text: 'Could you please repeat that', trans: 'Bạn nhắc lại được không?' },
+    { id: 70, text: 'I am interested in music', trans: 'Tôi hứng thú với âm nhạc' },
+
+    // --- CẤP 71-80: Cấu trúc nâng cao ---
+    { id: 71, text: 'I would have called if I had known', trans: 'Tôi đã gọi nếu tôi biết' },
+    { id: 72, text: 'Neither John nor Mary went there', trans: 'Cả John và Mary đều không đến đó' },
+    { id: 73, text: 'Despite the rain we went out', trans: 'Mặc dù mưa chúng tôi vẫn đi chơi' },
+    { id: 74, text: 'He is used to waking up early', trans: 'Anh ấy quen với việc dậy sớm' },
+    { id: 75, text: 'I look forward to hearing from you', trans: 'Tôi mong nhận được tin từ bạn' },
+    { id: 76, text: 'It is likely that it will snow', trans: 'Có khả năng trời sẽ có tuyết' },
+    { id: 77, text: 'She suggested going to the cinema', trans: 'Cô ấy gợi ý đi xem phim' },
+    { id: 78, text: 'You should have told me earlier', trans: 'Lẽ ra bạn nên nói với tôi sớm hơn' },
+    { id: 79, text: 'The more you practice the better you get', trans: 'Càng luyện tập bạn càng giỏi' },
+    { id: 80, text: 'Do not give up on your dreams', trans: 'Đừng từ bỏ ước mơ của bạn' },
+
+    // --- CẤP 81-90: Thành ngữ & Triết lý ---
+    { id: 81, text: 'Better late than never', trans: 'Muộn còn hơn không' },
+    { id: 82, text: 'Actions speak louder than words', trans: 'Hành động quan trọng hơn lời nói' },
+    { id: 83, text: 'Practice makes perfect', trans: 'Có công mài sắt có ngày nên kim' },
+    { id: 84, text: 'Time waits for no one', trans: 'Thời gian không chờ đợi ai' },
+    { id: 85, text: 'Knowledge is power', trans: 'Kiến thức là sức mạnh' },
+    { id: 86, text: 'Honesty is the best policy', trans: 'Trung thực là thượng sách' },
+    { id: 87, text: 'Where there is a will there is a way', trans: 'Nơi nào có ý chí nơi đó có con đường' },
+    { id: 88, text: 'No pain no gain', trans: 'Không vấp ngã không thành công' },
+    { id: 89, text: 'A friend in need is a friend indeed', trans: 'Hoạn nạn mới biết bạn hiền' },
+    { id: 90, text: 'Experience is the best teacher', trans: 'Kinh nghiệm là người thầy tốt nhất' },
+
+    // --- CẤP 91-100: Thử thách Thành Thạo (Mastery) ---
+    { id: 91, text: 'Success comes to those who work hard', trans: 'Thành công đến với người chăm chỉ' },
+    { id: 92, text: 'Education is the most powerful weapon', trans: 'Giáo dục là vũ khí mạnh nhất' },
+    { id: 93, text: 'Artificial intelligence is developing rapidly', trans: 'Trí tuệ nhân tạo đang phát triển nhanh chóng' },
+    { id: 94, text: 'Climate change is a global challenge', trans: 'Biến đổi khí hậu là thách thức toàn cầu' },
+    { id: 95, text: 'Communication is key to relationships', trans: 'Giao tiếp là chìa khóa của các mối quan hệ' },
+    { id: 96, text: 'Creativity is intelligence having fun', trans: 'Sáng tạo là sự thông minh đang vui đùa' },
+    { id: 97, text: 'Financial independence requires discipline', trans: 'Tự do tài chính cần sự kỷ luật' },
+    { id: 98, text: 'Punctuality is the soul of business', trans: 'Đúng giờ là linh hồn của kinh doanh' },
+    { id: 99, text: 'A journey of a thousand miles begins with a single step', trans: 'Hành trình vạn dặm bắt đầu từ một bước chân' },
+    { id: 100, text: 'I have mastered English speaking', trans: 'Tôi đã làm chủ kỹ năng nói tiếng Anh' }
+];
+          
         let unlockedLevel = 1;
         let currentLevel = 1;
         
