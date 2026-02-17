@@ -184,14 +184,6 @@ const MATERIALS = [
     { id: 'floor_grass', name: 'Thảm Cỏ', price: 150, category: 'floor', value: '#2ecc71', icon: '🌿' }
 ];
 
-const SEASONAL_SOUVENIRS = [
-    { id: 'sov_tet_mai', name: 'Cây Mai Vàng', price: 1000, type: 'd', category: 'souvenir', event: 'Tet', icon: '🌼' },
-    { id: 'sov_tet_dao', name: 'Cây Đào Phai', price: 1000, type: 'd', category: 'souvenir', event: 'Tet', icon: '🌸' },
-    { id: 'sov_noel_tree', name: 'Thông Noel', price: 1200, type: 'd', category: 'souvenir', event: 'Noel', icon: '🎄' },
-    { id: 'sov_hal_pump', name: 'Bí Ngô Ma', price: 600, type: 'd', category: 'souvenir', event: 'Halloween', icon: '🎃' },
-    { id: 'sov_mid_star', name: 'Đèn Ông Sao', price: 300, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🌟' }
-];
-
 const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
 // --- DANH SÁCH 22 VẬT PHẨM NÂNG CẤP ---
 // --- DANH SÁCH VẬT PHẨM NÂNG CẤP (FULL OPTION) ---
