@@ -752,7 +752,8 @@ async function handleWin(req, res, gameKey, points = 10, taskName = '') {
         res.json({ 
             message: isNewLevel ? `Chúc mừng! +${points}💎` : 'Bé đã hoàn thành cấp này trước đó rồi!', 
             newScore: user.score, 
-            addedPoints: addedScore // Sẽ trả về 0 nếu chơi lại cấp cũ
+            addedPoints: addedScore, // Sẽ trả về 0 nếu chơi lại cấp cũ
+            newLevel: user[gameKey]
         });
 
     } catch (e) { 
