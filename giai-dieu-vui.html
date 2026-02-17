@@ -3,95 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giai Điệu Vui</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="style.css">
+    <title>Giai Điệu Vui - 100 Cấp Độ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { background: #fff5e1; }
-         <div id="personalized-greeting" class="personalized-greeting" style="position: absolute; top: 10px; left: 10px; font-size: 1rem; font-weight: bold;"></div>
-        .piano-container { display: flex; justify-content: center; margin-top: 30px; }
-        .piano { display: flex; position: relative; }
-        .key { height: 250px; width: 60px; border: 2px solid #333; border-radius: 0 0 5px 5px; cursor: pointer; background: white; transition: background-color 0.1s; }
-        .key.black { height: 150px; width: 40px; background: #333; position: absolute; margin-left: -20px; }
-        .key:hover { background-color: #eee; }
-        .key.black:hover { background-color: #555; }
-        .key.playing { background-color: #ffc107; transform: scale(0.98); }
-        .instructions { margin-top: 20px; font-size: 1.2rem; color: #555; }
+        :root { --primary: #9b59b6; --bg: #fff5e1; }
+        body { background: var(--bg); font-family: 'Baloo 2', cursive; text-align: center; margin: 0; }
+        
+        .header { background: white; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-around; align-items: center; }
+        .level-badge { background: var(--primary); color: white; padding: 5px 20px; border-radius: 20px; font-weight: 800; }
+
+        .piano-container { display: flex; justify-content: center; margin-top: 50px; position: relative; padding: 20px; }
+        .piano { display: flex; position: relative; background: #333; padding: 10px; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        
+        .key { height: 220px; width: 55px; border: 1px solid #ccc; border-radius: 0 0 8px 8px; cursor: pointer; background: white; position: relative; transition: 0.1s; }
+        .key.black { height: 130px; width: 35px; background: #222; position: absolute; z-index: 2; margin-left: -17.5px; border: none; }
+        
+        /* Hiệu ứng sáng nốt khi máy đàn hoặc bé gõ */
+        .key.active { background: #ffeb3b !important; transform: translateY(5px); box-shadow: inset 0 5px 10px rgba(0,0,0,0.2); }
+        .key.black.active { background: #fbc02d !important; }
+
+        .status-msg { font-size: 1.5rem; margin: 20px; font-weight: bold; min-height: 2em; color: #555; }
+        .btn-start { padding: 15px 40px; font-size: 1.2rem; background: #2ecc71; color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: 800; box-shadow: 0 5px 0 #27ae60; }
+        .btn-start:disabled { background: #ccc; box-shadow: none; transform: translateY(5px); }
+.level-btn {
+    width: 45px; height: 45px; border: none; border-radius: 12px;
+    font-family: inherit; font-weight: 800; cursor: pointer;
+    background: white; color: #9b59b6; box-shadow: 0 4px 0 #ddd;
+    transition: 0.2s;
+}
+.level-btn:active { transform: translateY(3px); box-shadow: none; }
+/* Nút khi đang chọn */
+.level-btn.active { background: #f1c40f !important; color: white; box-shadow: 0 4px 0 #d35400; }
     </style>
 </head>
-<body class="creative-city-bg">
-    <h1 class="page-header header-creative">🎵 Giai Điệu Vui 🎵</h1>
-    <p class="instructions">Sử dụng chuột hoặc các phím (A, S, D, F, G, H, J) và (W, E, T, Y, U) để chơi đàn!</p>
-    <div class="piano-container">
-        <div class="piano">
-            <div class="key" data-key="a" data-note="C4"></div>
-            <div class="key black" data-key="w" data-note="Db4" style="left: 40px;"></div>
-            <div class="key" data-key="s" data-note="D4"></div>
-            <div class="key black" data-key="e" data-note="Eb4" style="left: 100px;"></div>
-            <div class="key" data-key="d" data-note="E4"></div>
-            <div class="key" data-key="f" data-note="F4"></div>
-            <div class="key black" data-key="t" data-note="Gb4" style="left: 220px;"></div>
-            <div class="key" data-key="g" data-note="G4"></div>
-            <div class="key black" data-key="y" data-note="Ab4" style="left: 280px;"></div>
-            <div class="key" data-key="h" data-note="A4"></div>
-            <div class="key black" data-key="u" data-note="Bb4" style="left: 340px;"></div>
-            <div class="key" data-key="j" data-note="B4"></div>
-        </div>
+<body>
+
+<div class="header">
+    <button onclick="location.href='thanh-pho-sang-tao.html'" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">🏠</button>
+    <div class="level-badge">CẤP ĐỘ: <span id="current-level">1</span></div>
+    <div style="font-weight:bold; color:#e67e22">💎 <span id="user-score">0</span></div>
+</div>
+
+<h1 style="color: var(--primary); margin-top: 20px;">🎹 THỬ THÁCH GIAI ĐIỆU 🎹</h1>
+<p id="status" class="status-msg">Bấm nút để bắt đầu thử thách!</p>
+
+<div class="piano-container">
+    <div class="piano" id="piano-board">
+        <div class="key" data-note="C4" data-key="a"></div>
+        <div class="key" data-note="D4" data-key="s"></div>
+        <div class="key" data-note="E4" data-key="d"></div>
+        <div class="key" data-note="F4" data-key="f"></div>
+        <div class="key" data-note="G4" data-key="g"></div>
+        <div class="key" data-note="A4" data-key="h"></div>
+        <div class="key" data-note="B4" data-key="j"></div>
+        <div class="key" data-note="C5" data-key="k"></div>
+        
+        <div class="key black" data-note="Db4" data-key="w" style="left: 50px;"></div>
+        <div class="key black" data-note="Eb4" data-key="e" style="left: 105px;"></div>
+        <div class="key black" data-note="Gb4" data-key="t" style="left: 215px;"></div>
+        <div class="key black" data-note="Ab4" data-key="y" style="left: 270px;"></div>
+        <div class="key black" data-note="Bb4" data-key="u" style="left: 325px;"></div>
     </div>
-    <a href="thanh-pho-sang-tao.html" class="back-button">Về Thành Phố Sáng Tạo</a>
-    <script>
-        const keys = document.querySelectorAll('.key');
-        let audioContext;
+</div>
+<h3 style="margin-top:30px; color:#555;">🗺️ BẢN ĐỒ THỬ THÁCH</h3>
+<div id="level-list" style="max-width: 800px; margin: 0 auto 50px auto; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 20px;">
+    </div>
+<div style="margin-top: 30px;">
+    <button id="start-btn" class="btn-start" onclick="startChallenge()">BẮT ĐẦU NGHE 👂</button>
+</div>
 
-        const noteFrequencies = {
-            'C4': 261.63, 'Db4': 277.18, 'D4': 293.66, 'Eb4': 311.13, 'E4': 329.63, 'F4': 349.23,
-            'Gb4': 369.99, 'G4': 392.00, 'Ab4': 415.30, 'A4': 440.00, 'Bb4': 466.16, 'B4': 493.88
-        };
-
-        function initAudio() {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }
-
-        function playSound(note, keyElement) {
-            if (!audioContext) return;
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(noteFrequencies[note], audioContext.currentTime);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.start();
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
-            oscillator.stop(audioContext.currentTime + 0.5);
-
-            keyElement.classList.add('playing');
-            setTimeout(() => keyElement.classList.remove('playing'), 200);
-        }
-
-        keys.forEach(key => {
-            key.addEventListener('click', () => {
-                initAudio();
-                playSound(key.dataset.note, key);
-            });
-        });
-
-        window.addEventListener('keydown', (e) => {
-            const keyElement = document.querySelector(`.key[data-key="${e.key.toLowerCase()}"]`);
-            if (keyElement && !e.repeat) {
-                initAudio();
-                playSound(keyElement.dataset.note, keyElement);
-            }
-        });
-    </script>
 <script>
-    window.addEventListener('load', function() {
-        const currentUserName = localStorage.getItem('currentUser');
-        if (currentUserName) {
-            document.getElementById('personalized-greeting').innerHTML = `Xin chào bé <span class="user-name">${currentUserName}</span>!`;
+    let audioCtx = null;
+    let currentLevel = 1;
+    let maxLevelReached = 1;
+    let computerSequence = [];
+    let playerSequence = [];
+    let isComputerPlaying = false;
+    let userScore = 0;
+    let isProcessingWin = false;
+    const noteFreqs = {
+        'C4': 261.63, 'Db4': 277.18, 'D4': 293.66, 'Eb4': 311.13, 'E4': 329.63, 'F4': 349.23,
+        'Gb4': 369.99, 'G4': 392.00, 'Ab4': 415.30, 'A4': 440.00, 'Bb4': 466.16, 'B4': 493.88, 'C5': 523.25
+    };
+
+    async function init() {
+        const res = await fetch('/api/user/progress');
+        const data = await res.json();
+        userScore = data.score || 0;
+        maxLevelReached = data.musicLevel || 1;
+        currentLevel = maxLevelReached;
+        document.getElementById('user-score').innerText = userScore;
+        document.getElementById('current-level').innerText = currentLevel;
+        renderLevelList();
+    }
+
+    function playNote(note, duration = 0.5) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(noteFreqs[note], audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+
+        // Hiệu ứng sáng phím
+        const keyEl = document.querySelector(`[data-note="${note}"]`);
+        keyEl.classList.add('active');
+        setTimeout(() => keyEl.classList.remove('active'), duration * 1000 * 0.8);
+    }
+
+function startChallenge() {
+    const btn = document.getElementById('start-btn');
+    btn.disabled = true;
+    btn.innerText = "🔇 ĐANG ĐÀN..."; // Đổi chữ để bé biết máy đang chạy
+    document.getElementById('status').innerText = "👂 Máy đang đàn, bé hãy nghe nhé...";
+    
+    computerSequence = [];
+    playerSequence = [];
+    
+    const sequenceLength = 1 + Math.ceil(currentLevel / 5) + 1; 
+    const notes = Object.keys(noteFreqs);
+    
+    for(let i=0; i<sequenceLength; i++) {
+        computerSequence.push(notes[Math.floor(Math.random() * notes.length)]);
+    }
+    playComputerSequence();
+}
+    async function playComputerSequence() {
+        isComputerPlaying = true;
+        for (let note of computerSequence) {
+            playNote(note, 0.6);
+            await new Promise(r => setTimeout(r, 800));
         }
+        isComputerPlaying = false;
+        document.getElementById('status').innerText = "🎹 Tới lượt bé rồi! Hãy gõ lại nốt nhạc nào.";
+    }
+
+    // Bé gõ đàn
+    document.querySelectorAll('.key').forEach(key => {
+        key.addEventListener('click', () => {
+            if (isComputerPlaying) return;
+            const note = key.dataset.note;
+            handlePlayerInput(note);
+        });
     });
+
+    function handlePlayerInput(note) {
+        playNote(note, 0.4);
+        playerSequence.push(note);
+        
+        const currentIndex = playerSequence.length - 1;
+        
+        // Kiểm tra đúng/sai ngay lập tức
+        if (playerSequence[currentIndex] !== computerSequence[currentIndex]) {
+            document.getElementById('status').innerText = "❌ Sai rồi! Bé nghe lại nhé.";
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').innerText = "CHƠI LẠI MÀN NÀY 🔄";
+            return;
+        }
+
+        // Nếu đã gõ đủ chuỗi và đúng hết
+        if (playerSequence.length === computerSequence.length) {
+            winLevel();
+        }
+    }
+function renderLevelList() {
+    const listContainer = document.getElementById('level-list'); // Bạn nhớ thêm div này vào HTML nhé
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
+    
+    for (let i = 1; i <= 100; i++) {
+        const btn = document.createElement('button');
+        btn.innerText = i;
+        btn.className = 'level-btn'; // Thêm CSS cho đẹp
+        
+        // Chỉ cho phép bấm các level đã vượt qua hoặc level hiện tại
+        if (i <= maxLevelReached) {
+            btn.disabled = false;
+            btn.onclick = () => {
+                currentLevel = i;
+                document.getElementById('current-level').innerText = currentLevel;
+                document.getElementById('start-btn').innerText = "BẮT ĐẦU NGHE 👂";
+                document.getElementById('status').innerText = `Sẵn sàng cho Cấp độ ${i}!`;
+            };
+            if (i === currentLevel) {
+                btn.classList.add('active');
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+        }
+        listContainer.appendChild(btn);
+    }
+}
+async function winLevel() {
+    if (isProcessingWin) return; // Nếu đang xử lý thì không chạy lại
+    isProcessingWin = true;
+
+    confetti();
+    document.getElementById('status').innerText = "🌟 Tuyệt vời! Bé đã gõ đúng hết rồi!";
+    document.getElementById('start-btn').disabled = true; // Khóa nút ngay lập tức
+
+    try {
+        const res = await fetch('/api/game/music-win', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                level: currentLevel,
+                timeTaken: 0 // Bạn có thể tính thời gian nếu muốn
+            })
+        });
+        const data = await res.json();
+        
+        userScore = data.newScore;
+        document.getElementById('user-score').innerText = userScore.toLocaleString();
+
+        // LOGIC KIỂM TRA ĐIỂM TỪ SERVER
+        if (data.addedPoints > 0) {
+            // Trường hợp 1: Bé vừa vượt qua cấp độ MỚI NHẤT
+            alert(`🎉 Chúc mừng! Bé nhận được ${data.addedPoints} 💎`);
+            
+            // Chỉ tăng maxLevel nếu bé đang chơi ở mốc cao nhất mình từng đạt
+            if (currentLevel === maxLevelReached) {
+                maxLevelReached++;
+            }
+            // Tự động nhảy sang level tiếp theo
+            currentLevel = maxLevelReached; 
+        } else {
+            // Trường hợp 2: Bé chơi lại cấp cũ (Server trả về addedPoints = 0)
+            alert(`Bé đã hoàn thành lại cấp độ ${currentLevel}! Chơi rất giỏi!`);
+            // Không tăng currentLevel, để bé chọn chơi tiếp hoặc quay lại mốc cũ
+        }
+
+        // Cập nhật giao diện
+        document.getElementById('current-level').innerText = currentLevel;
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').innerText = (data.addedPoints > 0) ? "QUA MÀN TIẾP THEO ➡️" : "VỀ MÀN HIỆN TẠI ➡️";        
+        // Nếu bạn có hàm vẽ danh sách nút level, hãy gọi nó ở đây
+        if (typeof renderLevelList === "function") renderLevelList();
+
+    } catch(e) {
+        console.error("Lỗi lưu điểm:", e);
+        alert("Có lỗi kết nối, bé chờ tí nhé!");
+        document.getElementById('start-btn').disabled = false;
+    } finally {
+        isProcessingWin = false; // Mở khóa cho lần chơi sau
+    }
+}
+    // Hỗ trợ phím máy tính
+window.addEventListener('keydown', (e) => {
+    // Chỉ cho phép gõ nếu máy KHÔNG đang đàn VÀ hệ thống KHÔNG đang xử lý kết quả
+    if (isComputerPlaying || isProcessingWin) return;
+    
+    const keyEl = document.querySelector(`.key[data-key="${e.key.toLowerCase()}"]`);
+    if (keyEl) {
+        handlePlayerInput(keyEl.dataset.note);
+    }
+});
+    init();
 </script>
 </body>
 </html>

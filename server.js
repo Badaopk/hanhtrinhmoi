@@ -39,10 +39,13 @@ const userSchema = new mongoose.Schema({
     playtimeLimitMinutes: { type: Number, default: 0 },
     inventory: { type: Array, default: [] }, // Danh sách ID đồ đã mua: ['bed_1', 'table_2']
     houseData: { type: Array, default: [] },
+    colors: { type: Object, default: { wall: '#b2bec3', floor: '#f5f6fa' } },
     // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
+    musicLevel: { type: Number, default: 1 }, // Thêm vào danh sách các cấp độ game
     paintingLevel: { type: Number, default: 1 },      // Xưởng vẽ
     memoryLevel: { type: Number, default: 1 },        // Ghép hình
     shapeLevel: { type: Number, default: 1 },         // Tạo hình vui nhộn
+    galleryDrawings: { type: Array, default: [] },
     buildLevel: { type: Number, default: 1 },         // Xây dựng ước mơ
     crosswordLevel: { type: Number, default: 1 },     // Ô chữ
     detectiveLevel: { type: Number, default: 1 },     // Tìm điểm khác biệt
@@ -66,38 +69,132 @@ const tournamentSchema = new mongoose.Schema({
     brackets: { type: Array, default: [] }, // Sơ đồ trận đấu/bảng đấu
     winners: { top1: String, top2: String, top3: String }
 });
-// --- DANH SÁCH 22 VẬT PHẨM NÂNG CẤP ---
-const SHOP_ITEMS = [
-    // Nội thất (Furniture)
-    { id: 'bed_lux', name: 'Giường Hoàng Gia', price: 500, type: 'f', icon: '🛌' },
-    { id: 'sofa_pro', name: 'Sofa Da Cao Cấp', price: 400, type: 'f', icon: '🛋️' },
-    { id: 'desk_gaming', name: 'Bàn Học Gaming', price: 350, type: 'f', icon: '📑' },
-    { id: 'chair_gaming', name: 'Ghế Công Thái Học', price: 250, type: 'f', icon: '💺' },
-    { id: 'wardrobe_big', name: 'Tủ Quần Áo Gỗ', price: 450, type: 'f', icon: '👗' },
-    { id: 'bookshelf_v2', name: 'Kệ Sách Tri Thức', price: 200, type: 'f', icon: '📚' },
-    
-    // Điện tử (Electronics)
+// ============================================================
+// --- 3. NHÓM QUÀ LƯU NIỆM (MỞ RỘNG ĐA DẠNG SỰ KIỆN) ---
+// ============================================================
+const SEASONAL_SOUVENIRS = [
+    // 🌸 TẾT NGUYÊN ĐÁN (Tet)
+    { id: 'sov_tet_mai', name: 'Cây Mai Vàng', price: 1000, type: 'd', category: 'souvenir', event: 'Tet', icon: '🌼' },
+    { id: 'sov_tet_dao', name: 'Cây Đào Phai', price: 1000, type: 'd', category: 'souvenir', event: 'Tet', icon: '🌸' },
+    { id: 'sov_tet_lan', name: 'Đầu Lân Sư Rồng', price: 1500, type: 'd', category: 'souvenir', event: 'Tet', icon: '🐲' },
+    { id: 'sov_tet_lixi', name: 'Bao Lì Xì Lớn', price: 200, type: 'd', category: 'souvenir', event: 'Tet', icon: '🧧' },
+    { id: 'sov_tet_banhchung', name: 'Bánh Chưng Xanh', price: 400, type: 'd', category: 'souvenir', event: 'Tet', icon: '🟩' },
+    { id: 'sov_tet_mamnguqua', name: 'Mâm Ngũ Quả', price: 600, type: 'd', category: 'souvenir', event: 'Tet', icon: '🍎' },
+    { id: 'sov_tet_phao', name: 'Tràng Pháo Đỏ', price: 300, type: 'd', category: 'souvenir', event: 'Tet', icon: '🧨' },
+    { id: 'sov_tet_caudoi', name: 'Câu Đối Đỏ', price: 500, type: 'd', category: 'souvenir', event: 'Tet', icon: '📜' },
+
+    // 🎄 GIÁNG SINH (Noel)
+    { id: 'sov_noel_tree', name: 'Thông Noel', price: 1200, type: 'd', category: 'souvenir', event: 'Noel', icon: '🎄' },
+    { id: 'sov_noel_santa', name: 'Ông Già Noel', price: 1500, type: 'd', category: 'souvenir', event: 'Noel', icon: '🎅' },
+    { id: 'sov_noel_snow', name: 'Người Tuyết', price: 800, type: 'd', category: 'souvenir', event: 'Noel', icon: '⛄' },
+    { id: 'sov_noel_gift', name: 'Hộp Quà Khổng Lồ', price: 400, type: 'd', category: 'souvenir', event: 'Noel', icon: '🎁' },
+    { id: 'sov_noel_bell', name: 'Chuông Vàng Ngân Nga', price: 300, type: 'd', category: 'souvenir', event: 'Noel', icon: '🔔' },
+    { id: 'sov_noel_sock', name: 'Vớ Đựng Quà', price: 150, type: 'd', category: 'souvenir', event: 'Noel', icon: '🧦' },
+    { id: 'sov_noel_reindeer', name: 'Tuần Lộc Nhỏ', price: 2000, type: 'd', category: 'souvenir', event: 'Noel', icon: '🦌' },
+    { id: 'sov_noel_candy', name: 'Kẹo Gậy Giáng Sinh', price: 100, type: 'd', category: 'souvenir', event: 'Noel', icon: '🦯' },
+
+    // 🎃 HALLOWEEN (Halloween)
+    { id: 'sov_hal_pump', name: 'Bí Ngô Ma Quái', price: 600, type: 'd', category: 'souvenir', event: 'Halloween', icon: '🎃' },
+    { id: 'sov_hal_ghost', name: 'Bóng Ma Cute', price: 700, type: 'd', category: 'souvenir', event: 'Halloween', icon: '👻' },
+    { id: 'sov_hal_witch_hat', name: 'Mũ Phù Thủy', price: 400, type: 'd', category: 'souvenir', event: 'Halloween', icon: '🧙' },
+    { id: 'sov_hal_bat', name: 'Dơi Treo Tường', price: 300, type: 'd', category: 'souvenir', event: 'Halloween', icon: '🦇' },
+    { id: 'sov_hal_spider', name: 'Mạng Nhện Khổng Lồ', price: 250, type: 'd', category: 'souvenir', event: 'Halloween', icon: '🕸️' },
+    { id: 'sov_hal_skul', name: 'Đầu Lâu Cổ Đại', price: 900, type: 'd', category: 'souvenir', event: 'Halloween', icon: '💀' },
+
+    // 🏮 TRUNG THU (MidAutumn)
+    { id: 'sov_mid_star', name: 'Đèn Ông Sao', price: 300, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🌟' },
+    { id: 'sov_mid_rabbit', name: 'Thỏ Ngọc', price: 2000, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🐇' },
+    { id: 'sov_mid_mooncake', name: 'Bánh Trung Thu Thập Cẩm', price: 400, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🥮' },
+    { id: 'sov_mid_lion', name: 'Đầu Lân Nhỏ', price: 1200, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🎭' },
+    { id: 'sov_mid_lamp', name: 'Lồng Đèn Cá Chép', price: 500, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🐟' },
+    { id: 'sov_mid_tree', name: 'Cây Đa Chú Cuội', price: 1500, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🌳' },
+
+    // ❤️ VALENTINE - LỄ TÌNH NHÂN (Valentine)
+    { id: 'sov_val_heart', name: 'Trái Tim Pha Lê', price: 500, type: 'd', category: 'souvenir', event: 'Valentine', icon: '💎' },
+    { id: 'sov_val_rose', name: 'Bó Hoa Hồng Thắm', price: 300, type: 'd', category: 'souvenir', event: 'Valentine', icon: '🌹' },
+    { id: 'sov_val_choco', name: 'Hộp Socola Ngọt Ngào', price: 450, type: 'd', category: 'souvenir', event: 'Valentine', icon: '🍫' },
+    { id: 'sov_val_bear', name: 'Gấu Bông Ôm Tim', price: 800, type: 'd', category: 'souvenir', event: 'Valentine', icon: '🧸' },
+    { id: 'sov_val_cupid', name: 'Cung Tên Cupid', price: 2500, type: 'd', category: 'souvenir', event: 'Valentine', icon: '🏹' },
+
+    // ⛱️ MÙA HÈ RỰC RỠ (Summer)
+    { id: 'sov_sum_castle', name: 'Lâu Đài Cát', price: 600, type: 'd', category: 'souvenir', event: 'Summer', icon: '🏰' },
+    { id: 'sov_sum_surf', name: 'Ván Lướt Sóng', price: 700, type: 'd', category: 'souvenir', event: 'Summer', icon: '🏄' },
+    { id: 'sov_sum_duck', name: 'Phao Vịt Vàng Siêu Cấp', price: 1200, type: 'd', category: 'souvenir', event: 'Summer', icon: '🐥' },
+    { id: 'sov_sum_coconut', name: 'Ly Nước Dừa Mát Lạnh', price: 150, type: 'd', category: 'souvenir', event: 'Summer', icon: '🥥' },
+    { id: 'sov_sum_tree', name: 'Cây Dừa Kiểng', price: 900, type: 'd', category: 'souvenir', event: 'Summer', icon: '🌴' },
+
+    // 🎂 TIỆC SINH NHẬT (Birthday)
+    { id: 'sov_bd_cake', name: 'Bánh Kem 3 Tầng', price: 2000, type: 'd', category: 'souvenir', event: 'Birthday', icon: '🎂' },
+    { id: 'sov_bd_balloon', name: 'Chùm Bóng Bay Cầu Vồng', price: 300, type: 'd', category: 'souvenir', event: 'Birthday', icon: '🎈' },
+    { id: 'sov_bd_hat', name: 'Nón Chóp Tiệc Tùng', price: 100, type: 'd', category: 'souvenir', event: 'Birthday', icon: '🥳' },
+    { id: 'sov_bd_confetti', name: 'Máy Bắn Pháo Giấy', price: 500, type: 'd', category: 'souvenir', event: 'Birthday', icon: '🎉' }
+];
+const HOME_FURNITURE = [
+    { id: 'bed_lux', name: 'Giường Hoàng Gia', price: 500, type: 'f', category: 'furniture', icon: '🛌' },
+    { id: 'sofa_pro', name: 'Sofa Cao Cấp', price: 400, type: 'f', category: 'furniture', icon: '🛋️' },
+    { id: 'wardrobe_big', name: 'Tủ Quần Áo', price: 450, type: 'f', category: 'furniture', icon: '👗' },
+    { id: 'kit_fridge', name: 'Tủ Lạnh', price: 450, type: 'f', category: 'furniture', icon: '🧊' },
+    { id: 'bath_tub', name: 'Bồn Tắm', price: 550, type: 'f', category: 'furniture', icon: '🛁' },
+    { id: 'tv_8k', name: 'Tivi 8K', price: 600, type: 'e', category: 'furniture', icon: '📺' },
+    { id: 'pc_super', name: 'Siêu Máy Tính', price: 700, type: 'e', category: 'furniture', icon: '🖥️' },
+    { id: 'kit_fridge', name: 'Tủ Lạnh 2 Cánh', price: 450, type: 'f', icon: '🧊' },
+    { id: 'kit_stove', name: 'Bếp Nấu Ăn', price: 300, type: 'f', icon: '🍳' },
+    { id: 'kit_pot', name: 'Nồi Súp Ngon', price: 50, type: 'f', icon: '🍲' },
+    { id: 'bath_tub', name: 'Bồn Tắm Sục', price: 550, type: 'f', icon: '🛁' },
+    { id: 'bath_toilet', name: 'Bồn Cầu Vàng', price: 250, type: 'f', icon: '🚽' },
+    { id: 'bath_duck', name: 'Vịt Tắm', price: 20, type: 'f', icon: '🦆' },
+
+    // --- 3. ĐIỆN TỬ & CÔNG NGHỆ (e) ---
     { id: 'tv_8k', name: 'Tivi 8K Siêu Mỏng', price: 600, type: 'e', icon: '📺' },
     { id: 'pc_super', name: 'Siêu Máy Tính', price: 700, type: 'e', icon: '🖥️' },
+    { id: 'laptop_pro', name: 'Laptop Mỏng Nhẹ', price: 500, type: 'e', icon: '💻' },
     { id: 'speaker_hiend', name: 'Loa Âm Thanh Vòm', price: 300, type: 'e', icon: '🔊' },
     { id: 'robot_clean', name: 'Robot Hút Bụi', price: 200, type: 'e', icon: '🤖' },
+    { id: 'camera_sec', name: 'Camera An Ninh', price: 150, type: 'e', icon: '📹' },
     { id: 'lamp_modern', name: 'Đèn Ngủ Cảm Ứng', price: 150, type: 'e', icon: '🏮' },
 
-    // Trang trí & Giải trí (Decor & Hobby)
+    // --- 4. TRANG TRÍ & SÂN VƯỜN (d) ---
     { id: 'piano_grand', name: 'Đàn Piano Cơ', price: 1000, type: 'd', icon: '🎹' },
     { id: 'aquarium_pro', name: 'Bể Cá Thủy Sinh', price: 550, type: 'd', icon: '🐠' },
     { id: 'bonsai_tree', name: 'Cây Cảnh Nghệ Thuật', price: 180, type: 'd', icon: '🪴' },
+    { id: 'xmas_tree', name: 'Cây Thông Noel', price: 300, type: 'd', icon: '🎄' },
+    { id: 'fountain', name: 'Đài Phun Nước', price: 800, type: 'd', icon: '⛲' },
+    { id: 'flower_sun', name: 'Hoa Hướng Dương', price: 50, type: 'd', icon: '🌻' },
+    { id: 'statue_moai', name: 'Tượng Moai', price: 400, type: 'd', icon: '🗿' },
     { id: 'bear_huge', name: 'Gấu Bông Khổng Lồ', price: 120, type: 'd', icon: '🧸' },
     { id: 'telescope_v2', name: 'Kính Thiên Văn', price: 400, type: 'd', icon: '🔭' },
     { id: 'painting_art', name: 'Tranh Triển Lãm', price: 300, type: 'd', icon: '🖼️' },
     { id: 'clock_gold', name: 'Đồng Hồ Quả Lắc', price: 220, type: 'd', icon: '⏰' },
-    { id: 'mirror_magic', name: 'Gương Thần Kỳ', price: 160, type: 'd', icon: '🪞' },
-    { id: 'rug_royal', name: 'Thảm Lông Cừu', price: 140, type: 'd', icon: '🧶' },
+    { id: 'safe_box', name: 'Két Sắt', price: 600, type: 'd', icon: '🔐' },
+    { id: 'trophy_gold', name: 'Cúp Vô Địch', price: 900, type: 'd', icon: '🏆' },
 
-    // Thú cưng (Pets)
+    // --- 5. THÚ CƯNG (p) ---
     { id: 'cat_tree_v2', name: 'Tháp Cho Mèo', price: 280, type: 'p', icon: '🐱' },
-    { id: 'dog_house', name: 'Nhà Cho Cún Con', price: 260, type: 'p', icon: '🐶' }
+    { id: 'dog_house', name: 'Nhà Cho Cún Con', price: 260, type: 'p', icon: '🐶' },
+    { id: 'hamster', name: 'Hamster', price: 100, type: 'p', icon: '🐹' },
+    { id: 'parrot', name: 'Vẹt Biết Nói', price: 350, type: 'p', icon: '🦜' },
+    { id: 'unicorn', name: 'Kỳ Lân (Hiếm)', price: 5000, type: 'p', icon: '🦄' },
+
 ];
+
+const MATERIALS = [
+    { id: 'wall_pink', name: 'Sơn Hồng', price: 50, category: 'paint', value: '#fd79a8', icon: '🎨' },
+    { id: 'wall_blue', name: 'Sơn Xanh', price: 50, category: 'paint', value: '#0984e3', icon: '🎨' },
+    { id: 'floor_wood', name: 'Sàn Gỗ', price: 100, category: 'floor', value: '#d35400', icon: '🪵' },
+    { id: 'floor_grass', name: 'Thảm Cỏ', price: 150, category: 'floor', value: '#2ecc71', icon: '🌿' }
+];
+
+const SEASONAL_SOUVENIRS = [
+    { id: 'sov_tet_mai', name: 'Cây Mai Vàng', price: 1000, type: 'd', category: 'souvenir', event: 'Tet', icon: '🌼' },
+    { id: 'sov_tet_dao', name: 'Cây Đào Phai', price: 1000, type: 'd', category: 'souvenir', event: 'Tet', icon: '🌸' },
+    { id: 'sov_noel_tree', name: 'Thông Noel', price: 1200, type: 'd', category: 'souvenir', event: 'Noel', icon: '🎄' },
+    { id: 'sov_hal_pump', name: 'Bí Ngô Ma', price: 600, type: 'd', category: 'souvenir', event: 'Halloween', icon: '🎃' },
+    { id: 'sov_mid_star', name: 'Đèn Ông Sao', price: 300, type: 'd', category: 'souvenir', event: 'MidAutumn', icon: '🌟' }
+];
+
+const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
+// --- DANH SÁCH 22 VẬT PHẨM NÂNG CẤP ---
+// --- DANH SÁCH VẬT PHẨM NÂNG CẤP (FULL OPTION) ---
 const Tournament = mongoose.model('Tournament', tournamentSchema);
 const User = mongoose.model('User', userSchema);
 mongoose.connect(MONGO_URI)
@@ -157,6 +254,15 @@ const monopolyGames = {};
 let maintenanceMode = false; // Đã khôi phục biến bảo trì
 
 // --- 5. API HỆ THỐNG (AUTH) ---
+app.post('/api/house/save-drawing', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
+    const { level, image } = req.body;
+    await User.updateOne(
+        { username: req.session.user.username },
+        { $push: { galleryDrawings: { level, image, date: new Date() } } }
+    );
+    res.json({ message: "Bức tranh đã được đưa vào triển lãm!" });
+});
 // 1. Kho nhiệm vụ đa dạng (Càng lên cấp cao nhiệm vụ càng khó)
 const QUEST_POOL = [
     { taskType: 'Cờ Vua', levelKey: 'chessLevel', targetBase: 1, rewardBase: 50 },
@@ -628,47 +734,41 @@ async function handleWin(req, res, gameKey, points = 10, taskName = '') {
     
     try {
         const user = await User.findOne({ username: req.session.user.username });
-        if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+        
+        // 1. Lấy cấp độ bé vừa chơi xong (Gửi từ máy bé lên)
+        const finishedLevel = parseInt(req.body.level) || 1; 
+        // 2. Lấy cấp độ cao nhất bé đang có trong Database
+        const currentMaxLevel = user[gameKey] || 1;
 
-        // --- MẢNH VÁ GIẢI ĐẤU ---
-        const tourRoomId = req.body.tournamentRoomId; // Client phải gửi kèm mã này lên
-        if (tourRoomId && tourRoomId.startsWith('TOUR-')) {
-            await Tournament.updateOne(
-                { $or: [ { "brackets.matchId": tourRoomId }, { "brackets.matches.matchId": tourRoomId } ] },
-                { 
-                    $set: { 
-                        "brackets.$.winner": user.username,
-                        "brackets.$[].matches.$[m].winner": user.username 
-                    } 
-                },
-                { arrayFilters: [{ "m.matchId": tourRoomId }] }
-            );
+        let addedScore = 0;
+        let isNewLevel = false;
+
+        // 3. CHỈ TẶNG ĐIỂM NẾU BÉ VƯỢT QUA CẤP ĐỘ MỚI
+        if (finishedLevel >= currentMaxLevel) {
+            user.score += points;
+            user[gameKey] = finishedLevel + 1; // Tăng mốc level mới trong DB
+            addedScore = points;
+            isNewLevel = true;
         }
-        // 1. Cộng điểm & Tăng cấp độ
-        user.score += points;
-        user[gameKey] = (user[gameKey] || 1) + 1;
 
-        // 2. Cập nhật tiến độ nhiệm vụ (Daily + Admin assign)
-        // Lưu ý: performance cần cả isWin: true
+        // Cập nhật nhiệm vụ (Nếu có)
         updateQuestProgress(user, taskName, { timeTaken: req.body.timeTaken || 0, isWin: true });
-        // 3. Lưu vào Database
+
         user.markModified('quests');
         await user.save();
 
-        // 4. Trả về kết quả cho Client
         res.json({ 
-            message: 'Chiến thắng!', 
+            message: isNewLevel ? `Chúc mừng! +${points}💎` : 'Bé đã hoàn thành cấp này trước đó rồi!', 
             newScore: user.score, 
-            newLevel: user[gameKey],
-            taskHandled: taskName 
+            addedPoints: addedScore // Sẽ trả về 0 nếu chơi lại cấp cũ
         });
 
     } catch (e) { 
-        console.error("Lỗi tại handleWin:", e);
-        res.status(500).send("Lỗi hệ thống: " + e.message); 
+        res.status(500).send("Lỗi: " + e.message); 
     }
 }
 // Cập nhật các dòng gọi API để truyền thêm Tên Nhiệm Vụ (Tham số thứ 3)
+app.post('/api/game/music-win', (req, res) => handleWin(req, res, 'musicLevel', 20, 'Âm Nhạc'));
 app.post('/api/game/detective-win', (req, res) => handleWin(req, res, 'detectiveLevel', 20, 'Thám tử'));
 app.post('/api/game/crossword-win', (req, res) => handleWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
 app.post('/api/game/story-win', (req, res) => handleWin(req, res, 'storyLevel', 30, 'Sáng Tác'));
@@ -758,11 +858,10 @@ app.post('/api/house/buy', async (req, res) => {
 // 3. Lưu vị trí đồ đạc
 app.post('/api/house/save', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const { items, inventory } = req.body; // Nhận thêm inventory từ client gửi lên
-    
+    const { items, inventory, colors } = req.body;    
     await User.updateOne(
         { username: req.session.user.username }, 
-        { $set: { houseData: items, inventory: inventory } } // Lưu cả 2 cùng lúc
+        { $set: { houseData: items, inventory: inventory,colors: colors } } // Lưu cả 2 cùng lúc
     );
     res.json({ message: "Đã lưu ngôi nhà và kho đồ!" });
 });

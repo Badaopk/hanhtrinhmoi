@@ -214,17 +214,24 @@
             }
         }
 
-        function renderLevelOpts(maxLvl) {
-            const sel = document.getElementById('ai-level-select');
-            for(let i=1; i<=100; i++) {
-                const opt = document.createElement('option');
-                opt.value = i; opt.textContent = `Cấp ${i} ${i > maxLvl ? '(Khóa)' : ''}`;
-                if(i > maxLvl) opt.disabled = true;
-                sel.appendChild(opt);
-            }
-            sel.value = maxLvl;
-        }
+ function renderLevelOpts(maxLvl) {
+    const sel = document.getElementById('ai-level-select');
+    sel.innerHTML = ''; // XÓA SẠCH CŨ
+    document.getElementById('lvl-display').textContent = maxLvl;
 
+    for (let i = 1; i <= 100; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        if (i <= maxLvl) {
+            opt.textContent = `Cấp độ ${i}`;
+        } else {
+            opt.textContent = `🔒 Cấp độ ${i} (Chưa mở)`;
+            opt.disabled = true;
+        }
+        sel.appendChild(opt);
+    }
+    sel.value = currentLevel || maxLvl; // Giữ nguyên cấp độ đang chọn
+}
         function startAiGame() {
             isOnline = false; playerSym = 'X'; aiSym = 'O';
             size = parseInt(document.getElementById('board-size-select').value);
@@ -378,29 +385,79 @@
         }
 
         async function endGame(winner, cells) {
-            gameOver = true;
-            boardEl.classList.add('game-over');
-            cells.forEach(p => boardEl.children[p.r*size + p.c].classList.add('win'));
-            
-            if(winner === playerSym) {
-                statusEl.textContent = "🏆 BẠN THẮNG!";
-                confetti();
-                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-                
-                await fetch('/api/game/caro-win', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ 
-                        level: parseInt(document.getElementById('ai-level-select').value),
-                        timeTaken: timeSpent,
-                        tournamentRoomId: roomName 
-                    }) 
-                });
-                setTimeout(() => alert(`Thắng trong ${timeSpent} giây!`), 500);
-            } else {
-                statusEl.textContent = "😢 MÁY THẮNG!";
-            }
-        }
+    gameOver = true;
+    boardEl.classList.add('game-over');
+    cells.forEach(p => boardEl.children[p.r * size + p.c].classList.add('win'));
+    clearInterval(matchTimer);
 
+    const modal = document.getElementById('result-modal');
+    const title = document.getElementById('modal-title');
+    const msg = document.getElementById('modal-msg');
+    const btnNext = document.getElementById('btn-next-lvl');
+    const selectedLvl = parseInt(document.getElementById('ai-level-select').value);
+
+    if (winner === playerSym) {
+        title.textContent = "🏆 THẮNG RỒI!";
+        title.style.color = "#2ecc71";
+        confetti();
+
+        const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+        
+        // Gọi API lưu kết quả
+        const res = await fetch('/api/game/caro-win', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                level: selectedLvl,
+                timeTaken: timeSpent,
+                tournamentRoomId: roomName
+            })
+        });
+        const data = await res.json();
+
+        if (data.addedPoints > 0) {
+            msg.textContent = `Bé đã chinh phục Cấp ${selectedLvl} và nhận ${data.addedPoints} 💎!`;
+            // Cập nhật mốc level cao nhất trên giao diện
+            if (selectedLvl === aiLevel) {
+                aiLevel++;
+                renderLevelOpts(aiLevel); // Vẽ lại danh sách chọn level để mở khóa nút mới
+            }
+        } else {
+            msg.textContent = `Bé đã thắng lại Cấp ${selectedLvl}. Quá siêu!`;
+        }
+        btnNext.style.display = "block"; // Hiện nút qua màn
+    } else {
+        title.textContent = "😢 TIẾC QUÁ!";
+        title.style.color = "#e74c3c";
+        msg.textContent = "Máy thắng rồi, bé hãy thử lại nhé!";
+        btnNext.style.display = "none"; // Thua thì không có nút qua màn mới
+    }
+
+    modal.style.display = 'flex';
+}
+
+// Hàm bổ trợ để qua màn mới
+function goToNextLevel() {
+    closeModal();
+    const sel = document.getElementById('ai-level-select');
+    if (aiLevel <= 100) {
+        sel.value = aiLevel; // Chọn cấp độ mới nhất vừa mở khóa
+        startAiGame();
+    } else {
+        alert("Bé đã phá đảo 100 cấp độ rồi!");
+    }
+}
+
+function replayCurrentLevel() {
+    closeModal();
+    startAiGame();
+}
+
+function closeModal() {
+    document.getElementById('result-modal').style.display = 'none';
+    document.getElementById('menu-area').style.display = 'block';
+    document.getElementById('play-area').style.display = 'none';
+}
         // --- BUTTON ACTIONS ---
         window.createRoom = () => { 
             socket.emit('createCaroRoom'); 
@@ -433,5 +490,16 @@
 
         init();
     </script>
+<div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+    <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333;">
+        <h2 id="modal-title" style="margin: 0; color: #e74c3c; font-size: 2rem;">🏆 THẮNG RỒI!</h2>
+        <div id="modal-stars" style="font-size: 2rem; margin: 10px 0;">⭐⭐⭐⭐⭐</div>
+        <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã vượt qua Cấp độ 1!</p>
+        
+        <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
+        <button class="btn-game" style="background:#3498db" onclick="replayCurrentLevel()">CHƠI LẠI 🔄</button>
+        <button class="btn-game" style="background:#95a5a6" onclick="closeModal()">QUAY LẠI MENU</button>
+    </div>
+</div>
 </body>
 </html>

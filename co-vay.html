@@ -162,24 +162,32 @@ function startTournamentTimer(mins) {
         let currentRoom = null;
         let passCount = 0;
         let userLevel = 1;
+        // Thêm biến vào phần khai báo đầu Script
+        let maxLevelReached = 1; 
 
-        // --- 1. KHỞI TẠO ---
-        async function init() {
-            try {
-                const res = await fetch('/api/user/progress');
-                const data = await res.json();
-                userLevel = data.goLevel || 1;
-            } catch(e) {}
-            
-            document.getElementById('lvl-display').textContent = userLevel;
-            renderLevelOptions();
-            resizeCanvas();
-            const tourRoom = localStorage.getItem('joinTournamentRoom');
-            if (tourRoom) {
-               socket.emit('joinGoRoom', tourRoom); // Gọi lệnh joinGoRoom
-               localStorage.removeItem('joinTournamentRoom');
-            }
-        }
+async function init() {
+    try {
+        const res = await fetch('/api/user/progress');
+        const data = await res.json();
+        
+        // Cấp độ cao nhất từ Server
+        maxLevelReached = data.goLevel || 1; 
+        // Cấp độ hiển thị hiện tại
+        userLevel = maxLevelReached; 
+
+        document.getElementById('lvl-display').textContent = maxLevelReached;
+        document.getElementById('user-score').innerText = (data.score || 0).toLocaleString();
+        
+        renderLevelOptions(maxLevelReached);
+    } catch(e) { console.error("Lỗi khởi tạo:", e); }
+    
+    // Kiểm tra đấu giải
+    const tourRoom = localStorage.getItem('joinTournamentRoom');
+    if (tourRoom) {
+        socket.emit('joinGoRoom', tourRoom);
+        localStorage.removeItem('joinTournamentRoom');
+    }
+}
 
         function resizeCanvas() {
             const minDim = Math.min(window.innerWidth - 30, 500);
@@ -188,17 +196,24 @@ function startTournamentTimer(mins) {
         }
         window.addEventListener('resize', () => { resizeCanvas(); if(gameActive) drawBoard(); });
 
-        function renderLevelOptions() {
-            aiLevelSelect.innerHTML = '';
-            for(let i=1; i<=100; i++) {
-                let opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = `Cấp ${i} ${i > userLevel ? '(Khóa)' : ''}`;
-                if(i > userLevel) opt.disabled = true;
-                aiLevelSelect.appendChild(opt);
-            }
-            aiLevelSelect.value = userLevel;
+ function renderLevelOptions(maxLvl) {
+    aiLevelSelect.innerHTML = '';
+    document.getElementById('lvl-display').textContent = maxLvl;
+
+    for(let i=1; i<=100; i++) {
+        let opt = document.createElement('option');
+        opt.value = i;
+        if(i <= maxLvl) {
+            opt.textContent = `Cấp độ ${i}`;
+        } else {
+            opt.textContent = `🔒 Cấp độ ${i} (Chưa mở)`;
+            opt.disabled = true;
         }
+        aiLevelSelect.appendChild(opt);
+    }
+    // Mặc định chọn cấp độ cao nhất đang có
+    aiLevelSelect.value = userLevel || maxLvl;
+}
 
         function toggleHelp() {
             const m = document.getElementById('help-modal');
@@ -522,30 +537,60 @@ function startAiGame() {
             document.getElementById('capture-w').textContent = captures[2];
         }
 async function endGameCalculated() {
-            gameActive = false;
-            let scoreB = captures[1];
-            let scoreW = captures[2] + 6.5; 
-            let winner = scoreB > scoreW ? "Đen" : "Trắng";
-            
-            alert(`🏁 KẾT THÚC!\n⚫ Đen ăn: ${scoreB}\n⚪ Trắng ăn: ${scoreW}\n🏆 Người thắng: ${winner}`);
+    gameActive = false;
+    let scoreB = captures[1];
+    let scoreW = captures[2] + 6.5; // Điểm Komi cho Trắng
+    let winnerStr = scoreB > scoreW ? "Đen" : "Trắng";
+    
+    const selectedLvl = parseInt(aiLevelSelect.value);
+    const myRoleStr = myColor === 1 ? "Đen" : "Trắng";
 
-            let myRoleStr = myColor === 1 ? "Đen" : "Trắng";
-            if (winner === myRoleStr) { 
-                const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-                try {
-                    await fetch('/api/game/go-win', { 
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ 
-                              level: userLevel,
-                              timeTaken: timeSpent,
-                              tournamentRoomId: currentRoom 
-                        })
-                    });
-                } catch(e) {}
+    // Cập nhật Modal UI
+    document.getElementById('final-b').textContent = scoreB;
+    document.getElementById('final-w').textContent = scoreW;
+    const modal = document.getElementById('result-modal');
+    const title = document.getElementById('modal-title');
+    const msg = document.getElementById('modal-msg');
+    const btnNext = document.getElementById('btn-next-lvl');
+
+    if (winnerStr === myRoleStr) {
+        title.textContent = "🏆 CHIẾN THẮNG!";
+        title.style.color = "#27ae60";
+        confetti();
+
+        const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+        
+        // Gửi kết quả về Server
+        const res = await fetch('/api/game/go-win', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                level: selectedLvl,
+                timeTaken: timeSpent,
+                tournamentRoomId: currentRoom
+            })
+        });
+        const data = await res.json();
+
+        if (data.addedPoints > 0) {
+            msg.textContent = `Bé đã vượt qua Cấp ${selectedLvl} và nhận ${data.addedPoints} 💎!`;
+            if (selectedLvl === maxLevelReached) {
+                maxLevelReached++;
+                renderLevelOptions(maxLevelReached); // Mở khóa màn mới trong danh sách
             }
-            location.reload();
+        } else {
+            msg.textContent = `Bé thắng lại Cấp ${selectedLvl}. Rất xuất sắc!`;
         }
+        btnNext.style.display = "block";
+    } else {
+        title.textContent = "😢 TIẾC QUÁ!";
+        title.style.color = "#e74c3c";
+        msg.textContent = "Máy thắng rồi, bé hãy bình tĩnh chơi lại nhé!";
+        btnNext.style.display = "none";
+    }
 
+    modal.style.display = 'flex';
+}
         // Lắng nghe sự kiện từ Server
         socket.on('gameOver', (data) => {
             clearInterval(matchTimer);
@@ -555,8 +600,40 @@ async function endGameCalculated() {
             }
             location.href = 'giai-dau.html';
         });
+function goToNextLevel() {
+    closeResultModal();
+    if (maxLevelReached <= 100) {
+        aiLevelSelect.value = maxLevelReached;
+        startAiGame();
+    } else {
+        alert("Bé đã là Đại Kỳ Thủ 100 Cấp rồi!");
+    }
+}
 
+function replayLevel() {
+    closeResultModal();
+    startAiGame();
+}
+
+function closeResultModal() {
+    document.getElementById('result-modal').style.display = 'none';
+}
         init(); // Chỉ gọi init một lần duy nhất ở đây
     </script>
+<div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+    <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333; font-family: 'Baloo 2', cursive;">
+        <h2 id="modal-title" style="margin: 0; color: #27ae60; font-size: 2rem;">🏆 CHIẾN THẮNG!</h2>
+        <div id="modal-stars" style="font-size: 2rem; margin: 10px 0;">⭐⭐⭐⭐⭐</div>
+        <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã làm chủ Cấp độ 1!</p>
+        
+        <div id="score-details" style="background: #f1f2f6; padding: 10px; border-radius: 15px; margin-bottom: 15px; font-size: 0.9rem;">
+            ⚫ Đen: <span id="final-b">0</span> | ⚪ Trắng: <span id="final-w">0</span>
+        </div>
+
+        <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
+        <button class="btn-game" style="background:#3498db" onclick="replayLevel()">CHƠI LẠI 🔄</button>
+        <button class="btn-game btn-home" onclick="closeResultModal()">QUAY LẠI MENU</button>
+    </div>
+</div>
        </body>
 </html>
