@@ -487,24 +487,23 @@
         const isCheckmate = game.in_checkmate();
         const isDraw = game.in_draw() || game.in_stalemate() || game.in_threefold_repetition();
 
-        // CHỐT CHẶN: Dừng game ngay lập tức nếu kết thúc
         if (isCheckmate || isDraw) {
             isGameActive = false; 
             clearTimeout(window.aiSafetyTimeout);
         }
 
-        // 1. XỬ LÝ CHIẾU BÍ
+        // 1. XỬ LÝ KHI CÓ CHIẾU BÍ
         if (isCheckmate) {
             if (currentMode === 'pve') {
-                if (game.turn() === 'b') { 
-                    // MÁY BỊ CHIẾU BÍ -> BẠN THẮNG
+                // Nếu đến lượt Đen (Máy) mà bị chiếu bí -> Bé cầm quân Trắng đã THẮNG
+                if (game.turn() === 'b') {
                     statusEl.textContent = "🏆 BẠN THẮNG!";
                     statusEl.style.color = "#2ecc71";
-                    confetti(); 
+                    if (typeof confetti === 'function') confetti(); // Hiệu ứng pháo hoa
 
                     const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
+                    
                     try {
-                        // Gọi API lưu điểm
                         const res = await fetch('/api/game/chess-win-level', { 
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
@@ -515,37 +514,38 @@
                         });
                         const d = await res.json();
                         
-                        // QUAN TRỌNG: Cập nhật level mới ngay lập tức
                         if(d.newLevel) {
                             userLevel = d.newLevel; 
-                            renderLevelList(); 
+                            renderLevelList(); // Vẽ lại danh sách để mở khóa nút mới
                         }
                         showResultModal(true, d.addedPoints, d.message);
                     } catch(e) { 
-                        showResultModal(true, 0, "Bé chơi rất giỏi (Lỗi mạng)!"); 
+                        console.error("Lỗi kết nối:", e);
+                        showResultModal(true, 0, "Bé chơi rất giỏi!");
                     }
                 } else {
-                    // BẠN BỊ CHIẾU BÍ -> MÁY THẮNG
+                    // Nếu bé bị chiếu bí -> Máy THẮNG
                     statusEl.textContent = "😢 MÁY THẮNG!";
                     statusEl.style.color = "#e74c3c";
                     showResultModal(false);
                 }
             } else {
+                // Chế độ Online (PVP)
                 statusEl.textContent = "🏁 KẾT THÚC";
-                alert("Trận đấu kết thúc!");
+                const winner = game.turn() !== myRole ? "Bé" : "Đối thủ";
+                alert(`Trận đấu kết thúc! ${winner} đã chiến thắng.`);
             }
 
-        // 2. XỬ LÝ HÒA CỜ (CHƠI LẠI)
+        // 2. XỬ LÝ KHI HÒA CỜ
         } else if (isDraw) {
             statusEl.textContent = "🤝 HÒA CỜ!";
             statusEl.style.color = "#f1c40f";
-            
             setTimeout(() => {
-                alert("Ván cờ Hòa! Bé phải thắng máy mới được lên cấp. Hãy thử lại nào!");
-                startAiGame(currentPlayingLevel); // Reset màn chơi
+                alert("Ván cờ Hòa rồi! Bé phải thắng máy mới được lên cấp nhé.");
+                startAiGame(currentPlayingLevel); 
             }, 1500);
 
-        // 3. VẪN ĐANG CHƠI
+        // 3. VÁN CỜ ĐANG DIỄN RA
         } else {
             if (currentMode === 'pve') {
                 if (game.turn() === 'w') {
@@ -561,7 +561,6 @@
             }
         }
     }
-
     // --- SOCKET IO LOGIC ---
     window.createGroup = () => { socket.emit('createChessRoom'); document.getElementById('pvp-status').textContent = "Đang tạo..."; };
     window.joinGroup = () => { socket.emit('joinChessRoom', document.getElementById('room-code-input').value.toUpperCase()); };
