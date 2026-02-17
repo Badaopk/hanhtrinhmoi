@@ -76,6 +76,90 @@
     transform: translateY(2px);
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
+/* --- CSS SƠ ĐỒ THI ĐẤU (BRACKET TREE) --- */
+.tournament-bracket {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0;
+}
+.round {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 0 20px;
+    gap: 20px;
+}
+.match-node {
+    background: #ecf0f1;
+    border: 2px solid #bdc3c7;
+    border-radius: 10px;
+    padding: 10px;
+    width: 200px;
+    position: relative;
+    color: #2c3e50;
+    transition: 0.2s;
+}
+/* Kẻ đường nối */
+.match-node::after {
+    content: ''; position: absolute; right: -22px; top: 50%;
+    width: 20px; height: 2px; background: #bdc3c7;
+}
+.round:last-child .match-node::after { display: none; } /* Chung kết không có đường ra */
+
+/* Đường nối dọc cho nhánh con */
+.match-node.connector::before {
+    content: ''; position: absolute; right: -22px; height: 50%; width: 2px; background: #bdc3c7;
+    top: 50%; /* Sẽ chỉnh bằng JS nếu cần */
+}
+
+/* Trạng thái trận đấu */
+.match-live { border-color: #e67e22; box-shadow: 0 0 10px #e67e22; animation: pulse 2s infinite; }
+.match-finished { border-color: #27ae60; opacity: 0.8; }
+.match-upcoming { border-color: #7f8c8d; }
+
+/* Trận của BÉ */
+.my-match {
+    border: 3px solid #3498db !important;
+    background: #eaf6ff !important;
+    transform: scale(1.05);
+}
+
+.player-row { display: flex; justify-content: space-between; padding: 2px 0; font-weight: bold; }
+.player-row.winner { color: #27ae60; }
+.player-row.loser { color: #95a5a6; text-decoration: line-through; }
+.match-time { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-bottom: 5px; border-bottom: 1px solid #ccc; }
+
+/* Tab chuyển đổi */
+.view-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+.tab-btn { padding: 10px 20px; border-radius: 20px; border: none; cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.2); color: white; }
+.tab-btn.active { background: #f1c40f; color: #2c3e50; }
+/* Thanh chọn bảng đấu (Group Tabs) */
+.group-nav {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto; /* Cho phép cuộn ngang nếu nhiều bảng */
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid rgba(255,255,255,0.2);
+}
+.group-tab-btn {
+    padding: 8px 15px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #7f8c8d;
+    color: #bdc3c7;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+    white-space: nowrap;
+}
+.group-tab-btn:hover { background: rgba(255,255,255,0.1); }
+.group-tab-btn.active {
+    background: #f1c40f;
+    color: #2c3e50;
+    border-color: #f1c40f;
+    transform: translateY(2px); /* Hiệu ứng nhấn xuống */
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -93,12 +177,17 @@
             <button id="join-btn" class="btn-play" style="display:none" onclick="joinTourney()">🚀 ĐĂNG KÝ THAM GIA</button>
         </div>
     </div>
-
-    <div class="container" id="bracket-view" style="display:none">
-        <h2 style="color:#3498db">📅 LỊCH THI ĐẤU CỦA BÉ</h2>
-        <div id="match-list"></div>
+<div class="container" id="bracket-view" style="display:none">
+    <div class="view-tabs">
+        <button class="tab-btn active" onclick="switchView('groups')">📊 Vòng Bảng</button>
+        <button class="tab-btn" onclick="switchView('tree')">🌳 Sơ Đồ Đấu Loại</button>
     </div>
-<script>
+
+    <div id="group-stage-area"></div>
+
+    <div id="knockout-tree-area" class="tournament-bracket" style="display:none;"></div>
+</div>
+    <script>
     const socket = io();
     let currentUser = localStorage.getItem('currentUser');
     // Nhận tín hiệu khi Server vừa tự động cập nhật lịch thi đấu
@@ -171,57 +260,161 @@ function fireworks() {
         confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
     }, 250);
 }
-function renderBrackets(tour) {
-    const list = document.getElementById('match-list');
-    list.innerHTML = '';
+// --- LOGIC HIỂN THỊ MỚI ---
+function switchView(view) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    if(view === 'groups') {
+        document.getElementById('group-stage-area').style.display = 'block';
+        document.getElementById('knockout-tree-area').style.display = 'none';
+    } else {
+        document.getElementById('group-stage-area').style.display = 'none';
+        document.getElementById('knockout-tree-area').style.display = 'flex';
+    }
+}
 
+function renderBrackets(tour) {
+    document.getElementById('bracket-view').style.display = 'block';
+    const groupArea = document.getElementById('group-stage-area');
+    const treeArea = document.getElementById('knockout-tree-area');
+    
+    groupArea.innerHTML = '';
+    treeArea.innerHTML = '';
+
+    // --- TRƯỜNG HỢP 1: VÒNG BẢNG (Có chia Tab A, B, C...) ---
     if (tour.phase === 'groups') {
-        tour.brackets.forEach(group => {
+        // 1. Tạo thanh điều hướng (Tabs)
+        const navDiv = document.createElement('div');
+        navDiv.className = 'group-nav';
+        
+        // 2. Tạo container chứa nội dung các bảng
+        const contentDiv = document.createElement('div');
+        
+        let activeGroupIndex = 0; // Mặc định mở bảng đầu tiên
+
+        tour.brackets.forEach((group, index) => {
+            // Kiểm tra xem bé có nằm trong bảng này không
+            if (group.members.includes(currentUser)) {
+                activeGroupIndex = index;
+            }
+
+            // A. Tạo Nút Tab
+            const btn = document.createElement('button');
+            btn.className = 'group-tab-btn';
+            btn.textContent = group.groupName;
+            btn.onclick = () => openGroupTab(index);
+            btn.id = `tab-btn-${index}`;
+            navDiv.appendChild(btn);
+
+            // B. Tạo Nội dung Bảng (Bị ẩn mặc định)
             const card = document.createElement('div');
-            card.className = 'container';
-            card.style.background = "rgba(0,0,0,0.4)";
-            
-            // TÍNH TOÁN BẢNG ĐIỂM
+            card.className = 'match-card group-content';
+            card.id = `group-content-${index}`;
+            card.style.display = 'none'; // Ẩn đi
+
+            // --- Logic tính điểm bảng xếp hạng (Giữ nguyên) ---
             let stats = {};
             group.members.forEach(m => stats[m] = { p: 0, w: 0 });
             group.matches.forEach(m => {
-                if(m.winner) {
-                    stats[m.winner].p += 3;
-                    stats[m.winner].w += 1;
-                }
+                if(m.winner) { stats[m.winner].p += 3; stats[m.winner].w++; }
             });
 
-            let tableHtml = `
-                <h3 style="color:#f1c40f">📊 BẢNG XẾP HẠNG ${group.groupName}</h3>
-                <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
-                    <tr style="background:#34495e"><th>Bé</th><th>Thắng</th><th>Điểm</th></tr>
-                    ${Object.entries(stats).sort((a,b)=>b[1].p - a[1].p).map(s => `
-                        <tr style="border-bottom:1px solid #555">
-                            <td>${s[0] === currentUser ? '⭐ ' : ''}${s[0]}</td>
-                            <td>${s[1].w}</td>
-                            <td><b style="color:#2ecc71">${s[1].p}</b></td>
-                        </tr>
-                    `).join('')}
-                </table>
-                <h4 style="color:#bdc3c7">⚔️ CÁC TRẬN ĐẤU TRONG BẢNG</h4>
-            `;
-            card.innerHTML = tableHtml;
-
-            group.matches.forEach(m => {
-                card.appendChild(createMatchCard(m, tour));
+            let html = `<h3 style="color:#e67e22; text-align:center; border-bottom:1px solid #ccc; padding-bottom:10px;">${group.groupName}</h3>
+                        <table style="width:100%; text-align:center; margin-bottom:15px;">
+                            <tr style="background:#dfe6e9; color:#2c3e50;"><th>Bé</th><th>Thắng</th><th>Điểm</th></tr>`;
+            
+            Object.entries(stats).sort((a,b) => b[1].p - a[1].p).forEach(([name, stat]) => {
+                const isMe = name === currentUser;
+                html += `<tr style="${isMe ? 'background:#eaf6ff; font-weight:bold; color:#2980b9' : ''}">
+                            <td>${isMe ? '⭐ ' : ''}${name}</td>
+                            <td>${stat.w}</td>
+                            <td><b style="color:#2ecc71">${stat.p}</b></td>
+                         </tr>`;
             });
-            list.appendChild(card);
+            html += `</table><h4 style="margin-top:15px; color:#7f8c8d">📅 Lịch Thi Đấu:</h4>`;
+            
+            group.matches.forEach(m => { html += getMatchHtml(m, tour.gameType); });
+            
+            card.innerHTML = html;
+            contentDiv.appendChild(card);
         });
-    } else {
-        // GIAO DIỆN LOẠI TRỰC TIẾP (CÚP)
-        const header = document.createElement('h2');
-        header.innerHTML = "🏆 VÒNG LOẠI TRỰC TIẾP (KNOCKOUT)";
-        list.appendChild(header);
+
+        groupArea.appendChild(navDiv);
+        groupArea.appendChild(contentDiv);
+
+        // Kích hoạt bảng mặc định (Bảng có tên bé hoặc bảng A)
+        openGroupTab(activeGroupIndex);
+        switchView('groups');
+    } 
+    // --- TRƯỜNG HỢP 2: VÒNG LOẠI TRỰC TIẾP ---
+    else {
+        // ... (Giữ nguyên code vẽ sơ đồ cây ở câu trả lời trước) ...
+        // Copy lại phần logic "else" của renderBrackets từ câu trả lời trước vào đây
+        // (Phần vẽ cột round, match-node...)
         
-        tour.brackets.forEach(m => {
-            list.appendChild(createMatchCard(m, tour));
+        // (Dưới đây là tóm tắt để bạn dễ hình dung, hãy giữ nguyên phần Tree cũ)
+        const matches = tour.brackets;
+        let column = document.createElement('div');
+        column.className = 'round';
+        matches.forEach(m => {
+             // ... logic vẽ node ...
+             // (Copy lại đoạn tạo match-node từ câu trả lời trước)
+             const node = document.createElement('div');
+             // ...
+             column.appendChild(node);
         });
+        treeArea.appendChild(column);
+        switchView('tree');
     }
+}
+
+// Hàm hỗ trợ chuyển Tab Bảng
+function openGroupTab(index) {
+    // 1. Ẩn tất cả nội dung, bỏ active tất cả nút
+    document.querySelectorAll('.group-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.group-tab-btn').forEach(el => el.classList.remove('active'));
+
+    // 2. Hiện nội dung được chọn
+    const content = document.getElementById(`group-content-${index}`);
+    const btn = document.getElementById(`tab-btn-${index}`);
+    
+    if(content && btn) {
+        content.style.display = 'block';
+        content.classList.add('fade-in'); // Thêm hiệu ứng hiện dần nếu thích
+        btn.classList.add('active');
+    }
+}
+// Hàm phụ trợ sinh HTML cho trận đấu dạng danh sách (Dùng cho vòng bảng)
+function getMatchHtml(m, gameType) {
+    const isMe = (m.p1 === currentUser || m.p2 === currentUser);
+    const now = new Date();
+    const start = new Date(m.startTime);
+    const diff = (now - start) / 60000; // phút
+    // Thay đoạn if-else cũ bằng đoạn này trong getMatchHtml:
+let statusClass = "match-upcoming";
+let statusLabel = `<span style="color:#95a5a6">${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`;
+
+if (m.winner) {
+    statusLabel = `<b style="color:#27ae60">🏆 ${m.winner} thắng</b>`;
+} else if (diff > 10) {
+    statusLabel = `<b style="color:#e74c3c">Hủy</b>`;
+} else if (diff >= 0) {
+    statusLabel = `<b class="match-live" style="padding:2px 8px; border-radius:10px; color:#e67e22;">🔥 LIVE</b>`;
+    if (isMe) actionBtn = `<button onclick="enterMatch('${gameType}', '${m.matchId}')" class="btn-play" style="padding:5px 15px; font-size:0.8rem; margin:0;">Vào</button>`;
+}
+
+// Sau đó return HTML dùng biến statusLabel
+    return `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px dashed #ccc; ${isMe ? 'background:#fffbf0' : ''}">
+            <div style="font-size:0.9rem; flex:1">
+                ${m.p1} <b style="color:#e74c3c">vs</b> ${m.p2}
+            </div>
+            <div style="text-align:right;">
+                ${statusText} ${actionBtn}
+            </div>
+        </div>
+    `;
 }
 // Hàm phụ trợ tạo Card trận đấu (để code gọn hơn)
 function createMatchCard(m, tour) {

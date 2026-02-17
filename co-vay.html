@@ -174,7 +174,6 @@ function startTournamentTimer(mins) {
             document.getElementById('lvl-display').textContent = userLevel;
             renderLevelOptions();
             resizeCanvas();
-            initGame(13);
             const tourRoom = localStorage.getItem('joinTournamentRoom');
             if (tourRoom) {
                socket.emit('joinGoRoom', tourRoom); // Gọi lệnh joinGoRoom
@@ -215,7 +214,22 @@ function startTournamentTimer(mins) {
             document.getElementById('online-menu').style.display = 'none';
             document.getElementById('menu-area').style.display = 'block';
         }
-
+// --- THÊM HÀM NÀY VÀO ---
+function startAiGame() {
+    isAiMode = true;
+    isOnline = false;
+    myColor = 1; // Khi đấu máy, bạn luôn đi trước (Đen)
+    
+    // Lấy kích thước bàn cờ từ menu
+    const s = document.getElementById('board-size').value;
+    
+    // Khởi tạo game
+    initGame(s);
+    
+    // Cập nhật thông báo
+    statusEl.textContent = "🤖 Bạn đang đấu với Máy (Cấp " + aiLevelSelect.value + ")";
+}
+// ------------------------
         // --- 2. GAME CORE ---
         function initGame(boardSize) {
             size = parseInt(boardSize);

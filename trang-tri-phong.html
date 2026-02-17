@@ -124,6 +124,46 @@
 
         .notif { position: fixed; top: 20px; right: 340px; background: white; padding: 15px; border-radius: 10px; border-left: 5px solid #f1c40f; animation: slideIn 0.5s; z-index: 9999;}
         @keyframes slideIn { from{transform: translateX(100%);} to{transform: translateX(0);} }
+/* --- CSS CHO MOBILE --- */
+@media (max-width: 768px) {
+    /* Ẩn bớt Shop khi vào game (thêm nút bật/tắt) */
+    .ui-shop { width: 100%; height: 40%; top: auto; bottom: 0; transform: translateY(100%); transition: 0.3s; }
+    .ui-shop.open { transform: translateY(0); }
+    
+    /* Thu nhỏ bảng điều khiển góc trái */
+    .ui-controls { width: 180px; padding: 10px; font-size: 0.8rem; }
+    
+    /* Ẩn hướng dẫn phím mũi tên trên mobile */
+    .ui-controls div:last-child { display: none; }
+}
+
+/* Nút mở Shop trên mobile */
+.mobile-shop-btn {
+    display: none; position: fixed; bottom: 20px; right: 20px;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: #f1c40f; color: white; border: 4px solid white;
+    font-size: 2rem; z-index: 2001; cursor: pointer;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+@media (max-width: 768px) { .mobile-shop-btn { display: flex; align-items: center; justify-content: center; } }
+
+/* Cụm phím ảo D-Pad cho Mobile */
+.d-pad {
+    display: none; position: fixed; bottom: 20px; left: 20px;
+    width: 150px; height: 150px; z-index: 2000;
+}
+@media (max-width: 768px) { .d-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; } }
+
+.d-btn {
+    background: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; color: white; user-select: none;
+}
+.d-btn:active { background: rgba(255,255,255,0.6); }
+.d-up { grid-column: 2; grid-row: 1; }
+.d-left { grid-column: 1; grid-row: 2; }
+.d-right { grid-column: 3; grid-row: 2; }
+.d-down { grid-column: 2; grid-row: 3; }
     </style>
 </head>
 <body>
@@ -142,7 +182,14 @@
         Dùng ⬅️ ⬆️ ⬇️ ➡️ để đi dạo!
     </div>
 </div>
+<div class="mobile-shop-btn" onclick="toggleShop()">🛒</div>
 
+<div class="d-pad">
+    <div class="d-btn d-up" ontouchstart="startMove('ArrowUp')" ontouchend="stopMove()">⬆️</div>
+    <div class="d-btn d-left" ontouchstart="startMove('ArrowLeft')" ontouchend="stopMove()">⬅️</div>
+    <div class="d-btn d-right" ontouchstart="startMove('ArrowRight')" ontouchend="stopMove()">➡️</div>
+    <div class="d-btn d-down" ontouchstart="startMove('ArrowDown')" ontouchend="stopMove()">⬇️</div>
+</div>
 <div class="ui-shop">
     <div style="text-align:center; margin-bottom:15px;">
         <h2 style="margin:0; color:var(--primary)">🏡 3D SHOP</h2>
@@ -180,7 +227,84 @@
     let houseState = { score: 0, inventory: [], items: [] };
     let shopItems = [];
     let currentRotation = 45;
+    // --- XỬ LÝ MOBILE: ĐIỀU HƯỚNG ---
+    let moveInterval = null;
 
+    function startMove(key) {
+        if(moveInterval) clearInterval(moveInterval);
+        // Giả lập sự kiện KeyDown
+        movePlayer({ key: key }); 
+        // Lặp lại nếu giữ nút
+        moveInterval = setInterval(() => movePlayer({ key: key }), 100);
+    }
+
+    function stopMove() {
+        clearInterval(moveInterval);
+    }
+
+    function toggleShop() {
+        document.querySelector('.ui-shop').classList.toggle('open');
+    }
+
+    // --- CẬP NHẬT HÀM spawnItemVisual ĐỂ HỖ TRỢ TOUCH ---
+    // (Tìm hàm cũ và thay thế đoạn el.onmousedown bằng đoạn này)
+    
+    // ... code tạo element ...
+    
+    // Hỗ trợ Chuột
+    el.onmousedown = function(e) { e.stopPropagation(); dragElement(el, e); };
+    
+    // Hỗ trợ Cảm ứng (Touch)
+    el.ontouchstart = function(e) { 
+        e.stopPropagation(); 
+        // Chuyển đổi sự kiện touch thành object giống mouse event để tái sử dụng hàm dragElement
+        const touch = e.touches[0];
+        const fakeEvent = {
+            preventDefault: () => e.preventDefault(),
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        };
+        dragElement(el, fakeEvent); 
+    };
+
+    // --- CẬP NHẬT HÀM dragElement ---
+    function dragElement(elmnt, eStart) {
+        eStart.preventDefault();
+        let startX = eStart.clientX;
+        let startY = eStart.clientY;
+        let startLeft = elmnt.offsetLeft;
+        let startTop = elmnt.offsetTop;
+
+        // Sự kiện cho Chuột
+        document.onmousemove = (e) => moveHandler(e.clientX, e.clientY);
+        document.onmouseup = closeDragElement;
+
+        // Sự kiện cho Cảm ứng
+        document.ontouchmove = (e) => moveHandler(e.touches[0].clientX, e.touches[0].clientY);
+        document.ontouchend = closeDragElement;
+
+        function moveHandler(clientX, clientY) {
+            let dx = clientX - startX;
+            let dy = clientY - startY;
+            let newLeft = startLeft + dx;
+            let newTop = startTop + dy;
+
+            // Giới hạn
+            if(newLeft < 0) newLeft = 0; if(newLeft > 560) newLeft = 560;
+            if(newTop < 0) newTop = 0; if(newTop > 560) newTop = 560;
+
+            elmnt.style.left = newLeft + "px";
+            elmnt.style.top = newTop + "px";
+            elmnt.style.zIndex = Math.floor(newLeft + newTop);
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+            document.ontouchend = null;
+            document.ontouchmove = null;
+        }
+    }
     // --- 1. KHỞI TẠO ---
     async function init() {
         try {

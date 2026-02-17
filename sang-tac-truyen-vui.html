@@ -1,270 +1,261 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nhà Văn Nhí Tài Ba - 100 Cấp Độ</title>
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <style>
-        body { background: linear-gradient(135deg, #fff1eb 0%, #ace0f9 100%); font-family: 'Baloo 2', cursive; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        
-        .container { max-width: 900px; width: 95%; background: white; padding: 20px; margin: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhà Văn Nhí Tài Ba - 100 Cấp Độ Luxury</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root { --primary: #6c5ce7; --secondary: #00cec9; --accent: #fdcb6e; --text: #2d3436; }
+        body { background: linear-gradient(135deg, #fff1eb 0%, #ace0f9 100%); font-family: 'Baloo 2', cursive; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 900px; width: 95%; background: white; padding: 25px; margin: 20px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); text-align: center; border: 4px solid #fff; }
+        
+        /* Level Grid */
+        .level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 12px; max-height: 50vh; overflow-y: auto; padding: 15px; background: #f8f9fa; border-radius: 20px; }
+        .lvl-btn { padding: 15px 5px; border-radius: 15px; border: none; font-weight: 800; cursor: pointer; background: #dfe6e9; color: #b2bec3; transition: 0.3s; font-size: 1.1rem; }
+        .lvl-btn.unlocked { background: var(--primary); color: white; box-shadow: 0 5px 0 #4834d4; }
+        .lvl-btn.current { background: var(--accent); color: #2d3436; transform: scale(1.1); box-shadow: 0 5px 0 #e17055; border: 2px solid white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1.1); } 50% { transform: scale(1.15); } }
 
-        /* Chọn Level */
-        #level-screen { display: block; }
-        .level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; padding: 10px; }
-        .lvl-btn { padding: 10px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background: #eee; color: #7f8c8d; }
-        .lvl-btn.unlocked { background: #6c5ce7; color: white; box-shadow: 0 4px 0 #574b90; }
-        .lvl-btn.current { background: #fdcb6e; color: #2d3436; transform: scale(1.1); box-shadow: 0 4px 0 #e17055; border: 2px solid white; }
-        .lvl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* Input Group */
+        .input-group { margin-bottom: 15px; background: #fff; padding: 15px; border-radius: 15px; border-left: 6px solid var(--primary); text-align: left; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .input-group label { display: block; font-weight: 700; margin-bottom: 8px; color: var(--primary); }
+        .input-group input { width: 100%; padding: 12px; border: 2px solid #edeff2; border-radius: 10px; font-family: inherit; font-size: 1rem; box-sizing: border-box; outline: none; }
+        .input-group small { display: block; margin-top: 5px; text-align: right; font-weight: 700; }
 
-        /* Khu vực viết truyện */
-        #game-screen { display: none; text-align: left; }
-        .theme-header { background: #dff9fb; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 2px dashed #81ecec; }
-        
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-weight: bold; color: #2d3436; margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 12px; border: 2px solid #dfe6e9; border-radius: 10px; font-family: inherit; font-size: 1rem; box-sizing: border-box; transition: 0.3s; }
-        .input-group input:focus { border-color: #6c5ce7; outline: none; background: #fdfdff; }
+        /* Result */
+        #game-screen, #result-screen { display: none; }
+        .story-book { background: #fff; padding: 40px; border-radius: 10px; box-shadow: 10px 10px 0 rgba(0,0,0,0.05); line-height: 2; font-size: 1.3rem; text-align: left; border-left: 8px solid var(--primary); position: relative; margin-top: 20px; }
+        .score-badge { position: absolute; top: -30px; right: -20px; background: #e17055; color: white; width: 85px; height: 85px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; transform: rotate(12deg); border: 5px solid white; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .highlight { color: #d63031; font-weight: 700; text-decoration: underline; }
 
-        /* Kết quả */
-        #result-screen { display: none; }
-        .story-book { 
-            background: #fff; padding: 30px; border-radius: 5px; 
-            box-shadow: 5px 0 15px rgba(0,0,0,0.1); 
-            line-height: 1.8; font-size: 1.2rem; color: #2d3436; 
-            border-left: 5px solid #6c5ce7; position: relative;
-        }
-        .score-badge {
-            position: absolute; top: -20px; right: -20px; 
-            background: #e17055; color: white; width: 80px; height: 80px; 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-size: 1.5rem; font-weight: bold; transform: rotate(15deg); border: 4px solid white;
-            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
-        }
-        .highlight { color: #d63031; font-weight: bold; text-decoration: underline; }
-
-        .btn { padding: 12px 30px; border-radius: 30px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; color: white; margin: 10px; box-shadow: 0 4px 0 rgba(0,0,0,0.2); font-family: inherit; }
-        .btn-start { background: #00cec9; width: 100%; }
-        .btn-home { background: #ff7675; }
-        .btn-next { background: #6c5ce7; }
-    </style>
+        .btn { padding: 15px 35px; border-radius: 40px; border: none; font-weight: 800; font-size: 1.2rem; cursor: pointer; color: white; transition: 0.2s; font-family: inherit; margin: 10px 0; }
+        .btn-start { background: var(--secondary); width: 100%; box-shadow: 0 5px 0 #00b894; }
+        .btn-home { background: #ff7675; box-shadow: 0 5px 0 #e17055; }
+        .btn-next { background: var(--primary); box-shadow: 0 5px 0 #4834d4; }
+    </style>
 </head>
 <body>
 
-    <h1 style="color: #2d3436; margin-top: 20px;">✍️ NHÀ VĂN NHÍ - 100 CẤP ĐỘ ✍️</h1>
+    <h1 style="color: #2d3436; margin-top: 30px; text-shadow: 2px 2px #fff;">✍️ NHÀ VĂN NHÍ TÀI BA ✍️</h1>
 
-    <div class="container">
-        <div id="level-screen">
-            <h3>Chọn Chủ Đề Sáng Tác:</h3>
-            <div id="login-warning" style="display:none; color:red;">Bạn chưa đăng nhập. Điểm sẽ không được lưu.</div>
-            <div class="level-grid" id="level-list">Đang tải...</div>
-            <button class="btn btn-home" onclick="window.location.href='index.html'">🏠 Về Trang Chủ</button>
-        </div>
+    <div class="container">
+        <div id="level-screen">
+            <h3 style="color: var(--primary)">Chọn Cấp Độ Sáng Tác:</h3>
+            <div id="login-warning" style="display:none; color:#d63031; font-weight:700; margin-bottom:15px;">⚠️ Bé chưa đăng nhập! Kết quả sẽ không được lưu.</div>
+            <div class="level-grid" id="level-list">Đang tải...</div>
+            <button class="btn btn-home" onclick="window.location.href='index.html'">🏠 Về Sảnh Chính</button>
+        </div>
 
-        <div id="game-screen">
-            <div class="theme-header">
-                <h2 id="level-title" style="margin:0; color:#6c5ce7">Cấp 1: Khu Rừng</h2>
-                <p id="level-desc" style="margin:5px 0; color:#636e72">Hãy điền từ còn thiếu để hoàn thành câu chuyện nhé!</p>
-            </div>
-            
-            <form id="story-form">
-                <div id="inputs-container"></div>
-                <button type="submit" class="btn btn-start">✨ Hoàn Thành Tác Phẩm ✨</button>
-            </form>
-            <button class="btn btn-home" style="width: 100px; margin-top: 20px;" onclick="backToMenu()">Quay lại</button>
-        </div>
+        <div id="game-screen">
+            <div id="level-header" style="background: #e3f2fd; padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: center; border: 3px dashed var(--primary);">
+                <h2 id="level-title" style="margin:0">Cấp 1</h2>
+                <p style="margin:5px 0; color:#636e72">Sáng tạo đoạn văn dài 5 phần để đạt chuẩn 9 điểm!</p>
+            </div>
+            <form id="story-form">
+                <div id="inputs-container"></div>
+                <button type="submit" class="btn btn-start">🚀 Xuất Bản Tác Phẩm</button>
+            </form>
+            <button class="btn btn-home" style="width: 150px;" onclick="backToMenu()">🔙 Quay lại</button>
+        </div>
 
-        <div id="result-screen">
-            <h2 style="color: #2ecc71;">Tác Phẩm Của Bạn</h2>
-            <div class="story-book">
-                <div class="score-badge" id="score-display">100đ</div>
-                <div id="final-story-content"></div>
-            </div>
-            <p id="teacher-comment" style="font-style: italic; color: #636e72; margin-top: 15px;"></p>
-            
-            <button class="btn btn-home" onclick="backToMenu()">Chọn Truyện Khác</button>
-            <button id="next-level-btn" class="btn btn-next" onclick="nextLevel()">Cấp Tiếp Theo ➡️</button>
-        </div>
-    </div>
+        <div id="result-screen">
+            <h2 style="color: #2ecc71;">📖 Đoạn Văn Của Bé 📖</h2>
+            <div class="story-book">
+                <div class="score-badge" id="score-display">0đ</div>
+                <div id="final-story-content"></div>
+            </div>
+            <div style="background: #f1f2f6; padding: 15px; border-radius: 15px; margin-bottom: 20px;">
+                <p id="teacher-comment" style="font-weight: 700; color: #2f3542; margin: 0;"></p>
+            </div>
+            <button class="btn btn-home" onclick="backToMenu()">🏠 Menu Chính</button>
+            <button id="next-level-btn" class="btn btn-next" onclick="nextLevel()">Cấp Tiếp Theo ➡️</button>
+        </div>
+    </div>
 
-    <script>
-let unlockedLevel = 1;
-    let currentLevel = 1;
-    let currentGeneratedTemplate = "";
+    <script>
+        let unlockedLevel = 1;
+        let currentLevel = 1;
+        let currentTemplate = "";
 
-    // --- KHO DỮ LIỆU CHỦ ĐỀ (Luxury: Ghép ngẫu nhiên hàng ngàn tổ hợp) ---
-    const themes = {
-        forest: { title: "Khu Rừng Bí Mật", label: "🌳", color: "#27ae60",
-            intros: ["Ở sâu trong khu rừng {place}, ", "Dưới bóng cây cổ thụ tại {place}, ", "Bên dòng suối lấp lánh của {place}, "],
-            problems: ["bé gặp bạn {animal} đang {action}.", "bỗng thấy một chú {animal} {adj_animal} đang {action}.", "có một gia đình {animal} đang cùng nhau {action}."],
-            endings: [" Nhờ lòng {my_adj}, bé đã khiến khu rừng {result}.", " Với sự {my_adj} của mình, bé và {animal} đã có một ngày {result}.", " Thật là một kỷ niệm {result} nhờ tính cách {my_adj} của bé."]
-        },
-        space: { title: "Phi Thuyền Không Gian", label: "🚀", color: "#2980b9",
-            intros: ["Trên hành tinh xa xôi tên là {place}, ", "Phi thuyền của bé vừa đáp xuống {place}, ", "Xuyên qua dải ngân hà {place}, "],
-            problems: ["bé phát hiện ra robot {animal} đang {action}.", "một người bạn {animal} {adj_animal} đang tìm cách {action}.", "bé thấy một tinh thể {adj_animal} đang {action}."],
-            endings: [" Bằng trí tuệ {my_adj}, bé đã làm thiên hà {result}.", " Chuyến đi {result} này chứng minh bé rất {my_adj}.", " Bé và {animal} đã cùng xây dựng một trạm vũ trụ {result} bằng sự {my_adj}."]
-        },
-        ocean: { title: "Dưới Đáy Đại Dương", label: "🐙", color: "#16a085",
-            intros: ["Dưới cung điện san hô {place}, ", "Trong hang động cá ngừ {place}, ", "Sâu dưới mặt nước biển {place}, "],
-            problems: ["nàng tiên cá {animal} đang {action}.", "chú cá heo {adj_animal} đang loay hoay {action}.", "bé thấy một bầy {animal} đang rủ nhau {action}."],
-            endings: [" Đại dương trở nên {result} nhờ sự {my_adj} của bé.", " Bé nhận được món quà {result} vì đã rất {my_adj}.", " Câu chuyện {result} này sẽ được loài {animal} kể mãi về sự {my_adj}."]
-        },
-        magic: { title: "Học Viện Phép Thuật", label: "🔮", color: "#8e44ad",
-            intros: ["Tại ngôi trường phù thủy {place}, ", "Trong cuốn sách ma thuật {place}, ", "Ở tòa tháp phép thuật {place}, "],
-            problems: ["phù thủy nhỏ {animal} đang học cách {action}.", "một chú rồng {adj_animal} đang cố {action}.", "bé thấy một chiếc gậy phép {adj_animal} tự {action}."],
-            endings: [" Phép màu {result} đã xuất hiện nhờ lòng {my_adj}.", " Bé trở thành phù thủy {my_adj} với kết quả {result}.", " Mọi người ở {place} đều ngưỡng mộ sự {my_adj} {result} của bé."]
-        }
-    };
+        const themeLibrary = {
+            forest: { title: "Khu Rừng Thần Tiên", color: "#27ae60",
+                parts: {
+                    intro: ["Vào một {time}, giữa khu rừng {place} bạt ngàn cây xanh, ", "Ngày xửa ngày xưa, tại vùng đất {place} kỳ bí vào một {time} yên bình, ", "Trong một hốc cây cổ thụ tại {place} vào {time} nọ, "],
+                    meeting: ["bé bắt gặp bạn {animal} với dáng vẻ {adj_animal} đang dạo chơi. ", "bé bỗng nghe thấy tiếng gọi của {animal}, một người bạn rất {adj_animal}. ", "bé nhìn thấy chú {animal} {adj_animal} đang ngồi đọc sách. "],
+                    conflict: ["Nhưng một thử thách ập đến khi {obstacle} bất ngờ xuất hiện và lấy đi {mission}. ", "Thật không may, {obstacle} hung dữ đã che khuất lối đi dẫn đến {mission} quan trọng. ", "Bỗng nhiên {obstacle} bay đến và giấu mất {mission} của mọi người. "],
+                    action: ["Không hề sợ hãi, bé đã sử dụng {magic_item} để đối đầu. Sự {my_adj} của bé đã hóa giải mọi chuyện. ", "Bằng lòng {my_adj}, bé liền mang {magic_item} ra và nhanh trí vượt qua {obstacle}. ", "Nhờ sự {my_adj} và chiếc {magic_item} thần kỳ, bé đã khiến {obstacle} phải lùi bước. "],
+                    ending: ["Cuối cùng, khu rừng đã trở nên {result} hơn bao giờ hết. Bé cảm thấy {result} vì sự {my_adj} của mình.", "Thật là một kết thúc {result}! Bé và {animal} sẽ mãi là những người bạn {result} nhất.", "Từ đó, {place} luôn tràn ngập niềm vui {result} nhờ sự {my_adj} của bé."]
+                }
+            },
+            space: { title: "Thiên Hà Xa Xôi", color: "#2980b9",
+                parts: {
+                    intro: ["Trên chuyến tàu không gian đến {place} vào một {time} đầy sao, ", "Giữa dải ngân hà {place} lấp lánh vào {time} năm 3000, "],
+                    meeting: ["bé đã gặp gỡ phi hành gia {animal} trông vô cùng {adj_animal}. ", "bé vô tình cứu được một sinh vật {animal} {adj_animal} đang bị lạc. "],
+                    conflict: ["Bỗng nhiên một cơn bão {obstacle} quét qua, đe dọa phá hủy {mission} của con tàu. ", "Một đám mây {obstacle} khổng lồ bất ngờ bao vây, làm hỏng hệ thống {mission} quan trọng. "],
+                    action: ["Bé nhanh chóng khởi động {magic_item} để sửa chữa. Với tinh thần {my_adj}, bé đã vượt qua nguy hiểm. ", "Sử dụng {magic_item} một cách thông minh, bé đã thể hiện sự {my_adj} để giải cứu hành tinh. "],
+                    ending: ["Vũ trụ lại trở nên {result} và rực rỡ. Chuyến đi này giúp bé trở nên {result} và {my_adj} hơn.", "Thật là một kỳ tích {result}! Mọi vì sao đều tỏa sáng mừng cho sự {my_adj} của bé."]
+                }
+            },
+            ocean: { title: "Cung Điện Đại Dương", color: "#16a085",
+                parts: {
+                    intro: ["Sâu dưới đáy biển {place} vào một {time} trong xanh, ", "Bên trong rạn san hô lấp lánh tại {place} vào {time}, "],
+                    meeting: ["bé thấy nàng tiên cá {animal} đang bơi lội {adj_animal}. ", "bé gặp chú cá heo {animal} vô cùng {adj_animal} đang dẫn đường. "],
+                    conflict: ["Bất ngờ một con bạch tuộc {obstacle} khổng lồ xuất hiện và lấy mất {mission}. ", "Một dòng hải lưu {obstacle} cực mạnh đã cuốn trôi {mission} của vương quốc. "],
+                    action: ["Bé đã dùng {magic_item} để tạo ra luồng sáng. Sự {my_adj} của bé đã cứu tất cả. ", "Bằng lòng {my_adj}, bé mượn {magic_item} từ vua biển để vượt qua {obstacle}. "],
+                    ending: ["Biển cả trở nên {result} hơn. Bé nhận ra lòng {my_adj} là món quà {result} nhất.", "Mọi loài cá đều nhảy múa {result} để cảm ơn sự {my_adj} của nhà văn nhí."]
+                }
+            },
+            magic: { title: "Học Viện Phù Thủy", color: "#8e44ad",
+                parts: {
+                    intro: ["Dưới mái trường phù thủy {place} cổ kính vào một {time} đầy sao, ", "Trong cuốn sách ma thuật bí ẩn tại {place} vào {time}, "],
+                    meeting: ["bé gặp được một phù thủy {animal} có bộ râu {adj_animal}. ", "bé bỗng thấy một chú rồng {animal} {adj_animal} đang bay lượn. "],
+                    conflict: ["Nhưng một lời nguyền {obstacle} ập đến và làm biến mất {mission}. ", "Thật không may, một con yêu tinh {obstacle} đã đánh cắp {mission} của trường. "],
+                    action: ["Bé nhanh chóng rút {magic_item} và đọc lời chú dũng cảm. Với sự {my_adj}, bé đã hóa giải mọi chuyện. ", "Bằng lòng {my_adj}, bé dùng {magic_item} để tạo nên một vòng bảo vệ cực mạnh. "],
+                    ending: ["Ngôi trường trở nên {result} hơn bao giờ hết. Bé cảm thấy {result} vì đã rất {my_adj}.", "Thật là một phép màu {result}! Bé đã trở thành phù thủy {my_adj} xuất sắc nhất."]
+                }
+            }
+        };
 
-    // --- 1. KHỞI TẠO HỆ THỐNG ---
-    async function init() {
-        try {
-            const res = await fetch('/api/user/progress');
-            if(res.status === 401) document.getElementById('login-warning').style.display = 'block';
-            const data = await res.json();
-            unlockedLevel = data.storyLevel || 1;
-        } catch(e) {}
-        renderLevels();
-    }
+        async function init() {
+            try {
+                const res = await fetch('/api/user/progress');
+                if(res.status === 401) document.getElementById('login-warning').style.display = 'block';
+                const data = await res.json();
+                unlockedLevel = data.storyLevel || 1;
+            } catch(e) { console.log("Offline Mode"); }
+            renderLevels();
+        }
 
-    function renderLevels() {
-        const list = document.getElementById('level-list');
-        list.innerHTML = '';
-        for(let i=1; i<=100; i++) {
-            const btn = document.createElement('button');
-            btn.textContent = i;
-            btn.className = `lvl-btn ${i <= unlockedLevel ? 'unlocked' : ''} ${i === unlockedLevel ? 'current' : ''}`;
-            btn.disabled = i > unlockedLevel;
-            btn.onclick = () => startLevel(i);
-            list.appendChild(btn);
-        }
-    }
+        function renderLevels() {
+            const list = document.getElementById('level-list');
+            list.innerHTML = '';
+            for(let i=1; i<=100; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = `lvl-btn ${i < unlockedLevel ? 'unlocked' : ''} ${i === unlockedLevel ? 'current' : ''}`;
+                btn.disabled = i > unlockedLevel;
+                btn.onclick = () => startLevel(i);
+                list.appendChild(btn);
+            }
+        }
 
-    // --- 2. SINH TRUYỆN NGẪU NHIÊN THEO CẤP ĐỘ ---
-    function startLevel(lvl) {
-        currentLevel = lvl;
-        document.getElementById('level-screen').style.display = 'none';
-        document.getElementById('game-screen').style.display = 'block';
+        function startLevel(lvl) {
+            currentLevel = lvl;
+            document.getElementById('level-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            const themeKeys = Object.keys(themeLibrary);
+            const theme = themeLibrary[themeKeys[(lvl - 1) % themeKeys.length]];
+            const p = theme.parts;
 
-        // Chọn chủ đề ngẫu nhiên từ kho dữ liệu
-        const themeKeys = Object.keys(themes);
-        const theme = themes[themeKeys[(lvl - 1) % themeKeys.length]];
+            currentTemplate = p.intro[rand(p.intro)] + p.meeting[rand(p.meeting)] + 
+                              p.conflict[rand(p.conflict)] + p.action[rand(p.action)] + 
+                              p.ending[rand(p.ending)];
 
-        // Sinh nội dung ngẫu nhiên (Mở - Thân - Kết)
-        const intro = theme.intros[Math.floor(Math.random() * theme.intros.length)];
-        const problem = theme.problems[Math.floor(Math.random() * theme.problems.length)];
-        const ending = theme.endings[Math.floor(Math.random() * theme.endings.length)];
-        
-        currentGeneratedTemplate = intro + problem + ending;
-        document.getElementById('level-title').textContent = `Cấp ${lvl}: ${theme.title}`;
-        document.getElementById('level-title').style.color = theme.color;
+            document.getElementById('level-title').textContent = `Cấp ${lvl}: ${theme.title}`;
+            document.getElementById('level-title').style.color = theme.color;
 
-        // Trích xuất các biến {key} để tạo ô nhập liệu
-        const keys = [...currentGeneratedTemplate.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
-        const uniqueKeys = [...new Set(keys)];
+            const placeholders = [...currentTemplate.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
+            const uniquePlaceholders = [...new Set(placeholders)];
+            const container = document.getElementById('inputs-container');
+            container.innerHTML = '';
 
-        const container = document.getElementById('inputs-container');
-        container.innerHTML = '';
-        
-        const labels = {
-            place: "Địa điểm trong mơ", animal: "Nhân vật chính", adj_animal: "Tính cách nhân vật",
-            action: "Sự việc đang xảy ra", my_adj: "Đức tính tốt của bé", result: "Kết thúc câu chuyện"
-        };
+            const labels = {
+                time: "Thời gian", place: "Địa điểm kỳ bí", animal: "Nhân vật",
+                adj_animal: "Mô tả nhân vật", mission: "Vật phẩm/Nhiệm vụ", obstacle: "Thử thách",
+                magic_item: "Món đồ trợ giúp", my_adj: "Đức tính của bé", result: "Kết quả"
+            };
 
-        uniqueKeys.forEach(key => {
-            const div = document.createElement('div');
-            div.className = 'input-group';
-            div.innerHTML = `
-                <label>${labels[key] || key}:</label>
-                <input type="text" id="${key}" placeholder="${lvl > 30 ? 'Hãy viết thật dài và chi tiết...' : 'Nhập từ bé thích...'}" required>
-            `;
-            container.appendChild(div);
-        });
+            uniquePlaceholders.forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'input-group';
+                div.innerHTML = `
+                    <label>${labels[key] || key}:</label>
+                    <input type="text" id="${key}" placeholder="Bé hãy viết dài 3-4 từ..." required 
+                           oninput="updateCount('${key}')">
+                    <small id="cnt-${key}" style="color:#95a5a6">0 từ</small>
+                `;
+                container.appendChild(div);
+            });
 
-        document.getElementById('story-form').onsubmit = (e) => {
-            e.preventDefault();
-            evaluateStory(uniqueKeys);
-        };
-    }
+            document.getElementById('story-form').onsubmit = (e) => {
+                e.preventDefault();
+                submitWork(uniquePlaceholders);
+            };
+        }
 
-    // --- 3. HỆ THỐNG CHẤM ĐIỂM THÔNG MINH (AI SIMULATION) ---
-    function evaluateStory(keys) {
-        let story = currentGeneratedTemplate;
-        let bonus = 0;
-        let totalWords = 0;
+        function updateCount(id) {
+            const val = document.getElementById(id).value.trim();
+            const words = val.split(/\s+/).filter(w => w.length > 0).length;
+            document.getElementById(`cnt-${id}`).innerText = words + " từ";
+        }
 
-        keys.forEach(key => {
-            const val = document.getElementById(key).value.trim();
-            const words = val.split(' ').filter(w => w.length > 0);
-            totalWords += words.length;
+        function submitWork(keys) {
+            let storyText = currentTemplate;
+            let bonus = 0;
+            let totalWords = 0;
 
-            // Điểm độ dài: Viết càng dài càng nhiều điểm
-            if (words.length >= 3) bonus += 10;
-            else if (words.length >= 2) bonus += 5;
+            keys.forEach(key => {
+                const val = document.getElementById(key).value.trim();
+                const wordCount = val.split(/\s+/).filter(w => w.length > 0).length;
+                totalWords += wordCount;
 
-            // Điểm từ vựng "Luxury": Thưởng cho các từ láy hoặc miêu tả sâu
-            const luxuryWords = ["lung linh", "rực rỡ", "dũng cảm", "tươi đẹp", "vô cùng", "xanh ngắt", "ấm áp"];
-            luxuryWords.forEach(w => { if (val.toLowerCase().includes(w)) bonus += 5; });
+                if (wordCount >= 4) bonus += 12; 
+                else if (wordCount >= 2) bonus += 6;
 
-            // Thay thế vào truyện để hiển thị
-            story = story.replace(new RegExp(`{${key}}`, 'g'), `<span class="highlight">${val}</span>`);
-        });
+                const lux = ["vô cùng", "rực rỡ", "lung linh", "tươi đẹp", "dũng cảm", "nhanh trí", "kỳ ảo", "tuyệt vời", "lấp lánh"];
+                lux.forEach(w => { if(val.toLowerCase().includes(w)) bonus += 4; });
 
-        // Tính điểm: Cơ bản 40đ + Bonus tối đa 60đ
-        let score = 40 + bonus;
-        if (score > 100) score = 100;
+                storyText = storyText.replace(new RegExp(`{${key}}`, 'g'), `<span class="highlight">${val}</span>`);
+            });
 
-        // Nếu level cao (trên 50), yêu cầu khắt khe hơn để qua môn
-        if (currentLevel > 50 && totalWords < 15) score -= 20;
+            let finalScore = 30 + bonus;
+            if (finalScore > 100) finalScore = 100;
+            if (currentLevel > 10 && totalWords < 20) finalScore -= 15; 
 
-        displayResult(story, score);
-    }
+            showResult(storyText, finalScore);
+        }
 
-    function displayResult(story, score) {
-        document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('result-screen').style.display = 'block';
-        document.getElementById('final-story-content').innerHTML = story;
-        document.getElementById('score-display').textContent = score + "đ";
+        function showResult(story, score) {
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            document.getElementById('final-story-content').innerHTML = story;
+            document.getElementById('score-display').textContent = score + "đ";
 
-        let comment = "";
-        if (score >= 90) comment = "🌟 Tuyệt tác! Bé có vốn từ vựng của một nhà văn thực thụ.";
-        else if (score >= 70) comment = "👏 Truyện rất hay! Bé đã làm rất tốt. Bé hãy thử dùng thêm nhiều từ miêu tả hơn nữa nhé.";
-        else if (score >= 50) comment = "👍 Tốt lắm! Bé đã hoàn thành câu chuyện rồi.Cố gắng hơn nhé";
-        else comment = "✍️ Bé hãy thử viết dài hơn một chút để câu chuyện sinh động hơn nhé!";
+            let comment = "";
+            if (score >= 70) {
+                comment = "🌟 Tuyệt tác! Bé đã đạt chuẩn 9 điểm để thăng cấp Nhà Văn!";
+                document.getElementById('next-level-btn').style.display = 'inline-block';
+                saveToDatabase(score);
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            } else {
+                comment = "👏 Câu chuyện khá tốt, nhưng chưa đủ 7 điểm để lên cấp. Bé hãy viết dài và mô tả kỹ hơn nhé!";
+                document.getElementById('next-level-btn').style.display = 'none';
+            }
+            document.getElementById('teacher-comment').textContent = "Ban giám khảo: " + comment;
+        }
 
-        document.getElementById('teacher-comment').textContent = "Giám khảo nhận xét: " + comment;
+        async function saveToDatabase(score) {
+            try {
+                await fetch('/api/game/story-win', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ level: currentLevel, score: score, taskName: 'Sáng Tác' })
+                });
+                if(currentLevel === unlockedLevel) unlockedLevel++;
+            } catch(e) {}
+        }
 
-        if (score >= 70) saveProgress(score);
-        else document.getElementById('next-level-btn').style.display = 'none';
-    }
-
-    // --- 4. LƯU TIẾN ĐỘ VÀ CHUYỂN CẤP ---
-    async function saveProgress(score) {
-        try {
-            await fetch('/api/game/story-win', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ level: currentLevel, score: score })
-            });
-            if (currentLevel === unlockedLevel) unlockedLevel++;
-            document.getElementById('next-level-btn').style.display = 'inline-block';
-        } catch(e) { console.error("Lỗi lưu điểm:", e); }
-    }
-
-    function nextLevel() {
-        if (currentLevel < 100) startLevel(currentLevel + 1);
-    }
-
-    function backToMenu() {
-        document.getElementById('result-screen').style.display = 'none';
-        document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('level-screen').style.display = 'block';
-        renderLevels();
-    }
-
-    init();
-    </script>
+        function nextLevel() { if (currentLevel < 100) startLevel(currentLevel + 1); }
+        function backToMenu() {
+            document.getElementById('result-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('level-screen').style.display = 'block';
+            renderLevels();
+        }
+        function rand(arr) { return Math.floor(Math.random() * arr.length); }
+        init();
+    </script>
 </body>
 </html>
