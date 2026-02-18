@@ -21,6 +21,24 @@
 
         #result-area { display: none; text-align: center; margin-top: 30px; }
         .score-big { font-size: 3rem; color: #e74c3c; font-weight: bold; display: block; }
+/* Thêm vào cuối phần style */
+.correct-answer {
+    background-color: #d4edda !important; /* Màu xanh lá nhạt */
+    border: 2px solid #28a745 !important;
+    color: #155724;
+}
+
+.wrong-answer {
+    background-color: #f8d7da !important; /* Màu đỏ nhạt */
+    border: 2px solid #dc3545 !important;
+    color: #721c24;
+}
+
+.result-note {
+    font-weight: bold;
+    margin-top: 5px;
+    font-size: 0.9rem;
+}
     </style>
 </head>
 <body class="knowledge-library-bg">
@@ -57,7 +75,9 @@
             <div id="questions-list"></div>
             <button onclick="submitTest()" style="width: 100%; margin-top: 20px; background: #2ecc71;">NỘP BÀI</button>
         </div>
-
+        <div id="timer-box" style="font-size: 1.5rem; color: #e74c3c; font-weight: bold; text-align: right;">
+    ⏱️ Thời gian còn lại: <span id="time-left">10:00</span>
+</div>
         <div id="result-area">
             <h2>Kết Quả Của Bạn</h2>
             <span class="score-big" id="final-score">0/10</span>
@@ -66,90 +86,162 @@
             <a href="index.html" class="btn" style="background:#95a5a6">Về Trang Chủ</a>
         </div>
     </div>
+<script>
+    let currentQuestions = [];
 
-    <script>
-        let currentQuestions = [];
+    async function startTest() {
+        const subject = document.getElementById('subject-select').value;
+        const grade = document.getElementById('grade-select').value;
+        const diff = document.getElementById('difficulty-select').value;
 
-        async function startTest() {
-            const subject = document.getElementById('subject-select').value;
-            const grade = document.getElementById('grade-select').value;
-            const diff = document.getElementById('difficulty-select').value;
+        try {
+            const res = await fetch(`/api/test?subject=${subject}&grade=${grade}&difficulty=${diff}`);
+            const data = await res.json();
 
-            // Gọi API lấy câu hỏi từ server
-            try {
-                const res = await fetch(`/api/test?subject=${subject}&grade=${grade}&difficulty=${diff}`);
-                const data = await res.json();
+            if (res.status !== 200) {
+                alert(data.message || "Chưa có đề thi cho lựa chọn này.");
+                return;
+            }
 
-                if (res.status !== 200) {
-                    alert(data.message || "Chưa có đề thi cho lựa chọn này.");
-                    return;
+            currentQuestions = data;
+            renderQuestions(data);
+            
+            // Chuyển màn hình
+            document.getElementById('selection-area').style.display = 'none';
+            document.getElementById('result-area').style.display = 'none';
+            document.getElementById('quiz-area').style.display = 'block';
+            document.getElementById('test-title').textContent = `Môn: ${subject.toUpperCase()} - Lớp ${grade} (10 Câu)`;
+        } catch (e) {
+            console.error(e);
+            alert("Lỗi kết nối server!");
+        }
+    }
+let testTimer;
+function startTimer(durationSeconds) {
+    let timer = durationSeconds;
+    const display = document.getElementById('time-left');
+    
+    testTimer = setInterval(() => {
+        let minutes = Math.floor(timer / 60);
+        let seconds = timer % 60;
+        display.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (--timer < 0) {
+            clearInterval(testTimer);
+            alert("Đã hết thời gian làm bài! Hệ thống sẽ tự động nộp bài.");
+            submitTest(); // Tự động gọi hàm nộp bài
+        }
+    }, 1000);
+}
+
+// Gọi hàm này bên trong hàm startTest() sau khi nhận được dữ liệu đề thi
+// startTimer(600); // 600 giây = 10 phút
+    function renderQuestions(questions) {
+        const container = document.getElementById('questions-list');
+        container.innerHTML = '';
+
+        questions.forEach((q, index) => {
+            const card = document.createElement('div');
+            card.className = 'question-card';
+            card.id = `card-${q.id}`; // Đặt ID để lát nữa dễ tìm tô màu
+            
+            let html = `<div class="question-text">Câu ${index + 1}: ${q.q}</div>`;
+            html += `<div class="options-grid">`;
+            
+            q.a.forEach(opt => {
+                html += `
+                    <label class="option-label" id="label-${q.id}-${opt.replace(/\s/g, '')}">
+                        <input type="radio" name="q_${q.id}" value="${opt}"> ${opt}
+                    </label>
+                `;
+            });
+            
+            html += `</div><div id="note-${q.id}" class="result-note"></div>`;
+            card.innerHTML = html;
+            container.appendChild(card);
+        });
+    }
+
+    async function submitTest() {
+        // 1. Thu thập đáp án
+        const answers = {};
+        let isAllAnswered = true;
+
+        currentQuestions.forEach(q => {
+            const selected = document.querySelector(`input[name="q_${q.id}"]:checked`);
+            if (selected) {
+                answers[q.id] = selected.value;
+            } else {
+                isAllAnswered = false; // Đánh dấu là chưa làm xong
+            }
+        });
+
+        if (!isAllAnswered) {
+             if(!confirm("Bạn chưa làm hết câu hỏi. Bạn có chắc muốn nộp bài không? (Các câu bỏ trống sẽ bị 0 điểm)")) return;
+        }
+
+        // 2. Gửi lên server chấm
+        try {
+            const res = await fetch('/api/submit-test', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ answers: answers })
+            });
+            const result = await res.json();
+
+            // 3. HIỂN THỊ KẾT QUẢ CHI TIẾT
+            // Ẩn nút nộp bài, Hiện bảng điểm
+            document.querySelector('#quiz-area button').style.display = 'none'; 
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('final-score').textContent = `${result.score} / ${result.total}`;
+            document.getElementById('feedback-msg').textContent = result.message;
+
+            // 4. TÔ MÀU ĐÁP ÁN
+            const details = result.details;
+            for (const [qid, info] of Object.entries(details)) {
+                // Vô hiệu hóa các nút radio để không chọn lại được
+                const radios = document.getElementsByName(`q_${qid}`);
+                radios.forEach(r => r.disabled = true);
+
+                // Tìm thẻ hiển thị đáp án đúng
+                // Lưu ý: ID phải xử lý khoảng trắng nếu đáp án có khoảng trắng
+                const correctId = `label-${qid}-${info.correct.replace(/\s/g, '')}`;
+                const correctLabel = document.getElementById(correctId);
+                
+                if (correctLabel) {
+                    correctLabel.classList.add('correct-answer');
+                    correctLabel.innerHTML += " ✅";
                 }
 
-                currentQuestions = data;
-                renderQuestions(data);
-                
-                document.getElementById('selection-area').style.display = 'none';
-                document.getElementById('quiz-area').style.display = 'block';
-                document.getElementById('test-title').textContent = `Môn: ${subject.toUpperCase()} - Lớp ${grade}`;
-            } catch (e) {
-                console.error(e);
-                alert("Lỗi kết nối server!");
-            }
-        }
-
-        function renderQuestions(questions) {
-            const container = document.getElementById('questions-list');
-            container.innerHTML = '';
-
-            questions.forEach((q, index) => {
-                const card = document.createElement('div');
-                card.className = 'question-card';
-                
-                let html = `<div class="question-text">Câu ${index + 1}: ${q.q}</div>`;
-                html += `<div class="options-grid">`;
-                
-                q.a.forEach(opt => {
-                    html += `
-                        <label class="option-label">
-                            <input type="radio" name="q_${q.id}" value="${opt}"> ${opt}
-                        </label>
-                    `;
-                });
-                
-                html += `</div>`;
-                card.innerHTML = html;
-                container.appendChild(card);
-            });
-        }
-
-        async function submitTest() {
-            const answers = {};
-            currentQuestions.forEach(q => {
-                const selected = document.querySelector(`input[name="q_${q.id}"]:checked`);
-                if (selected) {
-                    answers[q.id] = selected.value;
+                // Nếu người dùng chọn sai, tô màu đỏ vào cái sai
+                if (!info.isCorrect && info.userChosen) {
+                    const wrongId = `label-${qid}-${info.userChosen.replace(/\s/g, '')}`;
+                    const wrongLabel = document.getElementById(wrongId);
+                    if (wrongLabel) {
+                        wrongLabel.classList.add('wrong-answer');
+                        wrongLabel.innerHTML += " ❌";
+                    }
                 }
-            });
 
-            // Gửi đáp án lên server chấm
-            try {
-                const res = await fetch('/api/submit-test', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ answers: answers })
-                });
-                const result = await res.json();
-
-                // Hiển thị kết quả
-                document.getElementById('quiz-area').style.display = 'none';
-                document.getElementById('result-area').style.display = 'block';
-                document.getElementById('final-score').textContent = `${result.score}/${currentQuestions.length}`;
-                document.getElementById('feedback-msg').textContent = result.message;
-
-            } catch (e) {
-                console.error(e);
+                // Hiện chú thích text
+                const noteDiv = document.getElementById(`note-${qid}`);
+                if (info.isCorrect) {
+                    noteDiv.style.color = "#27ae60";
+                    noteDiv.innerText = "Chính xác!";
+                } else {
+                    noteDiv.style.color = "#e74c3c";
+                    noteDiv.innerText = `Sai rồi. Đáp án đúng là: ${info.correct}`;
+                }
             }
+
+            // Cuộn lên đầu để xem điểm
+            document.getElementById('result-area').scrollIntoView({ behavior: 'smooth' });
+
+        } catch (e) {
+            console.error(e);
+            alert("Có lỗi khi chấm bài!");
         }
-    </script>
-</body>
+    }
+</script>
+   </body>
 </html>

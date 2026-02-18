@@ -851,48 +851,108 @@ app.post('/api/game/shape-win', (req, res) => handleGameWin(req, res, 'shapeLeve
 app.post('/api/game/build-win', (req, res) => handleGameWin(req, res, 'buildLevel', 30, 'Xây Dựng'));
 app.post('/api/game/memory-win', (req, res) => handleGameWin(req, res, 'memoryLevel', 15, 'Trí Nhớ'));
 app.post('/api/game/crossword-win', (req, res) => handleGameWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
-app.post('/api/submit-test', async (req, res) => {
-    const { answers } = req.body; 
-    let score = Math.floor(Math.random() * 10) + 1; 
-    if (req.session.user) {
-        const user = await User.findOne({ username: req.session.user.username });
-        if(user) {
-            user.score += score * 10;
-            user.history.push({ activity: `Làm bài kiểm tra: ${score} điểm`, timestamp: new Date() });
-            await user.save();
-        }
-    }
-    res.json({ score, message: score > 5 ? 'Làm tốt lắm!' : 'Cố gắng hơn nhé!' });
-});
-// --- API MỚI: LẤY ĐỀ THI TRẮC NGHIỆM ---
+--- API MỚI: LẤY ĐỀ THI TRẮC NGHIỆM ---
+// --- 1. API LẤY ĐỀ THI (Lấy 10 câu ngẫu nhiên & Lưu đáp án vào Session) ---
 app.get('/api/test', (req, res) => {
     const { subject, grade, difficulty } = req.query;
 
-    // 1. Kiểm tra môn học có tồn tại trong dữ liệu không
-    if (!tests[subject]) {
-        return res.status(404).json({ message: "Chưa có dữ liệu cho môn học này." });
-    }
-
-    // 2. Xác định key lớp
+    // Kiểm tra dữ liệu
+    if (!tests[subject]) return res.status(404).json({ message: "Chưa có môn này." });
     const gradeKey = 'grade' + grade;
-    if (!tests[subject][gradeKey]) {
-        // Đã sửa chữ "Toán" thành "môn này" cho đúng với mọi môn
-        return res.status(404).json({ message: `Chưa có đề thi môn này cho lớp ${grade}.` });
-    }
-
-    // 3. Lấy danh sách câu hỏi theo độ khó
-    const questions = tests[subject][gradeKey][difficulty];
-
-    if (!questions || questions.length === 0) {
-        return res.status(404).json({ message: "Chưa có câu hỏi ở mức độ này. Bé hãy thử mức độ khác nhé!" });
-    }
-
-    // 4. TRỘN NGẪU NHIÊN VÀ LẤY 10 CÂU (Đã kích hoạt)
-    // Giúp đề thi mỗi lần mở ra là một bộ câu hỏi khác nhau
-    const shuffled = [...questions].sort(() => 0.5 - Math.random()).slice(0, 10);
+    if (!tests[subject][gradeKey]) return res.status(404).json({ message: `Chưa có lớp ${grade} cho môn này.` });
     
-    // Trả về danh sách câu hỏi đã trộn
-    res.json(shuffled); 
+    // Lấy ngân hàng câu hỏi gốc
+    const allQuestions = tests[subject][gradeKey][difficulty];
+    if (!allQuestions || allQuestions.length === 0) {
+        return res.status(404).json({ message: "Chưa có câu hỏi ở mức độ này." });
+    }
+
+    // TRỘN NGẪU NHIÊN VÀ LẤY 10 CÂU
+    const shuffled = [...allQuestions].sort(() => 0.5 - Math.random()).slice(0, 10);
+
+    // --- QUAN TRỌNG: Lưu đáp án đúng vào Session của người dùng ---
+    // Để lát nữa chấm điểm mà không cần gửi đáp án về máy khách (chống gian lận)
+    const answerKey = {};
+    shuffled.forEach(q => {
+        answerKey[q.id] = q.correct;
+    });
+    req.session.currentTestAnswers = answerKey;
+    req.session.testStartTime = Date.now();
+    req.session.save(); // Lưu session ngay lập tức
+
+    // Gửi câu hỏi về cho người dùng (Ẩn đáp án đúng đi)
+    const questionsForClient = shuffled.map(q => ({
+        id: q.id,
+        q: q.q,
+        a: q.a
+    }));
+
+    res.json(questionsForClient);
+});
+
+// --- 2. API CHẤM ĐIỂM (So sánh với Session & Trả về kết quả chi tiết) ---
+app.post('/api/submit-test', async (req, res) => {
+    const startTime = req.session.testStartTime;
+    const now = Date.now();
+    
+    // Kiểm tra nếu nộp bài sau 11 phút (cho dư 1 phút bù trừ lag mạng)
+    if (!startTime || (now - startTime) > 11 * 60 * 1000) {
+        return res.status(400).json({ 
+            score: 0, 
+            message: "Bài thi không hợp lệ do quá thời gian quy định!" 
+        });
+    }
+    const { answers } = req.body; // Đáp án người dùng gửi lên: { 't1_1': '6', ... }
+    const correctKeys = req.session.currentTestAnswers; // Đáp án đúng lấy từ Session
+
+    if (!correctKeys) {
+        return res.status(400).json({ score: 0, total: 0, message: "Lỗi phiên làm việc. Hãy tải lại trang!" });
+    }
+
+    let score = 0;
+    let total = Object.keys(correctKeys).length;
+    let details = {}; // Chứa thông tin đúng/sai để hiển thị lại
+
+    // Duyệt qua từng câu hỏi trong đề thi
+    for (let [questionId, correctAnswer] of Object.entries(correctKeys)) {
+        const userAnswer = answers[questionId];
+        
+        if (userAnswer === correctAnswer) {
+            score += 1; // Cộng 1 điểm mỗi câu đúng (Tổng 10 điểm)
+        }
+        
+        // Gửi kèm đáp án đúng về để hiện ra
+        details[questionId] = {
+            correct: correctAnswer,
+            userChosen: userAnswer,
+            isCorrect: userAnswer === correctAnswer
+        };
+    }
+
+    // Cộng điểm vào tài khoản (Nếu đã đăng nhập)
+    if (req.session.user) {
+        const user = await User.findOne({ username: req.session.user.username });
+        if(user) {
+            user.score += score * 10; // Mỗi câu 10 điểm
+            user.history.push({ 
+                activity: `Thi trắc nghiệm: ${score}/${total} câu đúng`, 
+                timestamp: new Date() 
+            });
+            await user.save();
+        }
+    }
+
+    // Phản hồi kết quả
+    let msg = score === total ? "Xuất sắc! 🌟" : (score >= total/2 ? "Làm tốt lắm! 👍" : "Cố gắng lần sau nhé! 💪");
+    delete req.session.testStartTime;
+    delete req.session.currentTestAnswers;
+    req.session.save();
+    res.json({ 
+        score: score, 
+        total: total, 
+        message: msg,
+        details: details // Gửi chi tiết để client tô màu
+    });
 });
 // --- API MỚI: RESET TOÀN BỘ LEVEL ---
 app.post('/api/admin/reset-all-levels', async (req, res) => {

@@ -605,31 +605,54 @@ const levels = [
 }
 // --- HÀM ĐỌC MẪU (TEXT TO SPEECH) ---
 function speakSample() {
-    // Lấy nội dung chữ tiếng Anh hiện tại
     const text = document.getElementById('text-to-read').textContent;
+    const recordBtn = document.getElementById('record-btn'); // Lấy nút ghi âm
     
-    // Tạo đối tượng giọng nói
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US'; // Giọng Mỹ
-    utterance.rate = 0.8;     // Tốc độ 0.8 (Hơi chậm để bé dễ nghe)
-    utterance.pitch = 1.1;    // Tông giọng cao hơn xíu cho vui tai
-    
-    // Hủy các giọng đang đọc dở (nếu có) và đọc câu mới
+    // Hủy các giọng đang đọc dở
     window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.8;
+
+    // KHI BẮT ĐẦU ĐỌC: Khóa nút ghi âm
+    utterance.onstart = () => {
+        recordBtn.disabled = true;
+        recordBtn.style.opacity = "0.5";
+        recordBtn.style.cursor = "not-allowed";
+    };
+
+    // KHI ĐỌC XONG: Mở lại nút ghi âm
+    utterance.onend = () => {
+        recordBtn.disabled = false;
+        recordBtn.style.opacity = "1";
+        recordBtn.style.cursor = "pointer";
+    };
+    
     window.speechSynthesis.speak(utterance);
 }
-
         function startGame(id) {
-            currentLevel = id;
-            const data = levels.find(l => l.id === id);
-            document.getElementById('level-selection-area').style.display = 'none';
-            document.getElementById('game-area').style.display = 'block';
-            document.getElementById('level-title').textContent = `LEVEL ${id}`;
-            document.getElementById('text-to-read').textContent = data.text;
-            document.getElementById('text-translation').textContent = data.trans;
-            resetGameUI();
-        }
+    currentLevel = id;
+    const data = levels.find(l => l.id === id);
 
+    // 1. Dập tắt mọi giọng nói đang phát dở (Rất quan trọng để tránh bug "dễ đúng")
+    window.speechSynthesis.cancel(); 
+
+    // 2. Chuyển giao diện
+    document.getElementById('level-selection-area').style.display = 'none';
+    document.getElementById('game-area').style.display = 'block';
+    
+    // 3. Cập nhật nội dung bài học
+    document.getElementById('level-title').textContent = `LEVEL ${id}`;
+    document.getElementById('text-to-read').textContent = data.text;
+    document.getElementById('text-translation').textContent = data.trans;
+
+    // 4. Làm mới giao diện ghi âm (xóa điểm cũ, bỏ trạng thái đang ghi âm)
+    resetGameUI();
+
+    // 5. Tự động đọc mẫu cho bé nghe (sau khi giao diện đã hiện lên 0.6 giây)
+    setTimeout(speakSample, 600); 
+}
         function resetGameUI() {
             document.getElementById('result-text').textContent = "Nhấn vào micro và đọc to nhé!";
             document.getElementById('score-display').textContent = "";
@@ -646,43 +669,30 @@ function speakSample() {
             return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
         }
 
-        function editDistance(s1, s2) {
-            s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
-            let costs = new Array();
-            for (let i = 0; i <= s1.length; i++) {
-                let lastValue = i;
-                for (let j = 0; j <= s2.length; j++) {
-                    if (i == 0) costs[j] = j;
-                    else {
-                        if (j > 0) {
-                            let newValue = costs[j - 1];
-                            if (s1.charAt(i - 1) != s2.charAt(j - 1))
-                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                            costs[j - 1] = lastValue;
-                            lastValue = newValue;
-                        }
-                    }
-                }
-                if (i > 0) costs[s2.length] = lastValue;
-            }
-            return costs[s2.length];
-        }
-
         // --- XỬ LÝ GHI ÂM ---
         const recordBtn = document.getElementById('record-btn');
         recordBtn.addEventListener('click', () => {
-            if (!recognition) return alert("Trình duyệt không hỗ trợ!");
-            if (recordBtn.classList.contains('recording')) {
-                recognition.stop();
-            } else {
-                try {
-                    recognition.start();
-                    recordBtn.classList.add('recording');
-                    document.getElementById('result-text').textContent = "Đang nghe... Bé đọc đi nào!";
-                } catch(e) {}
-            }
-        });
+    // Luôn dập tắt loa ngay lập tức nếu có âm thanh dư thừa
+    window.speechSynthesis.cancel();
 
+    if (!recognition) return alert("Trình duyệt không hỗ trợ!");
+
+    if (recordBtn.classList.contains('recording')) {
+        recognition.stop();
+    } else {
+        // RESET GIAO DIỆN trước khi nghe câu mới (Tránh hiện kết quả cũ)
+        document.getElementById('score-display').textContent = "";
+        document.getElementById('result-container').style.background = "transparent";
+        document.getElementById('result-text').textContent = "Đang nghe... Bé đọc đi nào!";
+
+        try {
+            recognition.start();
+            recordBtn.classList.add('recording');
+        } catch (e) {
+            console.error("Lỗi khởi động Recognition:", e);
+        }
+    }
+});
         if (recognition) {
             recognition.onresult = (event) => {
                 recordBtn.classList.remove('recording');
@@ -697,13 +707,7 @@ function speakSample() {
             recognition.onspeechend = () => recordBtn.classList.remove('recording');
         }
         // --- THUẬT TOÁN SO SÁNH CHÍNH XÁC (LEVENSHTEIN) ---
-        function similarity(s1, s2) {
-            let longer = s1, shorter = s2;
-            if (s1.length < s2.length) { longer = s2; shorter = s1; }
-            let longerLength = longer.length;
-            if (longerLength === 0) return 1.0;
-            return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
-        }
+       
 
         function editDistance(s1, s2) {
             s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
@@ -759,7 +763,7 @@ function speakSample() {
                 const res = await fetch('/api/game/english-speech-win', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ level: currentLevel, score: 10 })
+                    body: JSON.stringify({ level: currentLevel })
                 });
                 const d = await res.json();
                 if(d.newLevel) unlockedLevel = d.newLevel;
