@@ -808,21 +808,49 @@ async function handleWin(req, res, gameKey, points = 10, taskName = '') {
         res.status(500).send("Lỗi: " + e.message); 
     }
 }
+// --- HÀM TÍNH ĐIỂM THÔNG MINH (CÀNG KHÓ CÀNG NHIỀU QUÀ) ---
+// basePoints: Điểm cơ bản của game đó (ví dụ Cờ Vua là 50, Caro là 20)
+function getDynamicScore(level, basePoints) {
+    if (level <= 20) return basePoints;             // Cấp 1-20: Giữ nguyên
+    if (level <= 50) return Math.floor(basePoints * 1.5); // Cấp 21-50: Tăng 50%
+    if (level <= 80) return basePoints * 2;   
+    if (level <= 100) return basePoints * 3; 
+    if (level <= 150) return basePoints * 4;
+    if (level <= 200) return basePoints * 5;
+    if (level <= 250) return basePoints * 6;
+    if (level <= 300) return basePoints * 7;
+    if (level <= 350) return basePoints * 8;
+    if (level <= 400) return basePoints * 9;
+    return basePoints *10 ;                          // Cấp 81-100: Nhân ba
+}
 
+// Hàm xử lý chung để code gọn gàng
+const handleGameWin = (req, res, gameKey, basePoints, taskName) => {
+    const level = parseInt(req.body.level) || 1;
+    const finalScore = getDynamicScore(level, basePoints);
+    handleWin(req, res, gameKey, finalScore, taskName);
+};
 // Cập nhật các dòng gọi API để truyền thêm Tên Nhiệm Vụ (Tham số thứ 3)
-app.post('/api/game/music-win', (req, res) => handleWin(req, res, 'musicLevel', 20, 'Âm Nhạc'));
-app.post('/api/game/detective-win', (req, res) => handleWin(req, res, 'detectiveLevel', 20, 'Thám tử'));
-app.post('/api/game/crossword-win', (req, res) => handleWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
-app.post('/api/game/story-win', (req, res) => handleWin(req, res, 'storyLevel', 30, 'Sáng Tác'));
-app.post('/api/game/english-speech-win', (req, res) => handleWin(req, res, 'englishSpeechLevel', 10, 'Tiếng Anh'));
-app.post('/api/game/othello-win', (req, res) => handleWin(req, res, 'othelloLevel', 25, 'Phục Kích'));
-app.post('/api/game/shape-win', (req, res) => handleWin(req, res, 'shapeLevel', 20, 'Ghép Hình'));
-app.post('/api/game/build-win', (req, res) => handleWin(req, res, 'buildLevel', 30, 'Xây Dựng'));
-app.post('/api/game/chess-win-level', (req, res) => handleWin(req, res, 'chessLevel', 50, 'Cờ Vua'));
-app.post('/api/game/caro-win', (req, res) => handleWin(req, res, 'caroLevel', 20, 'Cờ Caro')); 
-app.post('/api/game/go-win', (req, res) => handleWin(req, res, 'goLevel', 30, 'Cờ Vây'));
-app.post('/api/game/memory-win', (req, res) => handleWin(req, res, 'memoryLevel', 15, 'Ghép Hình'));
-app.post('/api/game/viet-speech-win', (req, res) => handleWin(req, res, 'vietSpeechLevel', 10, 'Luyện Nói Việt'));
+// --- DANH SÁCH API GAME (ĐÃ ÁP DỤNG TĂNG ĐIỂM THEO CẤP) ---
+
+// 1. Nhóm Tư Duy & Logic
+app.post('/api/game/chess-win-level', (req, res) => handleGameWin(req, res, 'chessLevel', 50, 'Cờ Vua'));     // 50 -> 150đ
+app.post('/api/game/go-win', (req, res) => handleGameWin(req, res, 'goLevel', 30, 'Cờ Vây'));                // 30 -> 90đ
+app.post('/api/game/othello-win', (req, res) => handleGameWin(req, res, 'othelloLevel', 25, 'Phục Kích'));   // 25 -> 75đ
+app.post('/api/game/caro-win', (req, res) => handleGameWin(req, res, 'caroLevel', 20, 'Cờ Caro'));           // 20 -> 60đ
+
+// 2. Nhóm Sáng Tạo & Ngôn Ngữ
+app.post('/api/game/story-win', (req, res) => handleGameWin(req, res, 'storyLevel', 30, 'Sáng Tác'));        // 30 -> 90đ
+app.post('/api/game/english-speech-win', (req, res) => handleGameWin(req, res, 'englishSpeechLevel', 15, 'Tiếng Anh')); 
+app.post('/api/game/viet-speech-win', (req, res) => handleGameWin(req, res, 'vietSpeechLevel', 15, 'Luyện Nói Việt'));
+
+// 3. Nhóm Giải Trí & Kỹ Năng
+app.post('/api/game/music-win', (req, res) => handleGameWin(req, res, 'musicLevel', 20, 'Âm Nhạc'));
+app.post('/api/game/detective-win', (req, res) => handleGameWin(req, res, 'detectiveLevel', 20, 'Thám tử'));
+app.post('/api/game/shape-win', (req, res) => handleGameWin(req, res, 'shapeLevel', 20, 'Ghép Hình'));
+app.post('/api/game/build-win', (req, res) => handleGameWin(req, res, 'buildLevel', 30, 'Xây Dựng'));
+app.post('/api/game/memory-win', (req, res) => handleGameWin(req, res, 'memoryLevel', 15, 'Trí Nhớ'));
+app.post('/api/game/crossword-win', (req, res) => handleGameWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
 app.post('/api/submit-test', async (req, res) => {
     const { answers } = req.body; 
     let score = Math.floor(Math.random() * 10) + 1; 
