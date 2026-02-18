@@ -864,6 +864,36 @@ app.post('/api/submit-test', async (req, res) => {
     }
     res.json({ score, message: score > 5 ? 'Làm tốt lắm!' : 'Cố gắng hơn nhé!' });
 });
+// --- API MỚI: LẤY ĐỀ THI TRẮC NGHIỆM ---
+app.get('/api/test', (req, res) => {
+    const { subject, grade, difficulty } = req.query;
+
+    // 1. Kiểm tra môn học có tồn tại trong dữ liệu không
+    if (!tests[subject]) {
+        return res.status(404).json({ message: "Chưa có dữ liệu cho môn học này." });
+    }
+
+    // 2. Xác định key lớp
+    const gradeKey = 'grade' + grade;
+    if (!tests[subject][gradeKey]) {
+        // Đã sửa chữ "Toán" thành "môn này" cho đúng với mọi môn
+        return res.status(404).json({ message: `Chưa có đề thi môn này cho lớp ${grade}.` });
+    }
+
+    // 3. Lấy danh sách câu hỏi theo độ khó
+    const questions = tests[subject][gradeKey][difficulty];
+
+    if (!questions || questions.length === 0) {
+        return res.status(404).json({ message: "Chưa có câu hỏi ở mức độ này. Bé hãy thử mức độ khác nhé!" });
+    }
+
+    // 4. TRỘN NGẪU NHIÊN VÀ LẤY 10 CÂU (Đã kích hoạt)
+    // Giúp đề thi mỗi lần mở ra là một bộ câu hỏi khác nhau
+    const shuffled = [...questions].sort(() => 0.5 - Math.random()).slice(0, 10);
+    
+    // Trả về danh sách câu hỏi đã trộn
+    res.json(shuffled); 
+});
 // --- API MỚI: RESET TOÀN BỘ LEVEL ---
 app.post('/api/admin/reset-all-levels', async (req, res) => {
     // 1. Chặn nếu không phải admin
