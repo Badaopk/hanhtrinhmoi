@@ -45,7 +45,7 @@ const boardData = [
     { id: 39, name: "Dinh Độc Lập", type: "property", price: 400, rent: [50, 200, 600, 1400, 1700, 2000], housePrice: 200, color: "#2c3e50", group: 8 }
 ];
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { boardData }; // Dành cho Server (NodeJS)
+    module.exports = { boardData }; 
 } else {
-    window.boardData = boardData;   // Dành cho Trình duyệt (Client)
+    window.boardData = boardData;   
 }

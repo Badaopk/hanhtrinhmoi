@@ -240,31 +240,46 @@ function placeBid() {
 
     // --- 2. GAME LOGIC ---
     socket.on('monopolyUpdate', (data) => {
-        document.getElementById('lobby-screen').classList.add('hidden');
-        document.getElementById('game-ui').classList.remove('hidden');
-        
-        playersData = data.players;
-        renderPlayers();
-        
-        if (data.logs) {
-            const logBox = document.getElementById('log-box');
-            data.logs.forEach(l => {
-                logBox.innerHTML = `<div>${l}</div>` + logBox.innerHTML;
-            });
-        }
-        Object.keys(data.propertyHouses).forEach(tileId => {
-        const count = data.propertyHouses[tileId];
+    // 1. Ẩn màn hình chờ, hiện màn hình game
+    document.getElementById('lobby-screen').classList.add('hidden');
+    document.getElementById('game-ui').classList.remove('hidden');
+    
+    // 2. Cập nhật dữ liệu người chơi từ server gửi về
+    playersData = data.players;
+    
+    // 3. SỬA LỖI 4 TẠI ĐÂY: Lấy turnIndex từ 'data' thay vì 'game'
+    if (data.turnIndex !== undefined) {
+        currentTurnPlayerId = data.players[data.turnIndex].id;
+    }
+
+    // 4. Vẽ lại người chơi và nhà cửa
+    renderPlayers();
+    renderHouses(data.propertyHouses);
+    
+    // 5. Ghi nhật ký game
+    if (data.logs) {
+        const logBox = document.getElementById('log-box');
+        data.logs.forEach(l => {
+            logBox.innerHTML = `<div style="padding:2px 0; border-bottom:1px dotted rgba(255,255,255,0.1)">${l}</div>` + logBox.innerHTML;
+        });
+    }
+});
+
+// Hàm bổ trợ để vẽ nhà (nên tách riêng cho sạch code)
+function renderHouses(propertyHouses) {
+    if (!propertyHouses) return;
+    Object.keys(propertyHouses).forEach(tileId => {
+        const count = propertyHouses[tileId];
         const container = document.getElementById(`house-container-${tileId}`);
         if (container) {
-            // Nếu 5 nhà thì hiện 1 Khách sạn đỏ (🏨), dưới 5 thì hiện số nhà xanh (🏡)
             if (count === 5) {
-                container.innerHTML = `<span style="font-size:1.2rem; transform: translateZ(10px);">🏨</span>`;
+                container.innerHTML = `<span style="font-size:1.2rem;">🏨</span>`; // Khách sạn
             } else {
-                container.innerHTML = `<span style="font-size:0.8rem;">${"🏡".repeat(count)}</span>`;
+                container.innerHTML = `<span style="font-size:0.8rem;">${"🏡".repeat(count)}</span>`; // Nhà
             }
         }
     });
-
+}
     // Hiện biểu tượng Ở Tù
     data.players.forEach(p => {
         if (p.inJail) {
@@ -275,13 +290,17 @@ function placeBid() {
     });
 
     socket.on('turnChanged', (data) => {
-        currentTurnPlayerId = data.turn;
-        const isMyTurn = (data.turn === myId);
-        document.getElementById('roll-btn').disabled = !isMyTurn;
-        document.getElementById('turn-indicator').innerText = isMyTurn ? "ĐẾN LƯỢT BÉ!" : "ĐANG ĐỢI...";
-        document.getElementById('turn-indicator').style.color = isMyTurn ? "#2ecc71" : "#f1c40f";
-    });
+    currentTurnPlayerId = data.turn; // ID của người đến lượt
+    const isMyTurn = (data.turn === myId);
 
+    // Mở nút tung xúc xắc nếu là lượt mình
+    document.getElementById('roll-btn').disabled = !isMyTurn;
+    
+    // Cập nhật thông báo lượt đi
+    const indicator = document.getElementById('turn-indicator');
+    indicator.innerText = isMyTurn ? "ĐẾN LƯỢT BÉ ĐẤY!" : "ĐANG ĐỢI BẠN KHÁC...";
+    indicator.style.color = isMyTurn ? "#2ecc71" : "#f1c40f";
+});
     socket.on('diceRolled', (d) => {
         document.getElementById('dice-result').innerText = `🎲 ${d.d1} + ${d.d2}`;
     });

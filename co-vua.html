@@ -14,7 +14,6 @@
             background: radial-gradient(circle at center, #1e3799, #0c2461);
             color: white; margin: 0; font-family: 'Baloo 2', cursive;
             display: flex; flex-direction: column; align-items: center; min-height: 100vh;
-            /* Chống kéo trang trên mobile */
             overscroll-behavior: none; 
         }
 
@@ -31,55 +30,60 @@
 
         /* LAYOUT */
         .game-layout { 
-            display: flex; flex-direction: column; /* Xếp dọc trên mobile */
+            display: flex; flex-direction: column; 
             gap: 15px; justify-content: center; align-items: center;
             margin-top: 10px; width: 100%; box-sizing: border-box; 
         }
 
-        /* BÀN CỜ - Responsive */
+        /* BÀN CỜ */
         #myBoard {
-            width: 95vw; /* Chiếm 95% chiều rộng màn hình điện thoại */
-            max-width: 500px; /* Không quá to trên PC */
+            width: 95vw; max-width: 500px;
             border: 5px solid #f1c40f; border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            /* Chạm vào không bị highlight xanh của trình duyệt */
             -webkit-tap-highlight-color: transparent; 
         }
 
-        /* HIỆU ỨNG CHẠM (HIGHLIGHT) */
+        /* HIỆU ỨNG CHẠM (ĐÃ SỬA THÀNH DẤU CHẤM) */
         .highlight-selected {
-            box-shadow: inset 0 0 3px 3px #f1c40f; /* Viền vàng trong ô chọn */
-            background-color: rgba(241, 196, 15, 0.5);
+            box-shadow: inset 0 0 0 3px #f1c40f; /* Viền vàng ô đang chọn */
+            background-color: rgba(241, 196, 15, 0.4);
         }
         .highlight-dest {
-            background: radial-gradient(rgba(20, 85, 30, 0.7) 19%, rgba(0,0,0,0) 20%); /* Chấm tròn xanh */
+            /* Dấu chấm tròn xanh giữa ô */
+            background: radial-gradient(rgba(46, 204, 113, 0.8) 19%, transparent 20%);
             cursor: pointer;
+        }
+        .highlight-capture {
+            /* Viền tròn đỏ khi ăn quân */
+            box-shadow: inset 0 0 0 4px rgba(231, 76, 60, 0.7);
+            border-radius: 50%;
         }
 
         /* SIDEBAR */
-.sidebar {
-    width: 95vw; max-width: 500px;
-    background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
-    padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
-    text-align: center; display: flex; flex-direction: column; gap: 10px;
-    /* Bỏ max-height cũ để hiện đầy đủ danh sách */
-    min-height: 300px; 
-}
-                /* TABS */
-        .mode-tabs { display: flex; gap: 10px; margin-bottom: 5px; }
+        .sidebar {
+            width: 95vw; max-width: 500px;
+            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
+            padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);
+            text-align: center; display: flex; flex-direction: column; gap: 10px;
+            min-height: 250px; 
+        }
+
+        /* TABS */
+        .mode-tabs { display: flex; gap: 5px; margin-bottom: 5px; }
         .tab-btn {
-            flex: 1; padding: 10px; border: none; border-radius: 10px;
+            flex: 1; padding: 10px 5px; border: none; border-radius: 10px;
             font-weight: bold; cursor: pointer; opacity: 0.7; transition: 0.3s; 
-            font-family: inherit; font-size: 1rem;
+            font-family: inherit; font-size: 0.9rem;
         }
         .tab-btn.active { opacity: 1; transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .tab-pve { background: #f1c40f; color: #333; }
         .tab-pvp { background: #3498db; color: white; }
+        .tab-local { background: #9b59b6; color: white; }
 
         .mode-content { display: none; height: 100%; overflow-y: auto; }
         .mode-content.active { display: block; }
 
-        /* GRID 100 LEVEL */
+        /* GRID LEVEL */
         .level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding-right: 5px; max-height: 200px; overflow-y: auto; }
         .lvl-btn { 
             padding: 10px 0; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;
@@ -89,7 +93,6 @@
         .lvl-btn.current { background: #f1c40f; color: black; box-shadow: 0 0 10px #f1c40f; }
         .lvl-btn.locked { opacity: 0.5; cursor: not-allowed; }
 
-        /* TRẠNG THÁI & NÚT BẤM */
         .status-text { font-size: 1.1rem; font-weight: bold; color: #fff; min-height: 25px; margin: 5px 0; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; }
         .action-btn {
             width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 50px;
@@ -97,14 +100,8 @@
             transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.2); font-family: inherit;
         }
         .action-btn:active { transform: translateY(2px); box-shadow: none; }
-        .btn-green { background: #2ecc71; }
-        .btn-blue { background: #3498db; }
-        .btn-orange { background: #e67e22; }
-
-        .room-input {
-            width: 60%; padding: 10px; border-radius: 10px; border: none;
-            text-align: center; font-weight: bold; font-family: inherit; font-size: 1rem;
-        }
+        .btn-green { background: #2ecc71; } .btn-blue { background: #3498db; } .btn-orange { background: #e67e22; }
+        .room-input { width: 60%; padding: 10px; border-radius: 10px; border: none; text-align: center; font-weight: bold; font-size: 1rem; }
     </style>
 </head>
 <body>
@@ -114,9 +111,11 @@
         <h1 class="header-title">♟️ VUA CỜ ♟️</h1>
         <div style="width: 50px;"></div>
     </div>
+    
     <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none;">
-    ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span> để suy nghĩ!
-</div>
+        ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
+    </div>
+
     <div class="game-layout">
         <div id="myBoard"></div>
 
@@ -124,13 +123,12 @@
             <div class="mode-tabs">
                 <button class="tab-btn tab-pve active" onclick="switchMode('pve')">🏰 Leo Tháp</button>
                 <button class="tab-btn tab-pvp" onclick="switchMode('pvp')">⚔️ Online</button>
+                <button class="tab-btn tab-local" onclick="switchMode('local')">👥 2 Người</button>
             </div>
 
             <div id="pve-panel" class="mode-content active">
                 <div class="status-text" id="pve-status">Chọn cấp độ để chơi!</div>
-                <div style="margin-bottom: 5px;">
-                    <button class="action-btn btn-blue" onclick="undoMove()" style="padding: 8px;">↩️ Đi Lại</button>
-                </div>
+                <button class="action-btn btn-blue" onclick="undoMove()" style="padding: 8px; margin-bottom: 10px;">↩️ Đi Lại</button>
                 <div class="level-grid" id="level-list"></div>
             </div>
 
@@ -139,13 +137,19 @@
                     <div id="pvp-room-info" style="font-size: 1.1rem; color: #f1c40f;">Chưa vào phòng</div>
                     <div class="status-text" id="pvp-status">Hãy tìm đối thủ...</div>
                 </div>
-
                 <button class="action-btn btn-orange" onclick="findRandomMatch()">🎲 Ghép Ngẫu Nhiên</button>
                 <div style="display:flex; gap:5px; margin-top:5px;">
-                    <button class="action-btn btn-green" style="flex:1; font-size: 0.9rem;" onclick="createGroup()">Tạo Phòng</button>
+                    <button class="action-btn btn-green" style="flex:1; font-size: 0.9rem;" onclick="createGroup()">Tạo</button>
                     <input type="text" id="room-code-input" class="room-input" placeholder="Mã..." style="width: 30%;">
                     <button class="action-btn btn-blue" style="width: auto; padding: 0 15px;" onclick="joinGroup()">Vào</button>
                 </div>
+            </div>
+
+            <div id="local-panel" class="mode-content">
+                <div class="status-text" id="local-status">Chơi cùng bạn bè!</div>
+                <p style="margin: 10px 0; color: #ecf0f1;">Hai bạn thay phiên nhau đi trên cùng một máy.</p>
+                <button class="action-btn btn-green" onclick="startLocalGame()">▶️ Bắt Đầu Ván Mới</button>
+                <button class="action-btn btn-blue" onclick="undoMove()">↩️ Đi Lại</button>
             </div>
         </div>
     </div>
@@ -154,9 +158,9 @@
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script>
-    // --- KHAI BÁO BIẾN TOÀN CỤC ---
     let board = null, game = new Chess(), socket = io();
     let stockfish = null;
     let currentMode = 'pve'; 
@@ -170,29 +174,24 @@
     let secondsLeft = 600;
     let selectedSquare = null;
 
-    // --- KHỞI TẠO BỘ NÃO AI (STOCKFISH) ---
+    // --- KHỞI TẠO STOCKFISH ---
     try { 
         stockfish = new Worker('stockfish.js'); 
         stockfish.postMessage('uci');
-        stockfish.postMessage('isready');
-
         stockfish.onmessage = (e) => {
             if (e.data.includes('bestmove')) {
-                // Hủy lệnh "tự cứu" vì máy đã trả lời
                 clearTimeout(window.aiSafetyTimeout);
-
                 const m = e.data.split(' ')[1];
-                // Chỉ cho phép máy đi nếu game đang chạy và đúng lượt máy (đen)
-                if (isGameActive && game.turn() === 'b' && m && m !== '(none)') {
+                // Chỉ cho máy đi nếu đang là PvE và đến lượt máy
+                if (isGameActive && game.turn() === 'b' && m && currentMode === 'pve') {
                     game.move({ from: m.substring(0,2), to: m.substring(2,4), promotion: 'q' });
                     board.position(game.fen());
                     updateStatus();
                 }
             }
         };
-    } catch(e) { console.error("Lỗi khởi tạo Stockfish:", e); }
+    } catch(e) {}
 
-    // --- HÀM LẤY ẢNH QUÂN CỜ ---
     function getPieceImg(piece) {
         const map = {'wP':'plt45','wN':'nlt45','wB':'blt45','wR':'rlt45','wQ':'qlt45','wK':'klt45','bP':'pdt45','bN':'ndt45','bB':'bdt45','bR':'rdt45','bQ':'qdt45','bK':'kdt45'};
         const code = map[piece];
@@ -200,139 +199,206 @@
         return `https://upload.wikimedia.org/wikipedia/commons/${hash}/Chess_${code}.svg`;
     }
 
-    // --- BỘ ĐẾM GIỜ GIẢI ĐẤU ---
-    function startTournamentTimer(mins) {
-        clearInterval(matchTimer);
-        secondsLeft = mins * 60;
-        if(document.getElementById('tourney-timer')) {
-            document.getElementById('tourney-timer').style.display = 'block';
-        }
-
-        matchTimer = setInterval(() => {
-            const isMyTurn = (currentMode === 'pvp' && game.turn() === myRole);
-            if (isMyTurn && isGameActive) {
-                secondsLeft--;
-                const m = Math.floor(secondsLeft / 60);
-                const s = secondsLeft % 60;
-                const display = document.getElementById('time-left');
-                if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
-
-                if (secondsLeft <= 0) {
-                    clearInterval(matchTimer);
-                    socket.emit('timeoutLoss', { 
-                        room: currentRoom, 
-                        loserUsername: localStorage.getItem('currentUser'),
-                        gameType: 'Cờ Vua'
-                    });
-                }
-            }
-        }, 1000);
-    }
-
-    // --- KHỞI TẠO GAME ---
     async function init() {
         try {
             const res = await fetch('/api/user/progress');
             const data = await res.json();
             userLevel = data.chessLevel || 1;
-        } catch(e) { console.log("Chưa đăng nhập hoặc lỗi mạng"); }
-
+        } catch(e) {}
         renderLevelList();
-
-        const config = {
-            draggable: false, // Tắt kéo thả để dùng chạm
-            position: 'start',
-            pieceTheme: getPieceImg 
-        };
+        
+        const config = { draggable: false, position: 'start', pieceTheme: getPieceImg };
         board = Chessboard('myBoard', config);
         $(window).resize(board.resize);
-
-        // Gán sự kiện Click
         $('#myBoard').on('click', '.square-55d63', onSquareClick);
-        
-        // Check phòng giải đấu
-        const tourRoom = localStorage.getItem('joinTournamentRoom');
-        if (tourRoom) {
-           socket.emit('joinChessRoom', tourRoom); 
-           localStorage.removeItem('joinTournamentRoom'); 
-        }
     }
 
-    // --- XỬ LÝ CLICK (LOGIC CHÍNH) ---
+    // --- XỬ LÝ CLICK (QUAN TRỌNG: ĐÃ THÊM LOGIC 2 NGƯỜI) ---
     async function onSquareClick() {
         if (!isGameActive) return;
         
+        // 1. CHẶN LƯỢT (Chỉ áp dụng cho PVE và PVP, LOCAL thì ai cũng đi được)
+        if (currentMode === 'pve' && game.turn() === 'b') return; 
         if (currentMode === 'pvp' && game.turn() !== myRole) return;
-        if (currentMode === 'pve' && game.turn() !== 'w') return;
 
         const square = $(this).data('square');
         const piece = game.get(square);
 
-        // 1. Nếu đã chọn quân trước đó -> Di chuyển
+        // 2. DI CHUYỂN QUÂN
         if (selectedSquare) {
+            // Nếu bấm lại vào chính quân đang chọn -> Bỏ chọn
             if (selectedSquare === square) {
-                removeHighlights();
-                selectedSquare = null;
-                return;
+                removeHighlights(); selectedSquare = null; return;
             }
-
-            const move = game.move({
-                from: selectedSquare,
-                to: square,
-                promotion: 'q'
-            });
-
+            
+            // Thử đi
+            const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+            
             if (move) {
                 board.position(game.fen());
                 removeHighlights();
                 selectedSquare = null;
+                updateStatus();
 
-                // QUAN TRỌNG: Đợi kiểm tra thắng thua xong mới đi tiếp
-                await updateStatus(); 
-                
-                // Nếu game vẫn còn chạy (chưa thắng/thua) thì máy mới đi
-                if (currentMode === 'pve' && isGameActive && game.turn() === 'b') {
-                    document.getElementById('pve-status').textContent = "🤖 Máy đang suy nghĩ...";
+                // Logic sau khi đi
+                if (currentMode === 'pve' && isGameActive) {
+                    document.getElementById('pve-status').textContent = "🤖 Máy đang nghĩ...";
                     setTimeout(makeAiMove, 500);
                 } else if (currentMode === 'pvp') {
                     socket.emit('move', { room: currentRoom, move: move });
                     document.getElementById('pvp-status').textContent = "Đợi đối thủ...";
+                } else if (currentMode === 'local' && isGameActive) {
+                    // Chế độ 2 người: Cập nhật text
+                    const nextP = game.turn() === 'w' ? "Trắng (White)" : "Đen (Black)";
+                    document.getElementById('local-status').textContent = `Đến lượt: ${nextP}`;
+                    // Xoay bàn cờ nếu thích (bỏ comment dòng dưới)
+                    // board.flip(); 
                 }
                 return;
             }
         }
 
-        // 2. Chọn quân mới
+        // 3. CHỌN QUÂN (HIGHLIGHT)
         if (piece) {
-            const isMyPiece = (currentMode === 'pve' && piece.color === 'w') || 
-                              (currentMode === 'pvp' && piece.color === myRole);
-            
+            let isMyPiece = false;
+            // Kiểm tra quyền sở hữu
+            if (currentMode === 'pve') isMyPiece = (piece.color === 'w');
+            else if (currentMode === 'pvp') isMyPiece = (piece.color === myRole);
+            else if (currentMode === 'local') isMyPiece = (piece.color === game.turn()); // LOCAL: Lượt ai người đó được bấm
+
             if (isMyPiece) {
                 removeHighlights();
                 selectedSquare = square;
                 highlightSquare(square);
-                highlightMoves(square); 
+                highlightMoves(square);
             }
         }
     }
 
-    // --- CÁC HÀM HỖ TRỢ HÌNH ẢNH ---
-    function removeHighlights() {
-        $('#myBoard .square-55d63').removeClass('highlight-selected');
-        $('#myBoard .square-55d63').removeClass('highlight-dest');
-    }
+    // --- HIỆU ỨNG ---
     function highlightSquare(square) {
         $('#myBoard .square-' + square).addClass('highlight-selected');
     }
     function highlightMoves(square) {
         const moves = game.moves({ square: square, verbose: true });
-        if (moves.length === 0) return;
-        for (let i = 0; i < moves.length; i++) {
-            $('#myBoard .square-' + moves[i].to).addClass('highlight-dest');
+        for (const move of moves) {
+            const $sq = $('#myBoard .square-' + move.to);
+            // Nếu ăn quân -> Viền đỏ, Nếu đi thường -> Dấu chấm
+            if (game.get(move.to)) $sq.addClass('highlight-capture');
+            else $sq.addClass('highlight-dest');
+        }
+    }
+    function removeHighlights() {
+        $('#myBoard .square-55d63').removeClass('highlight-selected highlight-dest highlight-capture');
+    }
+
+    // --- LOGIC CHUNG ---
+    window.switchMode = function(mode) {
+        currentMode = mode;
+        isGameActive = false;
+        game.reset(); board.start();
+        removeHighlights(); selectedSquare = null;
+        
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`.tab-${mode}`).classList.add('active');
+        document.getElementById(`${mode}-panel`).classList.add('active');
+
+        if(mode === 'pve') document.getElementById('pve-status').textContent = "Chọn cấp độ...";
+        if(mode === 'local') document.getElementById('local-status').textContent = "Nhấn Bắt Đầu để chơi";
+    };
+
+    window.startAiGame = function(level) {
+        currentPlayingLevel = level;
+        game.reset(); board.start(); board.orientation('white');
+        isGameActive = true; myRole = 'w';
+        document.getElementById('pve-status').textContent = `🎮 Cấp ${level}`;
+    };
+
+    window.startLocalGame = function() {
+        game.reset(); board.start(); board.orientation('white');
+        isGameActive = true;
+        document.getElementById('local-status').textContent = "Đến lượt: Trắng (White)";
+    };
+
+    window.undoMove = function() {
+        if (!isGameActive) return;
+        // PVE: Đi lại 2 nước (để về lượt mình)
+        if (currentMode === 'pve' && game.history().length >= 2) {
+            game.undo(); game.undo();
+            board.position(game.fen());
+        }
+        // LOCAL: Đi lại 1 nước (để người vừa đi đi lại)
+        else if (currentMode === 'local' && game.history().length >= 1) {
+            game.undo();
+            board.position(game.fen());
+            const nextP = game.turn() === 'w' ? "Trắng" : "Đen";
+            document.getElementById('local-status').textContent = `Đến lượt: ${nextP}`;
+            // Nếu có xoay bàn cờ thì xoay lại
+            // board.flip();
+        }
+        removeHighlights(); selectedSquare = null;
+    };
+
+    function makeAiMove() {
+        if (!isGameActive) return;
+        // Logic AI đơn giản (nếu không có Stockfish)
+        if (!stockfish) {
+            const moves = game.moves();
+            if (moves.length > 0) {
+                game.move(moves[Math.floor(Math.random() * moves.length)]);
+                board.position(game.fen());
+                updateStatus();
+            }
+            return;
+        }
+        // Logic AI Stockfish
+        let skill = Math.floor((currentPlayingLevel / 100) * 20);
+        stockfish.postMessage(`setoption name Skill Level value ${skill}`);
+        stockfish.postMessage(`position fen ${game.fen()}`);
+        stockfish.postMessage(`go depth 5 movetime 500`);
+    }
+
+    async function updateStatus() {
+        const isMate = game.in_checkmate();
+        const isDraw = game.in_draw() || game.in_stalemate();
+        
+        let statusEl = document.getElementById(currentMode + '-status');
+
+        if (isMate) {
+            isGameActive = false;
+            let winner = game.turn() === 'w' ? 'Đen' : 'Trắng';
+            
+            if (currentMode === 'pve') {
+                statusEl.textContent = (winner === 'Trắng') ? "🏆 BẠN THẮNG!" : "😢 MÁY THẮNG!";
+                if (winner === 'Trắng') handlePveWin();
+            } else if (currentMode === 'local') {
+                statusEl.textContent = `🏆 ${winner} THẮNG!`;
+                alert(`Chúc mừng! ${winner} đã chiến thắng!`);
+            } else {
+                statusEl.textContent = `🏆 ${winner} THẮNG!`;
+                alert(`${winner} thắng!`);
+            }
+        } else if (isDraw) {
+            isGameActive = false;
+            statusEl.textContent = "🤝 HÒA CỜ!";
+            alert("Ván cờ Hòa!");
         }
     }
 
-    // --- UI DANH SÁCH LEVEL ---
+    async function handlePveWin() {
+        try {
+            const res = await fetch('/api/game/chess-win-level', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ level: currentPlayingLevel })
+            });
+            const d = await res.json();
+            if(d.newLevel) { userLevel = d.newLevel; renderLevelList(); }
+            showResultModal(true, d.addedPoints, d.message);
+        } catch(e) {}
+    }
+
     function renderLevelList() {
         const list = document.getElementById('level-list');
         list.innerHTML = '';
@@ -342,311 +408,80 @@
             if (i < userLevel) btn.className = 'lvl-btn passed';
             else if (i === userLevel) btn.className = 'lvl-btn current';
             else btn.className = 'lvl-btn locked';
-            
             btn.onclick = () => { if (i <= userLevel) startAiGame(i); };
             list.appendChild(btn);
         }
     }
 
-    // --- CHUYỂN CHẾ ĐỘ ---
-    window.switchMode = function(mode) {
-        currentMode = mode;
-        isGameActive = false;
-        game.reset();
-        board.start();
-        removeHighlights();
-        selectedSquare = null;
-        
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
-        document.querySelector(`.tab-${mode}`).classList.add('active');
-        document.getElementById(`${mode}-panel`).classList.add('active');
-
-        if (mode === 'pve') {
-            myRole = 'w';
-            board.orientation('white');
-            document.getElementById('pve-status').textContent = "Chọn cấp độ để chơi!";
-        }
-    };
-
-    // --- BẮT ĐẦU GAME VS MÁY ---
-    window.startAiGame = function(level) {
-        currentPlayingLevel = level;
-        game.reset(); board.start();
-        isGameActive = true; myRole = 'w';
-        selectedSquare = null; removeHighlights();
-        gameStartTime = Date.now();
-        document.getElementById('pve-status').textContent = `🎮 Đang đấu Cấp ${level}`;
-        document.querySelectorAll('.lvl-btn').forEach(b => b.style.border = "none");
-    };
-
-    // --- ĐI LẠI ---
-    window.undoMove = function() {
-        if (currentMode === 'pve' && isGameActive && game.history().length >= 2) {
-            game.undo(); game.undo();
-            board.position(game.fen());
-            removeHighlights(); selectedSquare = null;
-            document.getElementById('pve-status').textContent = "Đã đi lại một nước.";
-        }
-    };
-
-    // --- LOGIC MÁY TÍNH ĐI (MAKE AI MOVE) ---
-// --- LOGIC MÁY TÍNH ĐI (MÔ PHỎNG ELO TỪ 200 -> 2700) ---
-// --- LOGIC MÁY TÍNH ĐI (MÔ PHỎNG TỪ 100 ELO -> 2700 ELO) ---
-    function makeAiMove() {
-        if (!isGameActive) return;
-
-        // 1. TÍNH TOÁN ELO (Cấp 1 = 126 ELO, Cấp 100 = 2700 ELO)
-        // Mỗi cấp tăng khoảng 26 điểm ELO
-        let estimatedElo = 100 + (currentPlayingLevel * 26);
-
-        // 2. THIẾT LẬP THÔNG SỐ KỸ THUẬT
-        let skill, depth, moveTime, blunderChance, contempt;
-
-        // a. Tỷ lệ đi lỗi (Blunder): Càng thấp ELO càng hay đi sai
-        if (estimatedElo < 800) {
-            // Nhóm cực yếu (Cấp 1-27): Tỷ lệ sai sót cực cao (60% -> 30%)
-            blunderChance = 60 - (currentPlayingLevel * 1.1); 
-        } else if (estimatedElo < 1800) {
-            // Nhóm phong trào (Cấp 28-65): Sai sót giảm dần (30% -> 5%)
-            blunderChance = 30 - ((currentPlayingLevel - 27) * 0.65);
-        } else {
-            // Nhóm chuyên nghiệp (Cấp 66-100): Đánh cực chuẩn (Sai sót < 5%)
-            blunderChance = Math.max(0, 5 - ((currentPlayingLevel - 65) * 0.15));
-        }
-
-        // b. Độ sâu (Depth) & Trình độ (Skill)
-        // Depth: 1 -> 15 | Skill: 0 -> 20
-        depth = Math.floor(1 + (currentPlayingLevel / 6.6)); 
-        skill = Math.floor((currentPlayingLevel / 100) * 20);
-        moveTime = 200 + (currentPlayingLevel * 12); // Cấp cao máy nghĩ kỹ hơn
-
-        // c. Thái độ né Hòa (Contempt)
-        // Cấp 1-20: Contempt âm sâu (-100) để máy thà thua chứ không hòa
-        // Cấp 100: Contempt dương (+50) để máy ép sân thắng bé
-        contempt = -100 + (currentPlayingLevel * 1.5);
-        if (contempt > 50) contempt = 50;
-
-        // --- 3. THỰC HIỆN NƯỚC ĐI (SAI SÓT NHÂN TẠO) ---
-        if (Math.random() * 100 < blunderChance) {
-            const moves = game.moves();
-            if (moves.length > 0) {
-                // Ở ELO thấp (dưới 1000), máy rất "ham ăn" mà không tính toán
-                const captureMoves = game.moves({ verbose: true }).filter(m => m.flags.includes('c') || m.flags.includes('e'));
-                let captureThreshold = currentPlayingLevel <= 15 ? 0.7 : 0.3;
-                if (estimatedElo < 1000 && captureMoves.length > 0 && Math.random() > captureThreshold) {
-                     // Thấy quân là ăn ngay (70% tỉ lệ sập bẫy)
-                     const m = captureMoves[Math.floor(Math.random() * captureMoves.length)];
-                     game.move(m.san);
-                } else {
-                     // Đi đại một quân ngẫu nhiên
-                     game.move(moves[Math.floor(Math.random() * moves.length)]);
-                }
-                
-                board.position(game.fen());
-                updateStatus();
-                return; 
-            }
-        }
-
-        // --- 4. GỌI BỘ NÃO STOCKFISH (KHI ĐÁNH ĐÚNG TRÌNH ĐỘ) ---
-        if (stockfish) {
-            // Gửi cấu hình chuẩn ELO cho máy tính
-            stockfish.postMessage(`setoption name Skill Level value ${skill}`);
-            stockfish.postMessage(`setoption name Contempt value ${contempt}`); 
-            stockfish.postMessage(`position fen ${game.fen()}`);
-            stockfish.postMessage(`go depth ${depth} movetime ${moveTime}`);
-
-            // Bộ đếm bảo hiểm (Chống đứng máy)
-            clearTimeout(window.aiSafetyTimeout); 
-            window.aiSafetyTimeout = setTimeout(() => {
-                if (game.turn() === 'b' && isGameActive) {
-                    const fallbackMoves = game.moves();
-                    if (fallbackMoves.length > 0) {
-                        game.move(fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)]);
-                        board.position(game.fen());
-                        updateStatus();
-                    }
-                }
-            }, 5000); 
-
-        } else {
-            // Dự phòng nếu không có Stockfish
-            const moves = game.moves();
-            if (moves.length > 0) {
-                game.move(moves[Math.floor(Math.random() * moves.length)]);
-                board.position(game.fen());
-                updateStatus();
-            }
-        }
-    }
-            // --- KIỂM TRA THẮNG THUA (CỰC KỲ QUAN TRỌNG) ---
-    async function updateStatus() {
-        let statusEl = document.getElementById(currentMode === 'pve' ? 'pve-status' : 'pvp-status');
-        
-        const isCheckmate = game.in_checkmate();
-        const isDraw = game.in_draw() || game.in_stalemate() || game.in_threefold_repetition();
-
-        if (isCheckmate || isDraw) {
-            isGameActive = false; 
-            clearTimeout(window.aiSafetyTimeout);
-        }
-
-        // 1. XỬ LÝ KHI CÓ CHIẾU BÍ
-        if (isCheckmate) {
-            if (currentMode === 'pve') {
-                // Nếu đến lượt Đen (Máy) mà bị chiếu bí -> Bé cầm quân Trắng đã THẮNG
-                if (game.turn() === 'b') {
-                    statusEl.textContent = "🏆 BẠN THẮNG!";
-                    statusEl.style.color = "#2ecc71";
-                    if (typeof confetti === 'function') confetti(); // Hiệu ứng pháo hoa
-
-                    const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-                    
-                    try {
-                        const res = await fetch('/api/game/chess-win-level', { 
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ 
-                                level: currentPlayingLevel, 
-                                timeTaken: timeSpent 
-                            })                                            
-                        });
-                        const d = await res.json();
-                        
-                        if(d.newLevel) {
-                            userLevel = d.newLevel; 
-                            renderLevelList(); // Vẽ lại danh sách để mở khóa nút mới
-                        }
-                        showResultModal(true, d.addedPoints, d.message);
-                    } catch(e) { 
-                        console.error("Lỗi kết nối:", e);
-                        showResultModal(true, 0, "Bé chơi rất giỏi!");
-                    }
-                } else {
-                    // Nếu bé bị chiếu bí -> Máy THẮNG
-                    statusEl.textContent = "😢 MÁY THẮNG!";
-                    statusEl.style.color = "#e74c3c";
-                    showResultModal(false);
-                }
-            } else {
-                // Chế độ Online (PVP)
-                statusEl.textContent = "🏁 KẾT THÚC";
-                const winner = game.turn() !== myRole ? "Bé" : "Đối thủ";
-                alert(`Trận đấu kết thúc! ${winner} đã chiến thắng.`);
-            }
-
-        // 2. XỬ LÝ KHI HÒA CỜ
-        } else if (isDraw) {
-            statusEl.textContent = "🤝 HÒA CỜ!";
-            statusEl.style.color = "#f1c40f";
-            setTimeout(() => {
-                alert("Ván cờ Hòa rồi! Bé phải thắng máy mới được lên cấp nhé.");
-                startAiGame(currentPlayingLevel); 
-            }, 1500);
-
-        // 3. VÁN CỜ ĐANG DIỄN RA
-        } else {
-            if (currentMode === 'pve') {
-                if (game.turn() === 'w') {
-                    statusEl.textContent = `Cấp ${currentPlayingLevel}: Lượt của BẠN`;
-                    statusEl.style.color = "white";
-                } else {
-                    statusEl.textContent = "🤖 Máy đang nghĩ...";
-                    statusEl.style.color = "#bdc3c7";
-                }
-            } else {
-                statusEl.textContent = (game.turn() === myRole ? "🟢 Đến lượt BẠN đi!" : "🔴 Đợi đối thủ đi...");
-                statusEl.style.color = "white";
-            }
-        }
-    }
-    // --- SOCKET IO LOGIC ---
+    // --- SOCKET P2P ---
     window.createGroup = () => { socket.emit('createChessRoom'); document.getElementById('pvp-status').textContent = "Đang tạo..."; };
     window.joinGroup = () => { socket.emit('joinChessRoom', document.getElementById('room-code-input').value.toUpperCase()); };
     window.findRandomMatch = () => { socket.emit('findMatch', 'chess'); document.getElementById('pvp-status').textContent = "Đang tìm..."; };
 
     socket.on('roomCreated', (id) => { 
         currentRoom = id; 
-        document.getElementById('pvp-room-info').innerHTML = `Mã: <span style="color:#fff; font-size:1.5rem">${id}</span>`; 
-        document.getElementById('pvp-status').textContent = "Đợi người vào...";
+        document.getElementById('pvp-room-info').innerHTML = `Mã: <b>${id}</b>`; 
     });
-    
     socket.on('matchFound', (data) => {
-        currentMode = 'pvp'; switchMode('pvp');    
-        isGameActive = true; selectedSquare = null; removeHighlights();
-        currentRoom = data.room; myRole = data.role;
+        currentMode = 'pvp'; switchMode('pvp'); 
+        isGameActive = true; currentRoom = data.room; myRole = data.role;
         game.reset(); board.start(); 
         board.orientation(myRole === 'w' ? 'white' : 'black');
-        document.getElementById('pvp-room-info').textContent = "Đang thi đấu";
         document.getElementById('pvp-status').textContent = myRole === 'w' ? "Bạn đi trước" : "Bạn đi sau";
-        startTournamentTimer(data.matchDuration || 30);
+        
+        // Kích hoạt đồng hồ khi đấu online
+        if(data.matchDuration) startTournamentTimer(data.matchDuration);
     });
-
-    socket.on('move', (move) => {
-         game.move(move); board.position(game.fen()); updateStatus();
-    });
+    socket.on('move', (m) => { game.move(m); board.position(game.fen()); updateStatus(); });
     socket.on('opponentLeft', () => { alert("Đối thủ thoát!"); location.reload(); });
-    socket.on('gameOver', (data) => {
-        isGameActive = false;
+
+    // --- BỘ ĐẾM GIỜ ---
+    function startTournamentTimer(mins) {
         clearInterval(matchTimer);
-        if(data.reason === 'timeout') {
-            const isMe = data.loser === localStorage.getItem('currentUser');
-            alert(isMe ? "⌛ Bé đã hết giờ và bị xử THUA!" : `🎉 Đối thủ hết giờ. BÉ THẮNG!`);
+        secondsLeft = mins * 60;
+        if(document.getElementById('tourney-timer')) {
+            document.getElementById('tourney-timer').style.display = 'block';
         }
-        location.href = 'giai-dau.html'; 
-    });
-
+        matchTimer = setInterval(() => {
+            const isMyTurn = (currentMode === 'pvp' && game.turn() === myRole);
+            if (isMyTurn && isGameActive) {
+                secondsLeft--;
+                const m = Math.floor(secondsLeft / 60);
+                const s = secondsLeft % 60;
+                const display = document.getElementById('time-left');
+                if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
+                if (secondsLeft <= 0) {
+                    clearInterval(matchTimer);
+                    socket.emit('timeoutLoss', { room: currentRoom, loserUsername: localStorage.getItem('currentUser'), gameType: 'Cờ Vua' });
+                }
+            }
+        }, 1000);
+    }
+    
     // --- MODAL KẾT QUẢ ---
-    function showResultModal(isWin, points = 0, serverMsg = "") {
-        const modal = document.getElementById('result-modal');
-        const title = document.getElementById('modal-title');
-        const msg = document.getElementById('modal-msg');
-        const btnNext = document.getElementById('btn-next-lvl');
-
-        if (isWin) {
-            title.textContent = "🏆 CHIẾN THẮNG!";
-            title.style.color = "#2ecc71";
-            msg.textContent = points > 0 ? `Bé nhận được ${points} 💎!` : "Bé đã thắng lại cấp này rất giỏi!";
-            btnNext.style.display = "block";
-        } else {
-            title.textContent = "😢 TIẾC QUÁ!";
-            title.style.color = "#e74c3c";
-            msg.textContent = "Máy thắng rồi, bé hãy thử lại nhé!";
-            btnNext.style.display = "none";
-        }
-        modal.style.display = 'flex';
+    function showResultModal(isWin, points, msg) {
+       const modal = document.getElementById('result-modal');
+       document.getElementById('modal-title').textContent = isWin ? "CHIẾN THẮNG" : "THUA CUỘC";
+       document.getElementById('modal-msg').textContent = msg;
+       modal.style.display = 'flex';
     }
+    function closeResultModal() { document.getElementById('result-modal').style.display = 'none'; }
+    function goToNextLevel() { closeResultModal(); startAiGame(userLevel); }
+    function replayLevel() { closeResultModal(); startAiGame(currentPlayingLevel); }
 
-    function goToNextLevel() {
-        closeResultModal();
-        if (userLevel <= 100) {
-            startAiGame(userLevel); // Vào màn cao nhất vừa mở
-        }
-    }
-
-    function replayLevel() {
-        closeResultModal();
-        startAiGame(currentPlayingLevel);
-    }
-
-    function closeResultModal() {
-        document.getElementById('result-modal').style.display = 'none';
-    }
-
-    // --- CHẠY LẦN ĐẦU ---
     init();
     </script>
-<div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
-    <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333; font-family: 'Baloo 2', cursive;">
-        <h2 id="modal-title" style="margin: 0; color: #e67e22; font-size: 2rem;">🏆 CHIẾN THẮNG!</h2>
-        <div style="font-size: 2.5rem; margin: 15px 0;">👑</div>
-        <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã vượt qua Cấp độ!</p>
-        
-        <button class="action-btn btn-green" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
-        <button class="action-btn btn-blue" onclick="replayLevel()">CHƠI LẠI 🔄</button>
-        <button class="action-btn" style="background:#95a5a6" onclick="closeResultModal()">QUAY LẠI MENU</button>
+    
+    <div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+        <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333;">
+            <h2 id="modal-title" style="margin: 0; color: #e74c3c; font-size: 2rem;">🏆 THẮNG RỒI!</h2>
+            <div id="modal-stars" style="font-size: 2rem; margin: 10px 0;">⭐⭐⭐⭐⭐</div>
+            <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã vượt qua Cấp độ 1!</p>
+            <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
+            <button class="btn-game" style="background:#3498db" onclick="replayLevel()">CHƠI LẠI 🔄</button>
+            <button class="btn-game" style="background:#95a5a6" onclick="closeResultModal()">QUAY LẠI MENU</button>
+        </div>
     </div>
-</div>
+
 </body>
 </html>

@@ -11,6 +11,7 @@ const session = require('express-session');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const onlineUsers = {};
+const monopolyGames = {};
 const MongoStore = require('connect-mongo');
 
 // 2. LẤY CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG (KHÔNG CÒN LỘ MẬT KHẨU)
@@ -19,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // --- 1. IMPORT DỮ LIỆU & LOGIC ---
 const { tests, maths } = require('./question-data.js'); 
+const { boardData } = require('./monopoly-data.js');
 const MonopolyGame = require('./monopoly-logic.js');
 
 const app = express();
@@ -1048,40 +1050,45 @@ io.on('connection', (socket) => {
     }
 
     // --- GAME TÌM TRẬN ---
-    socket.on('findMatch', (gameType) => {
-        if (waitingPlayers[gameType]) {
-            const opponent = waitingPlayers[gameType];
-            const roomId = `room-${opponent.id}-${socket.id}`;
-            delete waitingPlayers[gameType];
-            
-            socket.join(roomId); opponent.join(roomId);
+// --- GAME TÌM TRẬN (SỬA LỖI ĐI TRƯỚC/SAU) ---
+socket.on('findMatch', (gameType) => {
+    if (waitingPlayers[gameType]) {
+        const opponent = waitingPlayers[gameType];
+        const roomId = `room-${opponent.id}-${socket.id}`;
+        delete waitingPlayers[gameType];
+        
+        socket.join(roomId); opponent.join(roomId);
 
-            gameRooms[roomId] = {
-                gameType,
-                players: [opponent.id, socket.id],
-                playerNames: { [opponent.id]: sessionUser?.username || 'P1', [socket.id]: username },
-                turn: opponent.id 
-            };
+        // Tạo phòng: opponent là người tạo (Trắng), socket là người vào (Đen)
+        gameRooms[roomId] = {
+            gameType,
+            players: [opponent.id, socket.id],
+            playerNames: { [opponent.id]: sessionUser?.username || 'P1', [socket.id]: username },
+            turn: opponent.id // Lượt đầu tiên là của người tạo phòng
+        };
 
-            // Gửi thông tin chi tiết (QUAN TRỌNG: để Client vẽ bàn cờ đúng)
-            io.to(roomId).emit('matchFound', { 
-                room: roomId, 
-                role: 'O', // Người đợi trước đánh trước
-                opponent: username,
-                yourTurn: true // P1 đi trước
-            });
-            opponent.emit('matchFound', { 
-                room: roomId, 
-                role: 'X', 
-                opponent: sessionUser?.username || 'P2',
-                yourTurn: false
-            });
-        } else {
-            waitingPlayers[gameType] = socket;
-            socket.emit('waiting', { message: 'Đang tìm đối thủ...' });
-        }
-    });
-// Tìm đoạn socket.on('timeoutLoss'...) và sửa lại thứ tự như sau:
+        // Gửi cho người tạo phòng (Trắng - Đi trước)
+        opponent.emit('matchFound', { 
+            room: roomId, 
+            role: 'w', // w = White
+            opponent: username,
+            yourTurn: true // CHÍNH XÁC: Trắng đi trước
+        });
+
+        // Gửi cho người vào sau (Đen - Đi sau)
+        io.to(socket.id).emit('matchFound', { 
+            room: roomId, 
+            role: 'b', // b = Black
+            opponent: sessionUser?.username || 'P2',
+            yourTurn: false // CHÍNH XÁC: Đen đi sau
+        });
+
+    } else {
+        waitingPlayers[gameType] = socket;
+        socket.emit('waiting', { message: 'Đang tìm đối thủ...' });
+    }
+});
+    // Tìm đoạn socket.on('timeoutLoss'...) và sửa lại thứ tự như sau:
 socket.on('timeoutLoss', async ({ room, loserUsername, gameType }) => {
     const roomData = gameRooms[room];
     if (roomData) {
@@ -1294,31 +1301,37 @@ if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
     // =========================================================
 
     // Hàm phụ trợ: Thêm người chơi vào phòng
-    function addPlayerToMonopolyRoom(roomId, socket, username) {
-        const room = monopolyGames[roomId];
-        const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
-        
-        const player = {
-            id: socket.id,
-            username: username,
-            color: colors[room.players.length % colors.length], // Gán màu
-            money: 1000, // Tiền khởi điểm
-            position: 0,
-            isHost: socket.id === room.hostId
-        };
+    // Đưa mảng màu ra ngoài để dùng chung cho toàn server
+const MONOPOLY_COLORS = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
 
-        room.players.push(player);
-        socket.join(roomId);
+function addPlayerToMonopolyRoom(roomId, socket, username) {
+    const room = monopolyGames[roomId];
+    if (!room) return;
 
-        // Gửi cập nhật sảnh chờ cho tất cả người trong phòng
-        io.to(roomId).emit('lobbyUpdate', {
-            roomId: roomId,
-            players: room.players,
-            hostId: room.hostId
+    // Lấy màu dựa trên số thứ tự người vào (0 đến 7)
+    const colorIndex = room.players.length;
+    const assignedColor = MONOPOLY_COLORS[colorIndex] || '#ffffff';
 
-        });
-    }
+    const player = {
+        id: socket.id,
+        username: username,
+        color: assignedColor,
+        money: 1500, // Số tiền chuẩn của cờ tỷ phú thường là 1500
+        position: 0,
+        isHost: socket.id === room.hostId,
+        inJail: false
+    };
 
+    room.players.push(player);
+    socket.join(roomId);
+
+    // Gửi thông tin sảnh chờ về cho cả phòng
+    io.to(roomId).emit('lobbyUpdate', {
+        roomId: roomId,
+        players: room.players,
+        hostId: room.hostId
+    });
+}
     // 1. Tạo phòng riêng
     socket.on('createMonopolyRoom', () => {
         const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();

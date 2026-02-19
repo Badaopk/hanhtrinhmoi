@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         body { background: radial-gradient(circle, #27ae60, #145a32); color: white; min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Baloo 2', cursive; overscroll-behavior: none; }
         .game-layout { display: flex; gap: 20px; justify-content: center; padding: 20px; flex-wrap: wrap; width: 100%; box-sizing: border-box; }
@@ -20,6 +21,18 @@
 
         /* Sidebar */
         .sidebar { width: 95%; max-width: 350px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); padding: 20px; border-radius: 20px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Tabs */
+        .mode-tabs { display: flex; gap: 5px; margin-bottom: 5px; }
+        .tab-btn { flex: 1; padding: 10px 5px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; opacity: 0.7; transition: 0.3s; font-family: inherit; font-size: 0.9rem; }
+        .tab-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .tab-pve { background: #f1c40f; color: #333; }
+        .tab-pvp { background: #8e44ad; color: white; }
+        .tab-local { background: #e67e22; color: white; }
+
+        .mode-content { display: none; }
+        .mode-content.active { display: block; }
+
         .level-badge { background: linear-gradient(45deg, #f39c12, #d35400); padding: 10px; border-radius: 15px; }
         .level-num { font-size: 2.5rem; font-weight: bold; line-height: 1; }
         
@@ -42,9 +55,14 @@
 </head>
 <body>
     <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none; position:fixed; top:10px; right:10px; z-index:100;">
-    ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
-</div>
-    <h1 style="text-shadow: 3px 3px 0 #000; margin: 10px 0;">⚫ CỜ VÂY ⚪ <span class="btn-help" onclick="toggleHelp()">? Luật Chơi</span></h1>
+        ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
+    </div>
+
+    <div class="header-bar" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 20px; box-sizing: border-box; background: rgba(0,0,0,0.3);">
+        <button class="btn-game btn-home" style="width: auto; padding: 5px 15px;" onclick="window.location.href='index.html'">⬅️ Về</button>
+        <h1 style="text-shadow: 3px 3px 0 #000; margin: 0; flex-grow: 1; text-align: center;">⚫ CỜ VÂY ⚪ <span class="btn-help" onclick="toggleHelp()">? Luật</span></h1>
+        <div style="width: 50px;"></div>
+    </div>
 
     <div class="game-layout">
         <div class="board-container">
@@ -52,7 +70,7 @@
         </div>
 
         <div class="sidebar">
-            <div class="level-badge">
+            <div class="level-badge" id="level-badge-area">
                 <div>CẤP ĐỘ</div>
                 <span id="lvl-display" class="level-num">1</span>
             </div>
@@ -64,35 +82,49 @@
 
             <div id="status" class="status-box">Chọn chế độ để bắt đầu</div>
 
-            <div id="menu-area">
+            <div class="mode-tabs">
+                <button class="tab-btn tab-pve active" onclick="switchMode('pve')">🤖 Đấu Máy</button>
+                <button class="tab-btn tab-pvp" onclick="switchMode('pvp')">🌐 Online</button>
+                <button class="tab-btn tab-local" onclick="switchMode('local')">👥 2 Người</button>
+            </div>
+
+            <div id="pve-panel" class="mode-content active">
                 <label style="color:white; float:left">Bàn cờ:</label>
-                <select id="board-size">
+                <select id="board-size-pve">
                     <option value="9">9 x 9 (Nhanh)</option>
                     <option value="13" selected>13 x 13 (Tiêu chuẩn)</option>
                     <option value="19">19 x 19 (Chuyên nghiệp)</option>
                 </select>
                 <label style="color:white; float:left">Độ khó Máy:</label>
                 <select id="ai-level-select"></select>
-                <button class="btn-game btn-new" onclick="startAiGame()">🤖 Đấu Với Máy</button>
-                <button class="btn-game btn-online" onclick="showOnlineMenu()">🌐 Đấu Online</button>
+                <button class="btn-game btn-new" onclick="startAiGame()">▶️ Bắt Đầu</button>
             </div>
 
-            <div id="online-menu" style="display:none;">
+            <div id="pvp-panel" class="mode-content">
                 <input type="text" id="room-input" placeholder="Nhập mã phòng...">
                 <div style="display:flex; gap:5px;">
                     <button class="btn-game btn-new" style="flex:1" onclick="createRoom()">Tạo</button>
                     <button class="btn-game btn-online" style="flex:1" onclick="joinRoom()">Vào</button>
                 </div>
                 <button class="btn-game" style="background:#e67e22" onclick="findRandomMatch()">🎲 Ghép Ngẫu Nhiên</button>
-                <button class="btn-game btn-home" onclick="backToMenu()">Quay lại</button>
             </div>
 
-            <div id="control-area" style="display:none;">
+            <div id="local-panel" class="mode-content">
+                <label style="color:white; float:left">Bàn cờ:</label>
+                <select id="board-size-local">
+                    <option value="9">9 x 9 (Nhanh)</option>
+                    <option value="13" selected>13 x 13 (Tiêu chuẩn)</option>
+                    <option value="19">19 x 19 (Chuyên nghiệp)</option>
+                </select>
+                <p style="margin: 10px 0; font-size: 0.9rem;">Hai bạn thay phiên nhau đi quân Đen và Trắng trên cùng thiết bị.</p>
+                <button class="btn-game btn-new" onclick="startLocalGame()">▶️ Bắt Đầu</button>
+            </div>
+
+            <div id="control-area" style="display:none; margin-top: 15px;">
                 <button class="btn-game btn-pass" onclick="passTurn()">Bỏ Lượt (Pass)</button>
-                <button class="btn-game btn-home" onclick="location.reload()">Thoát Game</button>
+                <button class="btn-game btn-home" onclick="resetToMenu()">Thoát Game</button>
             </div>
             
-            <button class="btn-game btn-home" style="margin-top:auto" onclick="window.location.href='choi-co.html'">🏠 Về Sảnh Cờ</button>
         </div>
     </div>
 
@@ -107,47 +139,35 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+        <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333; font-family: 'Baloo 2', cursive;">
+            <h2 id="modal-title" style="margin: 0; color: #27ae60; font-size: 2rem;">🏆 KẾT QUẢ</h2>
+            <div style="background: #f1f2f6; padding: 10px; border-radius: 15px; margin: 15px 0; font-size: 1rem; text-align: left;">
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #ddd; padding-bottom:5px; margin-bottom:5px;">
+                    <span>⚫ Đen (Quân ăn):</span> <strong id="final-b">0</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>⚪ Trắng (Quân ăn + 6.5):</span> <strong id="final-w">0</strong>
+                </div>
+            </div>
+            <p id="modal-msg" style="font-weight: bold; color: #555;">...</p>
+            
+            <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">TIẾP TỤC ➡️</button>
+            <button class="btn-game btn-online" onclick="replayGame()">CHƠI LẠI 🔄</button>
+            <button class="btn-game btn-home" onclick="closeResultModal()">QUAY LẠI MENU</button>
+        </div>
+    </div>
+
     <script>
         const canvas = document.getElementById('goBoard');
         const ctx = canvas.getContext('2d');
         const statusEl = document.getElementById('status');
         const aiLevelSelect = document.getElementById('ai-level-select');
+        
         let socket = io();
         let matchTimer = null;
         let secondsLeft = 600;
 
-function startTournamentTimer(mins) {
-    clearInterval(matchTimer);
-    secondsLeft = mins * 60;
-    if(document.getElementById('tourney-timer')) {
-        document.getElementById('tourney-timer').style.display = 'block';
-    }
-
-    matchTimer = setInterval(() => {
-        // Chỉ đếm ngược khi là Online và đến lượt mình
-        // currentColor = 1 (Đen), 2 (Trắng). myColor cũng vậy.
-        const isMyTurn = (isOnline && currentColor === myColor);
-
-        if (isMyTurn) {
-            secondsLeft--;
-            const m = Math.floor(secondsLeft / 60);
-            const s = secondsLeft % 60;
-            const display = document.getElementById('time-left');
-            if(display) display.textContent = `${m}:${s < 10 ? '0'+s : s}`;
-
-            if (secondsLeft <= 0) {
-                clearInterval(matchTimer);
-                // Gửi lệnh xử thua
-                socket.emit('timeoutLoss', { 
-                    room: currentRoom, 
-                    loserUsername: localStorage.getItem('currentUser'),
-                    gameType: 'Cờ Vây'
-                });
-            }
-        }
-    }, 1000);
-}
         // Game State
         let size = 13;
         let board = []; 
@@ -155,97 +175,83 @@ function startTournamentTimer(mins) {
         let padding = 20;
         let currentColor = 1; // 1: Đen, 2: Trắng
         let myColor = 1; 
-        let isOnline = false;
-        let isAiMode = false;
+        let currentMode = 'pve'; // pve, pvp, local
         let gameActive = false;
         let captures = { 1: 0, 2: 0 };
         let currentRoom = null;
         let passCount = 0;
         let userLevel = 1;
-        // Thêm biến vào phần khai báo đầu Script
         let maxLevelReached = 1; 
+        let gameStartTime;
 
-async function init() {
-    try {
-        const res = await fetch('/api/user/progress');
-        const data = await res.json();
-        
-        // Cấp độ cao nhất từ Server
-        maxLevelReached = data.goLevel || 1; 
-        // Cấp độ hiển thị hiện tại
-        userLevel = maxLevelReached; 
+        // --- KHỞI TẠO ---
+        async function init() {
+            try {
+                const res = await fetch('/api/user/progress');
+                const data = await res.json();
+                maxLevelReached = data.goLevel || 1; 
+                userLevel = maxLevelReached; 
+                document.getElementById('lvl-display').textContent = maxLevelReached;
+                renderLevelOptions(maxLevelReached);
+            } catch(e) { console.error("Lỗi khởi tạo:", e); }
+            
+            // Check giải đấu
+            const tourRoom = localStorage.getItem('joinTournamentRoom');
+            if (tourRoom) {
+                socket.emit('joinGoRoom', tourRoom);
+                localStorage.removeItem('joinTournamentRoom');
+            }
 
-        document.getElementById('lvl-display').textContent = maxLevelReached;
-        document.getElementById('user-score').innerText = (data.score || 0).toLocaleString();
-        
-        renderLevelOptions(maxLevelReached);
-    } catch(e) { console.error("Lỗi khởi tạo:", e); }
-    
-    // Kiểm tra đấu giải
-    const tourRoom = localStorage.getItem('joinTournamentRoom');
-    if (tourRoom) {
-        socket.emit('joinGoRoom', tourRoom);
-        localStorage.removeItem('joinTournamentRoom');
-    }
-}
+            resizeCanvas();
+        }
 
+        // --- UI ---
         function resizeCanvas() {
             const minDim = Math.min(window.innerWidth - 30, 500);
             canvas.width = minDim;
             canvas.height = minDim;
+            if(gameActive) drawBoard();
         }
-        window.addEventListener('resize', () => { resizeCanvas(); if(gameActive) drawBoard(); });
+        window.addEventListener('resize', resizeCanvas);
 
- function renderLevelOptions(maxLvl) {
-    aiLevelSelect.innerHTML = '';
-    document.getElementById('lvl-display').textContent = maxLvl;
-
-    for(let i=1; i<=100; i++) {
-        let opt = document.createElement('option');
-        opt.value = i;
-        if(i <= maxLvl) {
-            opt.textContent = `Cấp độ ${i}`;
-        } else {
-            opt.textContent = `🔒 Cấp độ ${i} (Chưa mở)`;
-            opt.disabled = true;
+        function renderLevelOptions(maxLvl) {
+            aiLevelSelect.innerHTML = '';
+            for(let i=1; i<=100; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                if(i <= maxLvl) opt.textContent = `Cấp độ ${i}`;
+                else { opt.textContent = `🔒 Cấp độ ${i}`; opt.disabled = true; }
+                aiLevelSelect.appendChild(opt);
+            }
+            aiLevelSelect.value = userLevel || maxLvl;
         }
-        aiLevelSelect.appendChild(opt);
-    }
-    // Mặc định chọn cấp độ cao nhất đang có
-    aiLevelSelect.value = userLevel || maxLvl;
-}
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.tab-${mode}`).classList.add('active');
+            document.getElementById(`${mode}-panel`).classList.add('active');
+            
+            // Ẩn/Hiện badge cấp độ (chỉ hiện khi PVE)
+            document.getElementById('level-badge-area').style.display = (mode === 'pve') ? 'block' : 'none';
+        }
 
         function toggleHelp() {
             const m = document.getElementById('help-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
         }
 
-        function showOnlineMenu() {
-            document.getElementById('menu-area').style.display = 'none';
-            document.getElementById('online-menu').style.display = 'block';
+        function resetToMenu() {
+            gameActive = false;
+            document.getElementById('control-area').style.display = 'none';
+            document.querySelectorAll('.mode-content').forEach(el => el.classList.remove('active'));
+            switchMode(currentMode); // Quay lại menu hiện tại
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Xóa bàn cờ
+            statusEl.textContent = "Chọn chế độ để bắt đầu";
         }
 
-        function backToMenu() {
-            document.getElementById('online-menu').style.display = 'none';
-            document.getElementById('menu-area').style.display = 'block';
-        }
-// --- THÊM HÀM NÀY VÀO ---
-function startAiGame() {
-    isAiMode = true;
-    isOnline = false;
-    myColor = 1; // Khi đấu máy, bạn luôn đi trước (Đen)
-    
-    // Lấy kích thước bàn cờ từ menu
-    const s = document.getElementById('board-size').value;
-    
-    // Khởi tạo game
-    initGame(s);
-    
-    // Cập nhật thông báo
-    statusEl.textContent = "🤖 Bạn đang đấu với Máy (Cấp " + aiLevelSelect.value + ")";
-}
-// ------------------------
-        // --- 2. GAME CORE ---
+        // --- GAME CORE ---
         function initGame(boardSize) {
             size = parseInt(boardSize);
             board = Array(size).fill(0).map(() => Array(size).fill(0));
@@ -255,14 +261,26 @@ function startAiGame() {
             
             cellSize = (canvas.width - 2 * padding) / (size - 1);
             gameActive = true;
-            currentColor = 1; 
+            currentColor = 1; // Đen đi trước
+            gameStartTime = Date.now();
             
-            document.getElementById('menu-area').style.display = 'none';
-            document.getElementById('online-menu').style.display = 'none';
+            // Ẩn menu, hiện điều khiển
+            document.querySelectorAll('.mode-content').forEach(el => el.classList.remove('active'));
             document.getElementById('control-area').style.display = 'block';
             
             drawBoard();
-            statusEl.textContent = "⚫ Đến lượt Quân Đen";
+            updateStatus();
+        }
+
+        function updateStatus() {
+            const turnName = currentColor === 1 ? 'Đen (⚫)' : 'Trắng (⚪)';
+            if (currentMode === 'local') {
+                statusEl.textContent = `Đến lượt: ${turnName}`;
+            } else if (currentMode === 'pve') {
+                statusEl.textContent = (currentColor === 1) ? "Lượt của BẠN (⚫)" : "🤖 Máy đang nghĩ...";
+            } else {
+                statusEl.textContent = (currentColor === myColor) ? "Lượt của BẠN!" : "Đợi đối thủ...";
+            }
         }
 
         function drawBoard() {
@@ -280,9 +298,9 @@ function startAiGame() {
             }
             ctx.stroke();
 
-            // Vẽ điểm sao
-            if(size >= 13) {
-                const stars = size === 19 ? [3, 9, 15] : [3, 6, 9];
+            // Vẽ điểm sao (Hoshi)
+            if(size >= 9) {
+                const stars = size === 19 ? [3, 9, 15] : (size === 13 ? [3, 6, 9] : [2, 6]); // 9x9 sao ở 2,6
                 ctx.fillStyle = '#000';
                 for(let r of stars) for(let c of stars) {
                     ctx.beginPath();
@@ -311,12 +329,18 @@ function startAiGame() {
             
             ctx.fillStyle = grad; ctx.fill();
             if (color === 2) ctx.stroke();
+            
+            // Đánh dấu quân vừa đi
+            // (Bạn có thể thêm logic lưu lastMove để vẽ dấu chấm đỏ lên quân vừa đánh)
         }
 
         canvas.addEventListener('pointerdown', (e) => {
             if(!gameActive) return;
-            if(isOnline && currentColor !== myColor) return;
-            if(isAiMode && currentColor !== 1) return;
+            
+            // Chặn lượt
+            if (currentMode === 'pve' && currentColor !== 1) return; // PVE: Chỉ được đi Đen
+            if (currentMode === 'pvp' && currentColor !== myColor) return; // PVP: Chỉ được đi màu mình
+            // LOCAL: Ai cũng đi được
 
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -331,20 +355,22 @@ function startAiGame() {
         function makeMove(r, c) {
             if(board[r][c] !== 0) return;
 
-            // Kiểm tra và thực hiện nước đi
+            // Đặt quân tạm thời để kiểm tra
             board[r][c] = currentColor;
             const opponent = currentColor === 1 ? 2 : 1;
+            
+            // Kiểm tra ăn quân
             const captured = checkCaptures(r, c, opponent);
             
-            // Kiểm tra tự sát
+            // Kiểm tra tự sát (Suicide)
             if(captured === 0 && countLiberties(r, c, currentColor) === 0) {
                 board[r][c] = 0; // Hoàn tác
                 statusEl.textContent = "❌ Nước đi tự sát!";
-                setTimeout(() => statusEl.textContent = `Đến lượt ${currentColor===1?'Đen':'Trắng'}`, 1000);
+                setTimeout(updateStatus, 1000);
                 return;
             }
 
-            // Nước đi hợp lệ
+            // Nước đi hợp lệ -> Chốt
             passCount = 0;
             if(captured > 0) {
                 captures[currentColor] += captured;
@@ -353,51 +379,32 @@ function startAiGame() {
 
             drawBoard();
 
-            if(isOnline) socket.emit('goMove', { room: currentRoom, move: {r, c, color: currentColor} });
+            if(currentMode === 'pvp') socket.emit('goMove', { room: currentRoom, move: {r, c, color: currentColor} });
 
+            // Đổi lượt
             currentColor = currentColor === 1 ? 2 : 1;
-            statusEl.textContent = `Đến lượt ${currentColor === 1 ? 'Đen (⚫)' : 'Trắng (⚪)'}`;
+            updateStatus();
 
-            if(isAiMode && currentColor === 2) setTimeout(makeAiMove, 300);
+            // Nếu đấu máy -> Gọi máy
+            if(currentMode === 'pve' && currentColor === 2) setTimeout(makeAiMove, 300);
         }
 
-        // --- 3. AI THÔNG MINH (Đã fix lỗi thiếu hàm) ---
-        function makeAiMove() {
-            const level = parseInt(aiLevelSelect.value);
-            let bestMove = null;
-            let maxScore = -Infinity;
-            const moves = [];
-
-            for(let r=0; r<size; r++) {
-                for(let c=0; c<size; c++) {
-                    if(board[r][c] === 0) {
-                        board[r][c] = 2; // Giả sử đặt quân Trắng
-                        const libs = countLiberties(r, c, 2);
-                        const caps = countCapturesIfMove(r, c, 1); // Đếm xem có ăn được Đen không
-                        
-                        if(libs > 0 || caps > 0) { // Không tự sát hoặc ăn được quân
-                            moves.push({r, c, libs, caps});
-                        }
-                        board[r][c] = 0; // Trả lại
-                    }
-                }
-            }
-
-            if(moves.length === 0) { passTurn(); return; }
-
-            // Chấm điểm
-            moves.forEach(m => {
-                let score = Math.random() * 10;
-                if (m.caps > 0) score += (m.caps * 50) + (level * 0.5); // Ưu tiên ăn quân
-                if (m.libs > 1) score += (m.libs * 2) + (level * 0.2); // Ưu tiên nhiều khí
-                if (level > 50 && (m.r===0 || m.r===size-1 || m.c===0 || m.c===size-1)) score -= 20; // Tránh biên ở cấp cao
-                if(score > maxScore) { maxScore = score; bestMove = m; }
-            });
-
-            makeMove(bestMove.r, bestMove.c);
+        // --- CÁC HÀM START ---
+        function startAiGame() {
+            currentMode = 'pve';
+            myColor = 1; 
+            const s = document.getElementById('board-size-pve').value;
+            initGame(s);
         }
 
-        // --- 4. LOGIC TÍNH TOÁN CỜ VÂY ---
+        function startLocalGame() {
+            currentMode = 'local';
+            const s = document.getElementById('board-size-local').value;
+            initGame(s);
+            statusEl.textContent = "⚫ Đến lượt Đen";
+        }
+
+        // --- LOGIC TÍNH TOÁN CỜ VÂY ---
         function countLiberties(r, c, color, visited = new Set()) {
             const key = `${r},${c}`;
             if(visited.has(key)) return 0;
@@ -413,20 +420,6 @@ function startAiGame() {
                 }
             }
             return libs;
-        }
-
-        // HÀM QUAN TRỌNG ĐÃ ĐƯỢC THÊM LẠI
-        function countCapturesIfMove(r, c, targetColor) {
-            let captured = 0;
-            const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
-            for(let [dr, dc] of dirs) {
-                let nr = r + dr, nc = c + dc;
-                if(nr>=0 && nr<size && nc>=0 && nc<size && board[nr][nc] === targetColor) {
-                    // Check nhanh: Nếu nhóm quân địch này hết khí thì ăn được
-                    if(countLiberties(nr, nc, targetColor) === 0) captured++; 
-                }
-            }
-            return captured;
         }
 
         function checkCaptures(lastR, lastC, targetColor) {
@@ -470,6 +463,66 @@ function startAiGame() {
             return { stones, libs };
         }
 
+        // --- AI ĐƠN GIẢN (GREEDY) ---
+        function countCapturesIfMove(r, c, targetColor) {
+            // Hàm giả lập: Đặt thử quân -> Đếm số quân địch bị ăn -> Trả lại trạng thái cũ
+            board[r][c] = 2; // AI là trắng
+            let caps = 0;
+            const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
+            for(let [dr, dc] of dirs) {
+                let nr = r + dr, nc = c + dc;
+                if(nr>=0 && nr<size && nc>=0 && nc<size && board[nr][nc] === targetColor) {
+                   if(countLiberties(nr, nc, targetColor) === 0) caps++; // Ước lượng sơ bộ
+                }
+            }
+            board[r][c] = 0;
+            return caps;
+        }
+
+        function makeAiMove() {
+            if(!gameActive) return;
+            const level = parseInt(aiLevelSelect.value);
+            let bestMove = null;
+            let maxScore = -Infinity;
+            const moves = [];
+
+            // Quét toàn bàn cờ (Có thể tối ưu bằng cách chỉ quét quanh quân đã có)
+            for(let r=0; r<size; r++) {
+                for(let c=0; c<size; c++) {
+                    if(board[r][c] === 0) {
+                        // Thử nước đi
+                        board[r][c] = 2; 
+                        const libs = countLiberties(r, c, 2);
+                        // Nếu tự sát (0 khí) -> Bỏ qua
+                        if (libs === 0) { board[r][c] = 0; continue; }
+                        
+                        const caps = countCapturesIfMove(r, c, 1);
+                        board[r][c] = 0; // Trả lại
+
+                        moves.push({r, c, libs, caps});
+                    }
+                }
+            }
+
+            if(moves.length === 0) { passTurn(); return; }
+
+            // Chấm điểm nước đi
+            moves.forEach(m => {
+                let score = Math.random() * 10; // Yếu tố ngẫu nhiên
+                if (m.caps > 0) score += (m.caps * 100) + (level * 2); // Ưu tiên ăn quân
+                if (m.libs > 1) score += (m.libs * 2); // Ưu tiên nước thoáng
+                
+                // Cấp cao: Tránh biên (tuyến 1)
+                if (level > 20 && (m.r===0 || m.r===size-1 || m.c===0 || m.c===size-1)) score -= 30;
+                // Cấp cao: Ưu tiên góc/sao ở khai cuộc
+                if (level > 40 && size>=13 && [3,9,15].includes(m.r) && [3,9,15].includes(m.c)) score += 20;
+
+                if(score > maxScore) { maxScore = score; bestMove = m; }
+            });
+
+            makeMove(bestMove.r, bestMove.c);
+        }
+
         function passTurn() {
             if(!gameActive) return;
             passCount++;
@@ -483,157 +536,136 @@ function startAiGame() {
             }
         }
 
-        // --- 5. ONLINE SOCKET ---
-        function createRoom() { socket.emit('createGoRoom', { size: document.getElementById('board-size').value }); }
-        function joinRoom() { 
-            const code = document.getElementById('room-input').value.toUpperCase();
-            if(!code) return alert("Nhập mã phòng!");
-            socket.emit('joinGoRoom', code); 
+        async function endGameCalculated() {
+            gameActive = false;
+            // Tính điểm Trung Quốc (Đất + Quân trên bàn + Quân ăn)
+            // Ở đây tính đơn giản: Quân ăn + 0.5 quân trên bàn (ví dụ)
+            // Để đơn giản cho trẻ em: So sánh quân đã ăn được (Captures)
+            let scoreB = captures[1];
+            let scoreW = captures[2] + 6.5; // Komi
+            
+            let winnerStr = scoreB > scoreW ? "Đen" : "Trắng";
+            
+            document.getElementById('final-b').textContent = scoreB;
+            document.getElementById('final-w').textContent = scoreW;
+            const modal = document.getElementById('result-modal');
+            
+            const isMeWin = (currentMode === 'pve' && winnerStr === "Đen") ||
+                            (currentMode === 'pvp' && ((myColor===1 && winnerStr==="Đen") || (myColor===2 && winnerStr==="Trắng")));
+
+            if (currentMode === 'local') {
+                document.getElementById('modal-title').textContent = `🏆 ${winnerStr} THẮNG!`;
+                document.getElementById('modal-msg').textContent = "Ván đấu kết thúc.";
+                document.getElementById('btn-next-lvl').style.display = "none";
+                confetti();
+            }
+            else if (isMeWin) {
+                document.getElementById('modal-title').textContent = "🏆 CHIẾN THẮNG!";
+                document.getElementById('modal-title').style.color = "#27ae60";
+                confetti();
+
+                if (currentMode === 'pve') {
+                    const selectedLvl = parseInt(aiLevelSelect.value);
+                    try {
+                        const res = await fetch('/api/game/go-win', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                level: selectedLvl,
+                                timeTaken: Math.floor((Date.now() - gameStartTime) / 1000)
+                            })
+                        });
+                        const data = await res.json();
+                        document.getElementById('modal-msg').textContent = data.message;
+                        if (data.newLevel) {
+                            maxLevelReached = data.newLevel;
+                            renderLevelOptions(maxLevelReached);
+                        }
+                    } catch(e){}
+                    document.getElementById('btn-next-lvl').style.display = "block";
+                }
+            } else {
+                document.getElementById('modal-title').textContent = "😢 THUA RỒI";
+                document.getElementById('modal-title').style.color = "#e74c3c";
+                document.getElementById('modal-msg').textContent = "Cố gắng lần sau nhé!";
+                document.getElementById('btn-next-lvl').style.display = "none";
+            }
+            modal.style.display = 'flex';
         }
-        function findRandomMatch() { 
-            socket.emit('findMatch', 'go'); // Dùng lệnh tìm trận chuẩn
-            statusEl.textContent = "Đang tìm đối thủ...";
-        }
+
+        // --- ONLINE SOCKET ---
+        window.createRoom = () => { socket.emit('createGoRoom', { size: 13 }); statusEl.textContent = "Đang tạo phòng..."; };
+        window.joinRoom = () => { socket.emit('joinGoRoom', document.getElementById('room-input').value.toUpperCase()); };
+        window.findRandomMatch = () => { socket.emit('findMatch', 'go'); statusEl.textContent = "Đang tìm đối thủ..."; };
 
         socket.on('goRoomCreated', (id) => {
             currentRoom = id;
-            statusEl.textContent = `Mã phòng: ${id}. Đợi người vào...`;
-            document.getElementById('online-menu').style.display = 'none';
+            document.getElementById('online-menu').innerHTML = `<h3 style="color:#f1c40f">Mã phòng: ${id}</h3><p>Đợi người chơi khác...</p>`;
         });
 
         socket.on('matchFound', (data) => {
             isOnline = true; isAiMode = false;
             currentRoom = data.room;
-            
-            // SỬA LẠI ĐOẠN NÀY:
-            // Server gửi 'b' (Custom) hoặc 'O' (Random) => Là người đi trước (Đen = 1)
-            // Server gửi 'w' (Custom) hoặc 'X' (Random) => Là người đi sau (Trắng = 2)
-            if (data.role === 'b' || data.role === 'O') {
-                myColor = 1; // Đen
-            } else {
-                myColor = 2; // Trắng
-            }
+            // Xác định màu quân
+            if (data.role === 'b' || data.role === 'O') myColor = 1; else myColor = 2;
             
             initGame(data.size || 13);
+            startTournamentTimer(data.matchDuration || 30);
             statusEl.textContent = myColor === 1 ? "Bạn cầm Đen (Đi trước)" : "Bạn cầm Trắng (Đi sau)";
-            startTournamentTimer(data.matchDuration || 10);
-        });
-        socket.on('opponentGoMove', (move) => {
-            makeMove(move.r, move.c);
         });
 
+        socket.on('opponentGoMove', (move) => makeMove(move.r, move.c));
         socket.on('opponentPassed', () => {
             passCount++;
-            if (passCount >= 2) endGameCalculated();
-            else {
-                currentColor = myColor;
-                statusEl.textContent = "Đối thủ bỏ lượt. Đến lượt bạn!";
-                alert("Đối thủ đã bỏ lượt!");
-            }
+            alert("Đối thủ bỏ lượt!");
+            currentColor = myColor;
+            updateStatus();
         });
+        socket.on('gameOver', () => { location.reload(); });
+
+        // --- TIMER ---
+        function startTournamentTimer(mins) {
+            clearInterval(matchTimer);
+            secondsLeft = mins * 60;
+            if(document.getElementById('tourney-timer')) document.getElementById('tourney-timer').style.display = 'block';
+            
+            matchTimer = setInterval(() => {
+                if (isOnline && currentColor === myColor) {
+                    secondsLeft--;
+                    const m = Math.floor(secondsLeft / 60);
+                    const s = secondsLeft % 60;
+                    document.getElementById('time-left').textContent = `${m}:${s < 10 ? '0'+s : s}`;
+                    if(secondsLeft <= 0) {
+                        clearInterval(matchTimer);
+                        socket.emit('timeoutLoss', { room: currentRoom, loserUsername: 'me', gameType: 'Cờ Vây' });
+                    }
+                }
+            }, 1000);
+        }
+
+        function goToNextLevel() {
+            closeResultModal();
+            if(maxLevelReached <= 100) {
+                aiLevelSelect.value = maxLevelReached;
+                startAiGame();
+            }
+        }
+        function replayGame() {
+            closeResultModal();
+            if(currentMode === 'local') startLocalGame();
+            else if(currentMode === 'pve') startAiGame();
+        }
+        function closeResultModal() {
+            document.getElementById('result-modal').style.display = 'none';
+            resetToMenu();
+        }
 
         function updateScore() {
             document.getElementById('capture-b').textContent = captures[1];
             document.getElementById('capture-w').textContent = captures[2];
         }
-async function endGameCalculated() {
-    gameActive = false;
-    let scoreB = captures[1];
-    let scoreW = captures[2] + 6.5; // Điểm Komi cho Trắng
-    let winnerStr = scoreB > scoreW ? "Đen" : "Trắng";
-    
-    const selectedLvl = parseInt(aiLevelSelect.value);
-    const myRoleStr = myColor === 1 ? "Đen" : "Trắng";
 
-    // Cập nhật Modal UI
-    document.getElementById('final-b').textContent = scoreB;
-    document.getElementById('final-w').textContent = scoreW;
-    const modal = document.getElementById('result-modal');
-    const title = document.getElementById('modal-title');
-    const msg = document.getElementById('modal-msg');
-    const btnNext = document.getElementById('btn-next-lvl');
-
-    if (winnerStr === myRoleStr) {
-        title.textContent = "🏆 CHIẾN THẮNG!";
-        title.style.color = "#27ae60";
-        confetti();
-
-        const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-        
-        // Gửi kết quả về Server
-        const res = await fetch('/api/game/go-win', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                level: selectedLvl,
-                timeTaken: timeSpent,
-                tournamentRoomId: currentRoom
-            })
-        });
-        const data = await res.json();
-
-        if (data.addedPoints > 0) {
-            msg.textContent = `Bé đã vượt qua Cấp ${selectedLvl} và nhận ${data.addedPoints} 💎!`;
-            if (selectedLvl === maxLevelReached) {
-                maxLevelReached++;
-                renderLevelOptions(maxLevelReached); // Mở khóa màn mới trong danh sách
-            }
-        } else {
-            msg.textContent = `Bé thắng lại Cấp ${selectedLvl}. Rất xuất sắc!`;
-        }
-        btnNext.style.display = "block";
-    } else {
-        title.textContent = "😢 TIẾC QUÁ!";
-        title.style.color = "#e74c3c";
-        msg.textContent = "Máy thắng rồi, bé hãy bình tĩnh chơi lại nhé!";
-        btnNext.style.display = "none";
-    }
-
-    modal.style.display = 'flex';
-}
-        // Lắng nghe sự kiện từ Server
-        socket.on('gameOver', (data) => {
-            clearInterval(matchTimer);
-            if(data.reason === 'timeout') {
-                const isMe = data.loser === localStorage.getItem('currentUser');
-                alert(isMe ? "⌛ Bé đã hết giờ suy nghĩ và bị xử THUA!" : `🎉 Đối thủ (${data.loser}) hết giờ. BÉ THẮNG!`);
-            }
-            location.href = 'giai-dau.html';
-        });
-function goToNextLevel() {
-    closeResultModal();
-    if (maxLevelReached <= 100) {
-        aiLevelSelect.value = maxLevelReached;
-        startAiGame();
-    } else {
-        alert("Bé đã là Đại Kỳ Thủ 100 Cấp rồi!");
-    }
-}
-
-function replayLevel() {
-    closeResultModal();
-    startAiGame();
-}
-
-function closeResultModal() {
-    document.getElementById('result-modal').style.display = 'none';
-}
-        init(); // Chỉ gọi init một lần duy nhất ở đây
+        init();
     </script>
-<div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
-    <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333; font-family: 'Baloo 2', cursive;">
-        <h2 id="modal-title" style="margin: 0; color: #27ae60; font-size: 2rem;">🏆 CHIẾN THẮNG!</h2>
-        <div id="modal-stars" style="font-size: 2rem; margin: 10px 0;">⭐⭐⭐⭐⭐</div>
-        <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã làm chủ Cấp độ 1!</p>
-        
-        <div id="score-details" style="background: #f1f2f6; padding: 10px; border-radius: 15px; margin-bottom: 15px; font-size: 0.9rem;">
-            ⚫ Đen: <span id="final-b">0</span> | ⚪ Trắng: <span id="final-w">0</span>
-        </div>
-
-        <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
-        <button class="btn-game" style="background:#3498db" onclick="replayLevel()">CHƠI LẠI 🔄</button>
-        <button class="btn-game btn-home" onclick="closeResultModal()">QUAY LẠI MENU</button>
-    </div>
-</div>
-       </body>
+</body>
 </html>
