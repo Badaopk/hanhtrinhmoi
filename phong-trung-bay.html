@@ -199,6 +199,9 @@
     <button class="tab-btn" onclick="showEvent('Noel')">🎄 Noel</button>
     <button class="tab-btn" onclick="showEvent('Halloween')">🎃 Halloween</button>
     <button class="tab-btn" onclick="showEvent('MidAutumn')">🏮 Trung Thu</button>
+    <button class="tab-btn" onclick="showEvent('Valentine')">❤️ Valentine</button>
+    <button class="tab-btn" onclick="showEvent('Summer')">⛱️ Mùa Hè</button>
+    <button class="tab-btn" onclick="showEvent('Birthday')">🎂 Sinh Nhật</button>
 </div>
 
 <div class="showcase-grid" id="display-area">
@@ -379,13 +382,17 @@ function updateGalleryInventory() {
             });
         }
 
-        function getEventName(code) {
-            if(code === 'Tet') return 'Tết';
-            if(code === 'Noel') return 'Giáng Sinh';
-            if(code === 'Halloween') return 'Halloween';
-            return 'Trung Thu';
-        }
-
+ function getEventName(code) {
+    if(code === 'Tet') return 'Tết';
+    if(code === 'Noel') return 'Giáng Sinh';
+    if(code === 'Halloween') return 'Halloween';
+    if(code === 'MidAutumn') return 'Trung Thu';
+    // --- BỔ SUNG THÊM CÁC DÒNG NÀY ---
+    if(code === 'Valentine') return 'Valentine';
+    if(code === 'Summer') return 'Mùa Hè';
+    if(code === 'Birthday') return 'Sinh Nhật';
+    return 'Khác';
+}
         async function buyItem(id, price, name, btn) {
             if(currentScore < price) {
                 alert("💎 Bé không đủ kim cương rồi! Hãy chơi game để kiếm thêm nhé.");
