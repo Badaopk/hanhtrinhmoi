@@ -305,44 +305,44 @@ app.post('/api/house/save-drawing', async (req, res) => {
 });
 // 1. Kho nhiệm vụ đa dạng (Càng lên cấp cao nhiệm vụ càng khó)
 const QUEST_POOL = [
-    { taskType: 'Cờ Vua', levelKey: 'chessLevel', targetBase: 1, rewardBase: 50 },
-    { taskType: 'Ghép Hình', levelKey: 'memoryLevel', targetBase: 2, rewardBase: 30 },
-    { taskType: 'Ô Chữ', levelKey: 'crosswordLevel', targetBase: 1, rewardBase: 40 },
-    { taskType: 'Thám tử', levelKey: 'detectiveLevel', targetBase: 1, rewardBase: 60 },
-    { taskType: 'Cờ Caro', levelKey: 'caroLevel', targetBase: 2, rewardBase: 50 },
-    { taskType: 'Cờ Vây', levelKey: 'goLevel', targetBase: 1, rewardBase: 100 }
+    { taskType: 'Cờ Vua', levelKey: 'chessLevel', targetBase: 1, rewardBase: 50, penaltyBase: 20, timeLimitBase: 600 },
+    { taskType: 'Ghép Hình', levelKey: 'memoryLevel', targetBase: 2, rewardBase: 30, penaltyBase: 10, timeLimitBase: 300 },
+    { taskType: 'Ô Chữ', levelKey: 'crosswordLevel', targetBase: 1, rewardBase: 40, penaltyBase: 15, timeLimitBase: 450 },
+    { taskType: 'Thám tử', levelKey: 'detectiveLevel', targetBase: 1, rewardBase: 60, penaltyBase: 25, timeLimitBase: 600 },
+    { taskType: 'Cờ Caro', levelKey: 'caroLevel', targetBase: 2, rewardBase: 50, penaltyBase: 15, timeLimitBase: 400 },
+    { taskType: 'Cờ Vây', levelKey: 'goLevel', targetBase: 1, rewardBase: 100, penaltyBase: 50, timeLimitBase: 1200 }
 ];
-
 // 2. Hàm tự động cấp 4 nhiệm vụ "hợp trình độ" mỗi ngày
 async function refreshDailyQuests(user) {
     const today = new Date().toDateString();
-    // Lọc các nhiệm vụ hàng ngày của hôm nay
     const hasDailyToday = user.quests.some(q => q.isDaily && q.date === today);
 
     if (!hasDailyToday) {
-        // Xóa nhiệm vụ hàng ngày cũ của hôm qua (giữ lại nhiệm vụ Admin giao riêng)
+        // Xóa nhiệm vụ cũ của ngày hôm trước
         user.quests = user.quests.filter(q => !q.isDaily);
-
-        // Trộn kho nhiệm vụ và lấy 4 cái ngẫu nhiên
+        
         const shuffled = [...QUEST_POOL].sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, 4);
 
         selected.forEach(q => {
             const currentLvl = user[q.levelKey] || 1;
-            // Tiến độ yêu cầu tăng theo cấp độ (VD: Cấp 10 yêu cầu thắng nhiều ván hơn)
             const dynamicTarget = q.targetBase + Math.floor(currentLvl / 5); 
             const dynamicReward = q.rewardBase + (currentLvl * 5);
 
             user.quests.push({
                 id: 'd-' + Math.random().toString(36).substr(2, 5),
+                startTime: Date.now(), // <--- QUAN TRỌNG: Để đồng hồ ở nhiem-vu.html có thể chạy
                 taskType: q.taskType,
                 target: dynamicTarget,
                 reward: dynamicReward,
+                penalty: q.penaltyBase || 20,    // Nạp điểm phạt từ kho nhiệm vụ
+                timeLimit: q.timeLimitBase || 0, // Nạp thời gian giới hạn từ kho nhiệm vụ
                 progress: 0,
                 isDaily: true,
                 date: today
             });
         });
+        
         user.markModified('quests');
         await user.save();
     }
