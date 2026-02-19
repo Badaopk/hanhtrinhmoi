@@ -736,15 +736,28 @@ app.post('/api/admin/broadcast', (req, res) => {
 app.post('/api/admin/assign-quest', async (req, res) => {
     const { username, taskType, target, reward, penalty, timeLimit } = req.body;
     const user = await User.findOne({ username });
+
     if (user) {
+        // Thêm nhiệm vụ mới vào mảng quests của người dùng
         user.quests.push({
-            id: 'q' + Date.now(), taskType, target: parseInt(target), 
-            reward: parseInt(reward), penalty: parseInt(penalty || 0), 
-            timeLimit: parseInt(timeLimit || 0), progress: 0
+            id: 'q' + Date.now(), 
+            taskType, 
+            target: parseInt(target), 
+            reward: parseInt(reward), 
+            penalty: parseInt(penalty || 0), 
+            timeLimit: parseInt(timeLimit || 0), 
+            progress: 0,
+            // --- DÒNG QUAN TRỌNG NHẤT: Đánh dấu đây KHÔNG PHẢI nhiệm vụ hàng ngày ---
+            isDaily: false 
         });
+
+        // Báo cho Mongoose biết mảng đã thay đổi để nó thực hiện lưu
         user.markModified('quests');
         await user.save();
+
         res.json({ message: 'Giao nhiệm vụ thành công!' });
+    } else {
+        res.status(404).json({ message: 'Không tìm thấy người chơi!' });
     }
 });
 app.get('/api/admin/maintenance-status', (req, res) => res.json({ maintenanceMode }));

@@ -57,41 +57,41 @@
     </div>
 
     <script>
-        async function loadQuests() {
-        try {
-            const res = await fetch('/api/user/progress');
-            if (!res.ok) {
-                window.location.href = 'login.html';
-                return;
-            }
-            const user = await res.json();
-            const allQuests = user.quests || [];
-
-            // 1. Hiển thị Nhiệm vụ Admin giao (Nhiệm vụ có isDaily = false)
-            const adminArea = document.getElementById('admin-quests');
-            const adminQuests = allQuests.filter(q => q.isDaily === false);
-            
-            if (adminQuests.length > 0) {
-                adminArea.innerHTML = adminQuests.map(q => createQuestHTML(q, false)).join('');
-            } else {
-                adminArea.innerHTML = '<p class="empty-msg">Admin chưa giao nhiệm vụ đặc biệt nào!</p>';
-            }
-
-            // 2. Hiển thị Nhiệm vụ Hàng ngày (Nhiệm vụ có isDaily = true)
-            const dailyArea = document.getElementById('daily-quests');
-            const dailyQuests = allQuests.filter(q => q.isDaily === true);
-            
-            if (dailyQuests.length > 0) {
-                dailyArea.innerHTML = dailyQuests.map(q => createQuestHTML(q, true)).join('');
-            } else {
-                dailyArea.innerHTML = '<p class="empty-msg">Bé đã hoàn thành hết thử thách hôm nay rồi!</p>';
-            }
-
-        } catch (error) {
-            console.error("Lỗi tải nhiệm vụ:", error);
+ async function loadQuests() {
+    try {
+        const res = await fetch('/api/user/progress');
+        if (!res.ok) {
+            window.location.href = 'login.html';
+            return;
         }
-    }
+        const user = await res.json();
+        const allQuests = user.quests || [];
 
+        // 1. Hiển thị Nhiệm vụ Admin giao
+        // CHỈNH SỬA TẠI ĐÂY: Thêm điều kiện lọc undefined để nhận diện các nhiệm vụ cũ chưa có tag isDaily
+        const adminArea = document.getElementById('admin-quests');
+        const adminQuests = allQuests.filter(q => q.isDaily === false || q.isDaily === undefined);
+        
+        if (adminQuests.length > 0) {
+            adminArea.innerHTML = adminQuests.map(q => createQuestHTML(q, false)).join('');
+        } else {
+            adminArea.innerHTML = '<p class="empty-msg">Admin chưa giao nhiệm vụ đặc biệt nào!</p>';
+        }
+
+        // 2. Hiển thị Nhiệm vụ Hàng ngày (Nhiệm vụ có isDaily = true)
+        const dailyArea = document.getElementById('daily-quests');
+        const dailyQuests = allQuests.filter(q => q.isDaily === true);
+        
+        if (dailyQuests.length > 0) {
+            dailyArea.innerHTML = dailyQuests.map(q => createQuestHTML(q, true)).join('');
+        } else {
+            dailyArea.innerHTML = '<p class="empty-msg">Bé đã hoàn thành hết thử thách hôm nay rồi!</p>';
+        }
+
+    } catch (error) {
+        console.error("Lỗi tải nhiệm vụ:", error);
+    }
+}
     function createQuestHTML(q, isDaily) {
         const percent = Math.min(100, (q.progress / q.target) * 100);
         // Kiểm tra xem q.reward hay q.reward_points tùy theo server bạn đặt tên
