@@ -255,7 +255,6 @@ app.use(express.static(__dirname));
 const gameRooms = {};       
 const waitingPlayers = {};  
 const monopolyQueue = [];   
-const monopolyGames = {};   
 let maintenanceMode = false; // Đã khôi phục biến bảo trì
 
 // --- 5. API HỆ THỐNG (AUTH) ---
