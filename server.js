@@ -741,6 +741,7 @@ app.post('/api/admin/assign-quest', async (req, res) => {
         // Thêm nhiệm vụ mới vào mảng quests của người dùng
         user.quests.push({
             id: 'q' + Date.now(), 
+            startTime: Date.now(),
             taskType, 
             target: parseInt(target), 
             reward: parseInt(reward), 
@@ -796,23 +797,48 @@ if (result.modifiedCount > 0) {
 // --- 7. API GAME WIN (LƯU ĐIỂM VÀO DB) ---
 function updateQuestProgress(user, taskType, performance = { timeTaken: 0, isWin: true }) {
     if (!user.quests || user.quests.length === 0) return;
+
+    // Duyệt ngược mảng từ cuối lên đầu để xóa phần tử an toàn
     for (let i = user.quests.length - 1; i >= 0; i--) {
         let q = user.quests[i];
+
+        // So khớp tên nhiệm vụ (Ví dụ: "Kiểm Tra" hoặc "Cờ Vua")
         if (q.taskType === taskType || taskType.includes(q.taskType)) {
-            // 1. Phạt điểm nếu quá giờ
+            
+            // 1. XỬ LÝ PHẠT ĐIỂM (Nếu nhiệm vụ có giới hạn thời gian và bé làm quá giờ)
             if (q.timeLimit > 0 && performance.timeTaken > q.timeLimit) {
                 const p = parseInt(q.penalty || 20);
+                
+                // Trừ điểm nhưng đảm bảo không bao giờ bị âm dưới 0
                 user.score = Math.max(0, user.score - p); 
-                user.history.push({ activity: `Thất bại NV ${q.taskType}: Quá giờ (-${p}đ)` });
+                
+                user.history.push({ 
+                    activity: `⚠️ Thất bại NV ${q.taskType}: Làm quá giờ quy định (-${p}đ)`,
+                    timestamp: new Date()
+                });
+
+                // Xóa nhiệm vụ này đi vì bé đã thất bại (phải giao lại nhiệm vụ mới)
                 user.quests.splice(i, 1);
-                continue;
+                continue; // Chuyển sang nhiệm vụ tiếp theo
             }
-            // 2. Cộng tiến độ
+
+            // 2. XỬ LÝ CỘNG TIẾN ĐỘ (Nếu bé đạt điều kiện thắng/qua bài)
             if (performance.isWin) {
                 q.progress += 1;
+
+                // Kiểm tra xem bé đã làm đủ số lần mục tiêu chưa (Ví dụ: cần làm 1 lần)
                 if (q.progress >= q.target) {
-                    user.score += q.reward;
-                    user.history.push({ activity: `🎉 Xong NV ${q.taskType}: +${q.reward}đ` });
+                    const r = parseInt(q.reward || 0);
+                    
+                    // Cộng điểm thưởng hoàn thành nhiệm vụ
+                    user.score += r;
+                    
+                    user.history.push({ 
+                        activity: `🎉 Hoàn thành xuất sắc NV ${q.taskType}: Thưởng +${r}đ`,
+                        timestamp: new Date() 
+                    });
+
+                    // Hoàn thành xong thì xóa nhiệm vụ khỏi danh sách cho sạch ba lô
                     user.quests.splice(i, 1);
                 }
             }
@@ -945,15 +971,16 @@ app.post('/api/submit-test', async (req, res) => {
     const startTime = req.session.testStartTime;
     const now = Date.now();
     
-    // Kiểm tra nếu nộp bài sau 11 phút (cho dư 1 phút bù trừ lag mạng)
-    if (!startTime || (now - startTime) > 11 * 60 * 1000) {
+    // Kiểm tra thời gian (cho phép tối đa 16 phút để trừ hao lag mạng nếu bé làm bài 15 phút)
+    if (!startTime || (now - startTime) > 16 * 60 * 1000) { 
         return res.status(400).json({ 
             score: 0, 
             message: "Bài thi không hợp lệ do quá thời gian quy định!" 
         });
     }
-    const { answers } = req.body; // Đáp án người dùng gửi lên: { 't1_1': '6', ... }
-    const correctKeys = req.session.currentTestAnswers; // Đáp án đúng lấy từ Session
+
+    const { answers } = req.body; 
+    const correctKeys = req.session.currentTestAnswers; 
 
     if (!correctKeys) {
         return res.status(400).json({ score: 0, total: 0, message: "Lỗi phiên làm việc. Hãy tải lại trang!" });
@@ -961,47 +988,67 @@ app.post('/api/submit-test', async (req, res) => {
 
     let score = 0;
     let total = Object.keys(correctKeys).length;
-    let details = {}; // Chứa thông tin đúng/sai để hiển thị lại
+    let details = {}; 
 
-    // Duyệt qua từng câu hỏi trong đề thi
+    // 1. Duyệt chấm điểm từng câu
     for (let [questionId, correctAnswer] of Object.entries(correctKeys)) {
         const userAnswer = answers[questionId];
+        const isCorrect = userAnswer === correctAnswer;
+        if (isCorrect) score += 1;
         
-        if (userAnswer === correctAnswer) {
-            score += 1; // Cộng 1 điểm mỗi câu đúng (Tổng 10 điểm)
-        }
-        
-        // Gửi kèm đáp án đúng về để hiện ra
         details[questionId] = {
             correct: correctAnswer,
             userChosen: userAnswer,
-            isCorrect: userAnswer === correctAnswer
+            isCorrect: isCorrect
         };
     }
 
-    // Cộng điểm vào tài khoản (Nếu đã đăng nhập)
+    // 2. Xử lý cộng điểm và Cập nhật Nhiệm vụ (Nếu đã đăng nhập)
     if (req.session.user) {
-        const user = await User.findOne({ username: req.session.user.username });
-        if(user) {
-            user.score += score * 10; // Mỗi câu 10 điểm
-            user.history.push({ 
-                activity: `Thi trắc nghiệm: ${score}/${total} câu đúng`, 
-                timestamp: new Date() 
-            });
-            await user.save();
+        try {
+            const user = await User.findOne({ username: req.session.user.username });
+            if(user) {
+                // Tính thời gian làm bài thực tế (đổi ra giây)
+                const timeTaken = Math.floor((now - startTime) / 1000);
+
+                // Cộng điểm bài thi gốc (Mỗi câu đúng 10 điểm)
+                user.score += score * 10; 
+
+                // --- CẬP NHẬT NHIỆM VỤ "Kiểm Tra" ---
+                // Điều kiện tính là hoàn thành 1 lần: Đúng từ 5 câu trở lên (>= 50%)
+                const isPassed = score >= (total / 2); 
+                
+                // Gọi hàm cập nhật nhiệm vụ (Tự động cộng thưởng hoặc phạt nếu quá giờ)
+                updateQuestProgress(user, 'Kiểm Tra', { timeTaken: timeTaken, isWin: isPassed });
+
+                // Lưu lịch sử
+                user.history.push({ 
+                    activity: `Thi trắc nghiệm: ${score}/${total} câu đúng (${timeTaken}s)`, 
+                    timestamp: new Date() 
+                });
+
+                // Quan trọng: Đánh dấu mảng quests đã thay đổi để MongoDB lưu được
+                user.markModified('quests'); 
+                await user.save();
+            }
+        } catch (dbError) {
+            console.error("Lỗi cập nhật nhiệm vụ khi thi:", dbError);
         }
     }
 
-    // Phản hồi kết quả
+    // 3. Phản hồi kết quả về máy bé
     let msg = score === total ? "Xuất sắc! 🌟" : (score >= total/2 ? "Làm tốt lắm! 👍" : "Cố gắng lần sau nhé! 💪");
+    
+    // Dọn dẹp session bài thi
     delete req.session.testStartTime;
     delete req.session.currentTestAnswers;
     req.session.save();
+
     res.json({ 
         score: score, 
         total: total, 
         message: msg,
-        details: details // Gửi chi tiết để client tô màu
+        details: details 
     });
 });
 // --- API MỚI: RESET TOÀN BỘ LEVEL ---
@@ -2004,6 +2051,47 @@ async function autoStartTourneyLogic() {
 setInterval(autoStartTourneyLogic, 60000);
 // Thêm tham số '0.0.0.0' để lắng nghe trên mọi giao diện mạng
 // Nếu có cổng do Render cấp thì dùng, không thì mặc định là 3000
+// --- CỖ MÁY TỰ ĐỘNG PHẠT NHIỆM VỤ QUÁ HẠN ---
+setInterval(async () => {
+    const now = Date.now();
+    // Tìm tất cả các bé có nhiệm vụ
+    const users = await User.find({ "quests.0": { $exists: true } });
+
+    for (let user of users) {
+        let hasChange = false;
+        // Duyệt ngược mảng nhiệm vụ để xóa nếu cần
+        for (let i = user.quests.length - 1; i >= 0; i--) {
+            let q = user.quests[i];
+            
+            // Nếu có đặt thời gian (timeLimit > 0)
+            if (q.timeLimit > 0 && q.startTime) {
+                const deadline = q.startTime + (q.timeLimit * 1000);
+                
+                if (now > deadline) {
+                    const p = parseInt(q.penalty || 0);
+                    user.score = Math.max(0, user.score - p); // Trừ điểm
+                    user.history.push({ 
+                        activity: `⏰ Hệ thống tự động phạt NV ${q.taskType}: Hết thời gian (-${p}đ)`,
+                        timestamp: new Date() 
+                    });
+                    user.quests.splice(i, 1); // Xóa nhiệm vụ đã hỏng
+                    hasChange = true;
+                }
+            }
+        }
+        if (hasChange) {
+            user.markModified('quests');
+            await user.save();
+            // Gửi thông báo real-time nếu bé đang online (tùy chọn)
+            if (onlineUsers[user.username]) {
+                io.to(onlineUsers[user.username]).emit('adminNotification', {
+                    title: "⚠️ NHIỆM VỤ THẤT BẠI",
+                    message: "Bé đã để hết thời gian nhiệm vụ và bị trừ điểm rồi!"
+                });
+            }
+        }
+    }
+}, 10000); // Quét mỗi 10 giây
 const HOST = '0.0.0.0'; 
 server.listen(PORT, HOST, () => {
     console.log(`🚀 Server đang chạy!`);

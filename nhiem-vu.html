@@ -92,29 +92,60 @@
         console.error("Lỗi tải nhiệm vụ:", error);
     }
 }
-    function createQuestHTML(q, isDaily) {
-        const percent = Math.min(100, (q.progress / q.target) * 100);
-        // Kiểm tra xem q.reward hay q.reward_points tùy theo server bạn đặt tên
-        const reward = q.reward || q.reward_points || 0; 
-        
-        return `
-            <div class="quest-card">
-                <div class="quest-info">
-                    <div class="quest-title">${isDaily ? '📅' : '🌟'} ${q.taskType}</div>
-                    <div class="quest-desc">Bé hãy thắng trò chơi này <strong>${q.target} lần</strong> nhé!</div>
-                    <div class="quest-reward">Thưởng: +${reward} điểm</div>
-                </div>
-                <div class="progress-container">
-                    <div class="progress-text">${q.progress} / ${q.target}</div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${percent}%"></div>
-                    </div>
-                </div>
-            </div>
-        `;
+function createQuestHTML(q, isDaily) {
+    const percent = Math.min(100, (q.progress / q.target) * 100);
+    const reward = q.reward || 0;
+    const penalty = q.penalty || 0;
+    const timeLimit = q.timeLimit || 0;
+
+    let timerHTML = '';
+    if (timeLimit > 0 && q.startTime) {
+        // Tạo một ID duy nhất cho đồng hồ này
+        timerHTML = `<div class="quest-reward" style="background:#2c3e50; margin-left:5px;">
+                        ⏱️ Còn: <span class="countdown" data-start="${q.startTime}" data-limit="${timeLimit}">--:--</span>
+                     </div>`;
     }
 
-    loadQuests();
+    let penaltyText = timeLimit > 0 ? `<div class="quest-reward" style="background: #e74c3c; margin-left: 5px;">⚠️ Phạt: -${penalty}</div>` : '';
+
+    return `
+        <div class="quest-card">
+            <div class="quest-info">
+                <div class="quest-title">${isDaily ? '📅' : '🌟'} ${q.taskType}</div>
+                <div class="quest-desc">Mục tiêu: <strong>${q.target} lần</strong></div>
+                <div class="quest-reward">Thưởng: +${reward}</div>
+                ${penaltyText}
+                ${timerHTML}
+            </div>
+            <div class="progress-container">
+                <div class="progress-text">${q.progress} / ${q.target}</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${percent}%"></div></div>
+            </div>
+        </div>
+    `;
+}
+// Hàm chạy đồng hồ đếm ngược mỗi giây
+setInterval(() => {
+    const now = Date.now();
+    document.querySelectorAll('.countdown').forEach(el => {
+        const start = parseInt(el.getAttribute('data-start'));
+        const limit = parseInt(el.getAttribute('data-limit'));
+        const deadline = start + (limit * 1000);
+        const diff = deadline - now;
+
+        if (diff <= 0) {
+            el.innerHTML = "HẾT GIỜ!";
+            el.style.color = "red";
+            // Tự động load lại sau 2 giây để mất nhiệm vụ (vì server đã xóa)
+            setTimeout(() => loadQuests(), 2000); 
+        } else {
+            const mins = Math.floor(diff / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            el.innerHTML = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+    });
+}, 1000);
+     loadQuests();
     </script>
 </body>
 </html>
