@@ -535,65 +535,129 @@
                 if(isAiMode && currentColor === 2) setTimeout(makeAiMove, 500);
             }
         }
+// --- THUẬT TOÁN TÍNH ĐẤT CHUYÊN NGHIỆP ---
+function calculateTerritory() {
+    let blackTerritory = 0;
+    let whiteTerritory = 0;
+    let visited = new Set();
 
-        async function endGameCalculated() {
-            gameActive = false;
-            // Tính điểm Trung Quốc (Đất + Quân trên bàn + Quân ăn)
-            // Ở đây tính đơn giản: Quân ăn + 0.5 quân trên bàn (ví dụ)
-            // Để đơn giản cho trẻ em: So sánh quân đã ăn được (Captures)
-            let scoreB = captures[1];
-            let scoreW = captures[2] + 6.5; // Komi
-            
-            let winnerStr = scoreB > scoreW ? "Đen" : "Trắng";
-            
-            document.getElementById('final-b').textContent = scoreB;
-            document.getElementById('final-w').textContent = scoreW;
-            const modal = document.getElementById('result-modal');
-            
-            const isMeWin = (currentMode === 'pve' && winnerStr === "Đen") ||
-                            (currentMode === 'pvp' && ((myColor===1 && winnerStr==="Đen") || (myColor===2 && winnerStr==="Trắng")));
-
-            if (currentMode === 'local') {
-                document.getElementById('modal-title').textContent = `🏆 ${winnerStr} THẮNG!`;
-                document.getElementById('modal-msg').textContent = "Ván đấu kết thúc.";
-                document.getElementById('btn-next-lvl').style.display = "none";
-                confetti();
-            }
-            else if (isMeWin) {
-                document.getElementById('modal-title').textContent = "🏆 CHIẾN THẮNG!";
-                document.getElementById('modal-title').style.color = "#27ae60";
-                confetti();
-
-                if (currentMode === 'pve') {
-                    const selectedLvl = parseInt(aiLevelSelect.value);
-                    try {
-                        const res = await fetch('/api/game/go-win', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                level: selectedLvl,
-                                timeTaken: Math.floor((Date.now() - gameStartTime) / 1000)
-                            })
-                        });
-                        const data = await res.json();
-                        document.getElementById('modal-msg').textContent = data.message;
-                        if (data.newLevel) {
-                            maxLevelReached = data.newLevel;
-                            renderLevelOptions(maxLevelReached);
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            let key = `${r},${c}`;
+            if (board[r][c] === 0 && !visited.has(key)) {
+                // Tìm thấy một vùng trống, bắt đầu loang (BFS) để kiểm tra
+                let area = [];
+                let queue = [{r, c}];
+                visited.add(key);
+                
+                let neighbors = new Set();
+                
+                while (queue.length > 0) {
+                    let curr = queue.shift();
+                    area.push(curr);
+                    
+                    const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
+                    for (let [dr, dc] of dirs) {
+                        let nr = curr.r + dr, nc = curr.c + dc;
+                        if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+                            if (board[nr][nc] === 0) {
+                                let nKey = `${nr},${nc}`;
+                                if (!visited.has(nKey)) {
+                                    visited.add(nKey);
+                                    queue.push({r: nr, c: nc});
+                                }
+                            } else {
+                                // Vùng trống này chạm quân cờ màu board[nr][nc]
+                                neighbors.add(board[nr][nc]);
+                            }
                         }
-                    } catch(e){}
-                    document.getElementById('btn-next-lvl').style.display = "block";
+                    }
                 }
-            } else {
-                document.getElementById('modal-title').textContent = "😢 THUA RỒI";
-                document.getElementById('modal-title').style.color = "#e74c3c";
-                document.getElementById('modal-msg').textContent = "Cố gắng lần sau nhé!";
-                document.getElementById('btn-next-lvl').style.display = "none";
-            }
-            modal.style.display = 'flex';
-        }
 
-        // --- ONLINE SOCKET ---
+                // Kiểm tra vùng trống này thuộc về ai
+                // Nếu chỉ chạm quân Đen (1) -> Đất của Đen
+                if (neighbors.has(1) && !neighbors.has(2)) {
+                    blackTerritory += area.length;
+                }
+                // Nếu chỉ chạm quân Trắng (2) -> Đất của Trắng
+                else if (neighbors.has(2) && !neighbors.has(1)) {
+                    whiteTerritory += area.length;
+                }
+                // Nếu chạm cả hai hoặc không chạm ai -> Đất trung hòa (Dame)
+            }
+        }
+    }
+    return { blackTerritory, whiteTerritory };
+}
+
+async function endGameCalculated() {
+    gameActive = false;
+    
+    // 1. Tính đất (Territory)
+    const territory = calculateTerritory();
+    
+    // 2. Tổng hợp điểm theo luật chuyên nghiệp
+    // Điểm = Quân ăn + Đất chiếm được
+    let scoreB = captures[1] + territory.blackTerritory;
+    let scoreW = captures[2] + territory.whiteTerritory + 6.5; // Komi cho Trắng
+    
+    let winnerStr = scoreB > scoreW ? "Đen" : "Trắng";
+    const myRoleStr = myColor === 1 ? "Đen" : "Trắng";
+
+    // 3. Cập nhật Modal UI
+    document.getElementById('final-b').innerHTML = `${captures[1]} (ăn) + ${territory.blackTerritory} (đất) = <b>${scoreB}</b>`;
+    document.getElementById('final-w').innerHTML = `${captures[2]} (ăn) + ${territory.whiteTerritory} (đất) + 6.5 = <b>${scoreW}</b>`;
+    
+    const modal = document.getElementById('result-modal');
+    const title = document.getElementById('modal-title');
+    const msg = document.getElementById('modal-msg');
+    const btnNext = document.getElementById('btn-next-lvl');
+
+    const isMeWin = (currentMode === 'pve' && winnerStr === "Đen") ||
+                    (currentMode === 'pvp' && ((myColor === 1 && winnerStr === "Đen") || (myColor === 2 && winnerStr === "Trắng"))) ||
+                    (currentMode === 'local'); // Chế độ local luôn cho xem kết quả
+
+    if (currentMode === 'local') {
+        title.textContent = `🏆 ${winnerStr} THẮNG!`;
+        msg.textContent = "Một ván cờ tuyệt vời của cả hai bạn!";
+        btnNext.style.display = "none";
+        confetti();
+    }
+    else if (isMeWin) {
+        title.textContent = "🏆 CHIẾN THẮNG!";
+        title.style.color = "#27ae60";
+        confetti();
+
+        if (currentMode === 'pve') {
+            const selectedLvl = parseInt(aiLevelSelect.value);
+            try {
+                const res = await fetch('/api/game/go-win', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        level: selectedLvl,
+                        timeTaken: Math.floor((Date.now() - gameStartTime) / 1000)
+                    })
+                });
+                const data = await res.json();
+                msg.textContent = data.message;
+                if (data.newLevel) {
+                    maxLevelReached = data.newLevel;
+                    renderLevelOptions(maxLevelReached);
+                }
+            } catch(e){}
+            btnNext.style.display = "block";
+        }
+    } else {
+        title.textContent = "😢 TIẾC QUÁ!";
+        title.style.color = "#e74c3c";
+        msg.textContent = "Đối thủ đã bao vây đất tốt hơn, bé hãy thử lại nhé!";
+        btnNext.style.display = "none";
+    }
+
+    modal.style.display = 'flex';
+}
+                // --- ONLINE SOCKET ---
         window.createRoom = () => { socket.emit('createGoRoom', { size: 13 }); statusEl.textContent = "Đang tạo phòng..."; };
         window.joinRoom = () => { socket.emit('joinGoRoom', document.getElementById('room-input').value.toUpperCase()); };
         window.findRandomMatch = () => { socket.emit('findMatch', 'go'); statusEl.textContent = "Đang tìm đối thủ..."; };

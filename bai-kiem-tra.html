@@ -83,7 +83,13 @@
                 <option value="3">Lớp 3</option>
                 <option value="4">Lớp 4</option>
                 <option value="5">Lớp 5</option>
-                <option value="9">Lớp 9 (Ôn thi)</option>
+                <option value="6">Lớp 6</option>
+                <option value="7">Lớp 7</option>
+                <option value="8">Lớp 8</option>
+                <option value="9">Lớp 9</option>
+                <option value="10">Lớp 10</option>
+                <option value="11">Lớp 11</option>
+                <option value="12">Lớp 12</option>
             </select>
             <select id="difficulty-select">
                 <option value="easy">Dễ</option>
@@ -95,7 +101,7 @@
 
         <div id="quiz-area" style="display: none;">
             <div style="text-align: right;">
-                <div id="timer-box">⏱️ <span id="time-left">10:00</span></div>
+                <div id="timer-box">⏱️ <span id="time-left">15:00</span></div>
             </div>
             <h2 id="test-title" style="text-align: center; color: #0984e3;">Đề thi...</h2>
             <div id="questions-list"></div>
@@ -144,7 +150,7 @@
             document.getElementById('test-title').textContent = `${subName} - Lớp ${grade} (${diff === 'easy' ? 'Dễ' : (diff === 'medium' ? 'Trung Bình' : 'Khó')})`;
             
             // BẮT ĐẦU ĐẾM GIỜ (10 phút = 600 giây)
-            startTimer(600); 
+            startTimer(900); 
 
         } catch (e) {
             console.error(e);

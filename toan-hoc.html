@@ -41,6 +41,11 @@
             <button class="grade-btn" onclick="findMatch(3)">Lớp 3 (Tính nhanh, hình học)</button>
             <button class="grade-btn" onclick="findMatch(4)">Lớp 4 (Phân số, số lớn)</button>
             <button class="grade-btn" onclick="findMatch(5)">Lớp 5 (Số thập phân, %)</button>
+            <button class="grade-btn" onclick="findMatch(5)">Lớp 5 (Số thập phân, %)</button>
+            <button class="grade-btn" onclick="findMatch(6)" style="background: #6c5ce7;">Lớp 6 (Số nguyên, Tập hợp)</button>
+            <button class="grade-btn" onclick="findMatch(7)" style="background: #6c5ce7;">Lớp 7 (Số hữu tỉ, Tỷ lệ thức)</button>
+            <button class="grade-btn" onclick="findMatch(8)" style="background: #6c5ce7;">Lớp 8 (Đa thức, Hình học phẳng)</button>
+            <button class="grade-btn" onclick="findMatch(9)" style="background: #d63031;">Lớp 9 (Ôn thi vào 10)</button>
             <div id="status-log" class="status-msg"></div>
             <a href="dau-truong-thu-thach.html" class="back-button" style="margin-top:20px; display:block;">Quay lại</a>
         </div>
@@ -77,13 +82,19 @@
         }
 
         // 2. Khi tìm thấy trận
-        socket.on('matchFound', (data) => {
-            currentRoom = data.room;
-            document.getElementById('lobby-screen').style.display = 'none';
-            document.getElementById('game-board').style.display = 'block';
-            updateScores(data.players);
-        });
-
+ // 2. Khi tìm thấy trận và trừ điểm cược
+socket.on('matchFound', (data) => {
+    currentRoom = data.room;
+    
+    // Thông báo cho bé biết đã đặt cược thành công
+    alert("⚔️ Đã tìm thấy đối thủ! Bé đã bị trừ 100đ để đặt cược trận đấu này.");
+    
+    document.getElementById('lobby-screen').style.display = 'none';
+    document.getElementById('game-board').style.display = 'block';
+    
+    // Cập nhật điểm hiển thị ngay lập tức (điểm sau khi đã -100)
+    updateScores(data.players);
+});
         socket.on('statusUpdate', (data) => {
             document.getElementById('status-log').textContent = data.message;
         });
@@ -107,14 +118,21 @@
         });
 
         // 4. Gửi đáp án
-        function submitAnswer(ans, btnElement) {
-            // Disable tất cả nút để không chọn lại
-            document.querySelectorAll('.ans-btn').forEach(b => b.disabled = true);
-            btnElement.style.background = '#ffeaa7'; // Highlight lựa chọn
-            socket.emit('submitAnswer', { room: currentRoom, answer: ans });
-            document.getElementById('game-msg').textContent = "Đã chọn! Chờ đối thủ...";
-        }
-
+ // 4. Gửi đáp án và khóa nút
+function submitAnswer(ans, btnElement) {
+    // Tắt tất cả nút để không cho chọn lại
+    const allBtns = document.querySelectorAll('.ans-btn');
+    allBtns.forEach(b => b.disabled = true);
+    
+    // Đổi màu nút vừa chọn để bé biết mình đã chọn cái nào
+    btnElement.style.background = '#ffeaa7'; 
+    btnElement.style.borderColor = '#fdcb6e';
+    
+    // Gửi lên server
+    socket.emit('submitAnswer', { room: currentRoom, answer: ans });
+    
+    document.getElementById('game-msg').textContent = "🎯 Đã ghi nhận đáp án! Đang đợi đối thủ...";
+}
         // 5. Kết quả vòng chơi
         socket.on('roundResult', (data) => {
             updateScores(data.players);

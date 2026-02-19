@@ -852,7 +852,7 @@ app.post('/api/game/shape-win', (req, res) => handleGameWin(req, res, 'shapeLeve
 app.post('/api/game/build-win', (req, res) => handleGameWin(req, res, 'buildLevel', 30, 'Xây Dựng'));
 app.post('/api/game/memory-win', (req, res) => handleGameWin(req, res, 'memoryLevel', 15, 'Trí Nhớ'));
 app.post('/api/game/crossword-win', (req, res) => handleGameWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
---- API MỚI: LẤY ĐỀ THI TRẮC NGHIỆM ---
+//--- API MỚI: LẤY ĐỀ THI TRẮC NGHIỆM ---
 // --- 1. API LẤY ĐỀ THI (Lấy 10 câu ngẫu nhiên & Lưu đáp án vào Session) ---
 app.get('/api/test', (req, res) => {
     const { subject, grade, difficulty } = req.query;
@@ -1087,6 +1087,113 @@ socket.on('findMatch', (gameType) => {
         socket.emit('waiting', { message: 'Đang tìm đối thủ...' });
     }
 });
+// --- LOGIC ĐẤU TOÁN PVP ---
+const mathWaitingPlayers = {}; // Lưu danh sách chờ theo khối lớp { 1: socket, 2: socket }
+
+socket.on('findMathMatch', async (data) => {
+    const grade = data.grade;
+    const user = await User.findOne({ username: sessionUser.username });
+
+    // 1. Kiểm tra bé có đủ 100 điểm để cược không
+    if (!user || user.score < 100) {
+        return socket.emit('statusUpdate', { message: "❌ Bé không đủ 100 điểm để tham gia cược!" });
+    }
+
+    if (mathWaitingPlayers[grade]) {
+        const opponent = mathWaitingPlayers[grade];
+        const roomId = `math-${opponent.id}-${socket.id}`;
+        delete mathWaitingPlayers[grade];
+
+        socket.join(roomId);
+        opponent.join(roomId);
+
+        // 2. Trừ 100 điểm cược của cả 2 bé ngay khi bắt đầu
+        await User.updateMany(
+            { username: { $in: [sessionUser.username, opponent.request.session.user.username] } },
+            { $inc: { score: -100 }, $push: { history: { activity: `Cược 100đ tham gia Đấu Toán lớp ${grade}` } } }
+        );
+
+        gameRooms[roomId] = {
+            gameType: 'math',
+            players: {
+                [opponent.id]: { username: opponent.request.session.user.username, score: 0, answers: [] },
+                [socket.id]: { username: sessionUser.username, score: 0, answers: [] }
+            },
+            round: 1,
+            grade: grade
+        };
+
+        io.to(roomId).emit('matchFound', { room: roomId, players: gameRooms[roomId].players });
+        sendNextQuestion(roomId);
+
+    } else {
+        mathWaitingPlayers[grade] = socket;
+        socket.emit('statusUpdate', { message: `🔍 Đang tìm đối thủ lớp ${grade}...` });
+    }
+});
+
+// Hàm lấy câu hỏi ngẫu nhiên và gửi cho 2 bé
+function sendNextQuestion(roomId) {
+    const room = gameRooms[roomId];
+    const gradeKey = 'grade' + room.grade;
+    const questions = tests['toan'][gradeKey]['easy']; // Lấy từ question-data.js
+    const qData = questions[Math.floor(Math.random() * questions.length)];
+
+    io.to(roomId).emit('newQuestion', {
+        question: qData.q,
+        options: qData.a,
+        round: room.round
+    });
+    room.currentCorrectAnswer = qData.correct;
+}
+
+socket.on('submitAnswer', async (data) => {
+    const room = gameRooms[data.room];
+    if (!room) return;
+
+    const player = room.players[socket.id];
+    if (data.answer === room.currentCorrectAnswer) {
+        player.score += 10; // Cộng điểm tạm thời trong trận
+    }
+
+    // Kiểm tra xem cả 2 đã trả lời chưa
+    const allAnswered = Object.values(room.players).every(p => p.answers.length === room.round);
+    // (Lưu ý: Bạn cần thêm logic lưu câu trả lời vào mảng answers để kiểm tra)
+
+    if (room.round < 10) {
+        room.round++;
+        sendNextQuestion(data.room);
+    } else {
+        handleMathGameOver(data.room);
+    }
+});
+
+async function handleMathGameOver(roomId) {
+    const room = gameRooms[roomId];
+    const pIds = Object.keys(room.players);
+    const p1 = room.players[pIds[0]];
+    const p2 = room.players[pIds[1]];
+
+    let resultMsg = "";
+
+    // 3. TÍNH ĐIỂM THƯỞNG CUỐI TRẬN THEO YÊU CẦU
+    if (p1.score > p2.score) {
+        // P1 Thắng: Nhận 200 (đã trừ 100 lúc đầu -> lãi 100)
+        await User.updateOne({ username: p1.username }, { $inc: { score: 200 } });
+        // P2 Thua: Không nhận gì (mất 100 đã cược)
+    } else if (p2.score > p1.score) {
+        await User.updateOne({ username: p2.username }, { $inc: { score: 200 } });
+    } else {
+        // Hòa: Mỗi bé nhận lại 50 (mất 50 so với lúc đầu)
+        await User.updateMany(
+            { username: { $in: [p1.username, p2.username] } },
+            { $inc: { score: 50 } }
+        );
+    }
+
+    io.to(roomId).emit('gameOver', { players: room.players });
+    delete gameRooms[roomId];
+}
     // Tìm đoạn socket.on('timeoutLoss'...) và sửa lại thứ tự như sau:
 socket.on('timeoutLoss', async ({ room, loserUsername, gameType }) => {
     const roomData = gameRooms[room];

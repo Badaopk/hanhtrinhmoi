@@ -359,34 +359,51 @@
         stockfish.postMessage(`go depth 5 movetime 500`);
     }
 
+    
+    // --- KIỂM TRA THẮNG THUA (BẢN TỐI ƯU) ---
     async function updateStatus() {
         const isMate = game.in_checkmate();
-        const isDraw = game.in_draw() || game.in_stalemate();
+        const isDraw = game.in_draw() || game.in_stalemate() || game.in_threefold_repetition();
         
         let statusEl = document.getElementById(currentMode + '-status');
 
         if (isMate) {
             isGameActive = false;
-            let winner = game.turn() === 'w' ? 'Đen' : 'Trắng';
+            let winnerColor = game.turn() === 'w' ? 'Đen' : 'Trắng';
             
             if (currentMode === 'pve') {
-                statusEl.textContent = (winner === 'Trắng') ? "🏆 BẠN THẮNG!" : "😢 MÁY THẮNG!";
-                if (winner === 'Trắng') handlePveWin();
+                if (winnerColor === 'Trắng') {
+                    statusEl.textContent = "🏆 BẠN THẮNG!";
+                    handlePveWin(); // Hàm này sẽ hiện Modal và pháo hoa
+                } else {
+                    statusEl.textContent = "😢 MÁY THẮNG!";
+                    showResultModal(false, 0, "Máy thắng rồi, bé cố gắng ở ván sau nhé!");
+                }
             } else if (currentMode === 'local') {
-                statusEl.textContent = `🏆 ${winner} THẮNG!`;
-                alert(`Chúc mừng! ${winner} đã chiến thắng!`);
+                statusEl.textContent = `🏆 ${winnerColor} THẮNG!`;
+                confetti();
+                showResultModal(true, 0, `Chúc mừng quân ${winnerColor} đã chiến thắng!`);
             } else {
-                statusEl.textContent = `🏆 ${winner} THẮNG!`;
-                alert(`${winner} thắng!`);
+                // Online (PVP)
+                statusEl.textContent = "🏁 TRẬN ĐẤU KẾT THÚC";
+                const iWon = (myRole === (game.turn() === 'w' ? 'b' : 'w'));
+                showResultModal(iWon, iWon ? 50 : 0, iWon ? "Bé thắng đối thủ rồi! +50💎" : "Tiếc quá, đối thủ đã thắng mất rồi.");
             }
         } else if (isDraw) {
             isGameActive = false;
             statusEl.textContent = "🤝 HÒA CỜ!";
-            alert("Ván cờ Hòa!");
+            showResultModal(false, 0, "Ván cờ Hòa! Hai bé đều rất giỏi.");
+        } else {
+            // Cập nhật text lượt đi khi đang đấu
+            if (currentMode === 'local') {
+                const nextP = game.turn() === 'w' ? "Trắng" : "Đen";
+                statusEl.textContent = `Đến lượt: ${nextP}`;
+            }
         }
     }
 
     async function handlePveWin() {
+        confetti();
         try {
             const res = await fetch('/api/game/chess-win-level', { 
                 method: 'POST', 
@@ -394,11 +411,15 @@
                 body: JSON.stringify({ level: currentPlayingLevel })
             });
             const d = await res.json();
-            if(d.newLevel) { userLevel = d.newLevel; renderLevelList(); }
+            if(d.newLevel) { 
+                userLevel = d.newLevel; 
+                renderLevelList(); 
+            }
             showResultModal(true, d.addedPoints, d.message);
-        } catch(e) {}
+        } catch(e) {
+            showResultModal(true, 0, "Bé thắng máy rồi! Quá siêu!");
+        }
     }
-
     function renderLevelList() {
         const list = document.getElementById('level-list');
         list.innerHTML = '';

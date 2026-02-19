@@ -24,14 +24,13 @@
         /* Gợi ý nước đi: Dấu chấm nhỏ */
         .cell.valid-move::after { content: ''; width: 10px; height: 10px; background: rgba(0,0,0,0.3); border-radius: 50%; border: 1px solid rgba(255,255,255,0.5); }
 
-        .piece { width: 34px; height: 34px; border-radius: 50%; transition: transform 0.3s, background-color 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .piece { width: 34px; height: 34px; border-radius: 50%; transition: transform 0.4s, background-color 0.4s; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
         .piece.black { background: linear-gradient(135deg, #444, #000); }
-        .piece.white { background: linear-gradient(135deg, #fff, #ddd); }
+        .piece.white { background: linear-gradient(135deg, #fff, #ddd); transform: rotateY(180deg); }
 
         /* Sidebar */
         .sidebar { width: 95%; max-width: 350px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); padding: 15px; border-radius: 20px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
         
-        /* TABS */
         .mode-tabs { display: flex; gap: 5px; margin-bottom: 5px; }
         .tab-btn { flex: 1; padding: 10px 5px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; opacity: 0.7; transition: 0.3s; font-family: inherit; font-size: 0.9rem; }
         .tab-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
@@ -46,21 +45,20 @@
         .active-turn { border: 2px solid #f1c40f; box-shadow: 0 0 10px #f1c40f; border-radius: 5px; background: rgba(255,255,255,0.1); }
         
         .status-box { background: white; color: #333; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 0.9rem; min-height: 20px; margin-bottom: 10px; }
-        
         .btn-game { width: 100%; padding: 12px; border: none; border-radius: 50px; font-family: inherit; font-weight: bold; cursor: pointer; margin-bottom: 5px; color: white; transition: 0.2s; font-size: 1rem; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
         .btn-game:active { transform: translateY(2px); box-shadow: none; }
-        .btn-new { background: #2ecc71; } .btn-online { background: #8e44ad; } .btn-pass { background: #e74c3c; } 
+        .btn-pass { background: #e74c3c; } .btn-home { background: #95a5a6; }
         
         select, input { width: 100%; padding: 10px; border-radius: 8px; border: none; font-family: inherit; font-weight: bold; font-size: 1rem; text-align: center; margin-bottom: 10px; box-sizing: border-box; }
     </style>
 </head>
 <body>
     <div id="tourney-timer" style="background:#e74c3c; color:white; padding:10px; border-radius:10px; margin-bottom:10px; display:none; position:fixed; top:10px; right:10px; z-index:100;">
-        ⚠️ GIẢI ĐẤU: Bé còn <span id="time-left" style="font-size:1.5rem; font-weight:bold;">10:00</span>
+        ⏱️ CÒN LẠI: <span id="time-left">10:00</span>
     </div>
 
     <div class="header-bar" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 20px; box-sizing: border-box; background: rgba(0,0,0,0.3);">
-        <button class="btn-game" style="width: auto; background: #95a5a6; padding: 5px 15px;" onclick="window.location.href='index.html'">⬅️ Về</button>
+        <button class="btn-game btn-home" style="width: auto; padding: 5px 15px;" onclick="window.location.href='index.html'">⬅️ Về</button>
         <h1 style="text-shadow: 2px 2px 0 #000; margin: 0; flex-grow: 1; text-align: center;">🟢 VUA PHỤC KÍCH ⚪</h1>
         <div style="width: 50px;"></div>
     </div>
@@ -72,11 +70,11 @@
 
         <div class="sidebar">
             <div class="score-row">
-                <div id="p1-score" class="active-turn"><span style="color:#000">⚫</span> <span id="score-b">2</span></div>
-                <div id="p2-score"><span style="color:#fff">⚪</span> <span id="score-w">2</span></div>
+                <div id="p1-score" class="active-turn">⚫ <span id="score-b">2</span></div>
+                <div id="p2-score">⚪ <span id="score-w">2</span></div>
             </div>
 
-            <div id="status" class="status-box">Chọn chế độ để bắt đầu</div>
+            <div id="status" class="status-box">Chọn chế độ chơi!</div>
 
             <div class="mode-tabs">
                 <button class="tab-btn tab-pve active" onclick="switchMode('pve')">🤖 Đấu Máy</button>
@@ -86,46 +84,30 @@
 
             <div id="pve-panel" class="mode-content active">
                 <div style="background: #f1c40f; padding: 5px; border-radius: 8px; margin-bottom: 10px; color:#333; font-weight:bold;">
-                    Cấp độ hiện tại: <span id="lvl-display" style="font-size: 1.2rem;">1</span>
+                    Cấp độ hiện tại: <span id="lvl-display">1</span>
                 </div>
                 <select id="ai-level-select"></select>
-                <button class="btn-game btn-new" onclick="startAiGame()">▶️ Bắt Đầu</button>
+                <button class="btn-game" style="background:#2ecc71" onclick="startAiGame()">▶️ Bắt Đầu</button>
             </div>
 
             <div id="pvp-panel" class="mode-content">
                 <input type="text" id="room-input" placeholder="Nhập mã phòng...">
                 <div style="display:flex; gap:5px;">
-                    <button class="btn-game btn-new" style="flex:1" onclick="createRoom()">Tạo</button>
-                    <button class="btn-game btn-online" style="flex:1" onclick="joinRoom()">Vào</button>
+                    <button class="btn-game" style="background:#2ecc71; flex:1" onclick="createRoom()">Tạo</button>
+                    <button class="btn-game" style="background:#3498db; flex:1" onclick="joinRoom()">Vào</button>
                 </div>
                 <button class="btn-game" style="background:#e67e22" onclick="findRandomMatch()">🎲 Ghép Ngẫu Nhiên</button>
             </div>
 
             <div id="local-panel" class="mode-content">
-                <p style="margin-bottom: 10px;">Chơi 2 người trên cùng một máy.</p>
-                <button class="btn-game btn-new" onclick="startLocalGame()">▶️ Bắt Đầu</button>
+                <p>Hai bạn chơi chung trên một thiết bị.</p>
+                <button class="btn-game" style="background:#2ecc71" onclick="startLocalGame()">▶️ Bắt Đầu</button>
             </div>
 
             <div id="control-area" style="display:none; margin-top: 15px;">
-                <button class="btn-game btn-pass" onclick="passTurn()">Bỏ Lượt (Pass)</button>
-                <button class="btn-game" style="background:#e74c3c" onclick="resetToMenu()">Thoát Game</button>
+                <button class="btn-game btn-pass" id="btn-pass" onclick="handlePassManual()">⏩ Bỏ Lượt (Pass)</button>
+                <button class="btn-game btn-home" onclick="location.reload()">🚪 Thoát</button>
             </div>
-        </div>
-    </div>
-
-    <div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
-        <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333; font-family: 'Baloo 2', cursive;">
-            <h2 id="modal-title" style="margin: 0; color: #27ae60; font-size: 2rem;">🏆 KẾT QUẢ</h2>
-            <p id="modal-msg" style="font-weight: bold; color: #555; margin: 10px 0;">...</p>
-            
-            <div style="display:flex; justify-content:space-around; background:#f1f2f6; padding:10px; border-radius:10px; margin-bottom:15px;">
-                <div style="font-weight:bold;">⚫ <span id="final-b">0</span></div>
-                <div style="font-weight:bold;">⚪ <span id="final-w">0</span></div>
-            </div>
-
-            <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">TIẾP TỤC ➡️</button>
-            <button class="btn-game btn-online" onclick="replayLevel()">CHƠI LẠI 🔄</button>
-            <button class="btn-game" style="background:#95a5a6" onclick="closeResultModal()">QUAY LẠI MENU</button>
         </div>
     </div>
 
@@ -135,21 +117,10 @@
         const aiLevelSelect = document.getElementById('ai-level-select');
         let socket = io();
 
-        // Game State
-        let board = [];
-        let turn = 1; // 1: Đen, 2: Trắng
-        let currentMode = 'pve'; 
-        let userLevel = 1;
-        let isGameActive = false;
-        let myRole = 1; 
-        let currentRoom = null;
-        let validMoves = [];
-        let gameStartTime;
-        let passCount = 0;
-        let matchTimer = null;
-        let secondsLeft = 600;
+        let board = [], turn = 1, myRole = 1, userLevel = 1, currentMode = 'pve';
+        let isGameActive = false, validMoves = [], gameStartTime, matchTimer = null, secondsLeft = 600, passCount = 0;
 
-        // --- KHỞI TẠO ---
+        // --- 1. KHỞI TẠO ---
         async function init() {
             try {
                 const res = await fetch('/api/user/progress');
@@ -158,14 +129,7 @@
                 document.getElementById('lvl-display').textContent = userLevel;
                 renderAiLevels();
             } catch(e) {}
-            
-            resetBoard(); // Vẽ bàn cờ tĩnh lúc đầu
-
-            const tourRoom = localStorage.getItem('joinTournamentRoom');
-            if (tourRoom) {
-                socket.emit('joinOthelloRoom', tourRoom);
-                localStorage.removeItem('joinTournamentRoom');
-            }
+            resetBoardUI();
         }
 
         function renderAiLevels() {
@@ -173,8 +137,8 @@
             for(let i=1; i<=100; i++) {
                 let opt = document.createElement('option');
                 opt.value = i;
-                if(i <= userLevel) opt.textContent = `Cấp ${i}`;
-                else { opt.textContent = `🔒 Cấp ${i}`; opt.disabled = true; }
+                opt.textContent = `Cấp ${i} ${i > userLevel ? '🔒' : ''}`;
+                if(i > userLevel) opt.disabled = true;
                 aiLevelSelect.appendChild(opt);
             }
             aiLevelSelect.value = userLevel;
@@ -186,105 +150,53 @@
             document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
             document.querySelector(`.tab-${mode}`).classList.add('active');
             document.getElementById(`${mode}-panel`).classList.add('active');
-            resetToMenu(); // Reset trạng thái UI
-        }
-
-        function resetToMenu() {
             isGameActive = false;
             document.getElementById('control-area').style.display = 'none';
-            document.getElementById('menu-area').style.display = (currentMode === 'pve') ? 'block' : 'none'; // Fix hiển thị
-            resetBoard(); // Reset bàn cờ về trạng thái chuẩn
-            statusEl.textContent = "Chọn chế độ để bắt đầu";
+            resetBoardUI();
         }
 
-        // --- GAME CORE ---
-        function resetBoard() {
+        // --- 2. GAME LOGIC ---
+        function resetBoardUI() {
             board = Array(8).fill(0).map(() => Array(8).fill(0));
-            // Setup ban đầu: Trắng (2) ở [3,3], [4,4]; Đen (1) ở [3,4], [4,3]
-            board[3][3] = 2; board[4][4] = 2;
-            board[3][4] = 1; board[4][3] = 1;
-            
+            board[3][3] = 2; board[4][4] = 2; board[3][4] = 1; board[4][3] = 1;
+            turn = 1;
             renderBoard();
             updateScores();
         }
 
-        function startAiGame() {
-            currentMode = 'pve';
-            startGameCommon();
-            myRole = 1; // Người chơi là Đen
-            statusEl.textContent = "Lượt của BẠN (⚫)";
-        }
-
-        function startLocalGame() {
-            currentMode = 'local';
-            startGameCommon();
-            statusEl.textContent = "Lượt của: Đen (⚫)";
-        }
-
-        function startGameCommon() {
-            resetBoard();
-            turn = 1;
-            passCount = 0;
-            isGameActive = true;
-            gameStartTime = Date.now();
-            validMoves = getValidMoves(turn);
-            
-            // Ẩn menu, hiện nút điều khiển
-            document.querySelectorAll('.mode-content').forEach(el => el.style.display = 'none');
-            document.getElementById('control-area').style.display = 'block';
-            renderBoard();
-        }
-
         function renderBoard() {
             boardEl.innerHTML = '';
+            validMoves = getValidMoves(turn);
             for(let r=0; r<8; r++) {
                 for(let c=0; c<8; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    
-                    // Gợi ý nước đi (Dấu chấm)
-                    // PVE: Chỉ hiện khi lượt người (Đen - 1)
-                    // PVP: Chỉ hiện khi lượt mình
-                    // LOCAL: Luôn hiện
-                    let showHint = false;
-                    if (currentMode === 'local') showHint = true;
-                    else if (currentMode === 'pve' && turn === 1) showHint = true;
-                    else if (currentMode === 'pvp' && turn === myRole) showHint = true;
-
-                    if (showHint && validMoves.some(m => m.r === r && m.c === c)) {
+                    if (isGameActive && isMyTurn() && validMoves.some(m => m.r === r && m.c === c)) {
                         cell.classList.add('valid-move');
                     }
-                    
                     if(board[r][c] !== 0) {
                         const piece = document.createElement('div');
                         piece.className = `piece ${board[r][c] === 1 ? 'black' : 'white'}`;
                         cell.appendChild(piece);
                     }
-                    
                     cell.onclick = () => handleCellClick(r, c);
                     boardEl.appendChild(cell);
                 }
             }
         }
 
-        // --- XỬ LÝ CLICK (QUAN TRỌNG) ---
+        function isMyTurn() {
+            if (currentMode === 'local') return true;
+            if (currentMode === 'pve') return turn === 1;
+            return turn === myRole;
+        }
+
         function handleCellClick(r, c) {
-            if (!isGameActive) return;
-
-            // 1. Chặn lượt
-            if (currentMode === 'pve' && turn === 2) return; // Máy đang nghĩ
-            if (currentMode === 'pvp' && turn !== myRole) return; // Chưa đến lượt
-            // Local: Không chặn
-
-            // 2. Kiểm tra nước đi hợp lệ
+            if (!isGameActive || !isMyTurn()) return;
             if (!validMoves.some(m => m.r === r && m.c === c)) return;
 
             executeMove(r, c);
-
-            // Gửi nước đi nếu online
-            if (currentMode === 'pvp') {
-                socket.emit('move', { room: currentRoom, move: {r, c, color: myRole} }); // Gửi myRole để server biết ai đánh
-            }
+            if (currentMode === 'pvp') socket.emit('move', { room: currentRoom, move: {r, c} });
         }
 
         function executeMove(r, c) {
@@ -292,282 +204,148 @@
             board[r][c] = turn;
             flipList.forEach(p => board[p.r][p.c] = turn);
 
-            // Đổi lượt
             turn = turn === 1 ? 2 : 1;
             passCount = 0;
-            
-            // Tính lại nước đi cho người tiếp theo
-            validMoves = getValidMoves(turn);
             renderBoard();
             updateScores();
-
-            // Cập nhật trạng thái Text
             updateStatusText();
 
-            // Nếu là PVE và đến lượt Máy -> Máy đi
-            if (currentMode === 'pve' && turn === 2 && isGameActive) {
-                setTimeout(makeAiMove, 600);
-            }
-
-            // Kiểm tra tắc cờ (No valid moves)
-            if (validMoves.length === 0 && isGameActive) {
-                // Nếu cả 2 đều tắc -> Hết game
-                if (passCount >= 1) { // Lần trước đã pass rồi
-                    endGameCalculated();
-                } else {
-                    alert(`${turn === 1 ? 'Đen' : 'Trắng'} không còn nước đi. Phải bỏ lượt!`);
-                    passTurn();
+            // Xử lý AI hoặc Tắc cờ
+            if (isGameActive) {
+                if (validMoves.length === 0) {
+                    setTimeout(checkDoublePass, 500);
+                } else if (currentMode === 'pve' && turn === 2) {
+                    setTimeout(makeAiMove, 600);
                 }
             }
+        }
+
+        function checkDoublePass() {
+            const nextMoves = getValidMoves(turn);
+            if (nextMoves.length === 0) {
+                endGameCalculated();
+            } else {
+                statusEl.textContent = "Hết nước đi, tự động bỏ lượt!";
+                turn = turn === 1 ? 2 : 1;
+                if (currentMode === 'pvp') socket.emit('move', { room: currentRoom, move: 'pass' });
+                renderBoard();
+                updateStatusText();
+            }
+        }
+
+        function handlePassManual() {
+            if (validMoves.length > 0) return alert("Bé vẫn còn nước đi mà!");
+            checkDoublePass();
         }
 
         function updateStatusText() {
-            if (currentMode === 'local') {
-                statusEl.textContent = `Đến lượt: ${turn === 1 ? 'Đen (⚫)' : 'Trắng (⚪)'}`;
-            } else if (currentMode === 'pve') {
-                statusEl.textContent = (turn === 1) ? "Lượt của BẠN (⚫)" : "🤖 Máy đang nghĩ...";
-            } else {
-                statusEl.textContent = (turn === myRole) ? "Lượt của BẠN!" : "Đợi đối thủ...";
-            }
+            const turnName = turn === 1 ? 'Đen (⚫)' : 'Trắng (⚪)';
+            if (currentMode === 'local') statusEl.textContent = `Đến lượt: ${turnName}`;
+            else if (currentMode === 'pve') statusEl.textContent = (turn === 1) ? "Lượt của BẠN (⚫)" : "🤖 Máy đang nghĩ...";
+            else statusEl.textContent = (turn === myRole) ? "Lượt của BẠN!" : "Đợi đối thủ...";
         }
 
-        function passTurn() {
-            if (!isGameActive) return;
-            passCount++;
-            
-            // Đổi lượt
-            turn = turn === 1 ? 2 : 1;
-            validMoves = getValidMoves(turn);
-            updateStatusText();
-
-            if (passCount >= 2) {
-                endGameCalculated();
-            } else {
-                // Nếu PVE và vừa pass sang máy -> Máy đi
-                if (currentMode === 'pve' && turn === 2) setTimeout(makeAiMove, 600);
-            }
-        }
-
-        // --- AI LOGIC (MINIMAX ĐƠN GIẢN) ---
+        // --- 3. AI ---
         function makeAiMove() {
-            if (!isGameActive) return;
-            const level = parseInt(aiLevelSelect.value);
-            
-            // Nếu máy cũng không đi được
-            if (validMoves.length === 0) {
-                passTurn();
-                return;
-            }
-
-            // Chọn nước đi tốt nhất dựa trên bảng điểm (Heuristic)
-            // Bảng điểm ưu tiên góc (100đ), tránh ô sát góc (-20đ)
+            if (validMoves.length === 0) return checkDoublePass();
             const weights = [
-                [100, -20, 10, 5, 5, 10, -20, 100],
-                [-20, -50, -2, -2, -2, -2, -50, -20],
-                [10, -2, -1, -1, -1, -1, -2, 10],
-                [5, -2, -1, -1, -1, -1, -2, 5],
-                [5, -2, -1, -1, -1, -1, -2, 5],
-                [10, -2, -1, -1, -1, -1, -2, 10],
-                [-20, -50, -2, -2, -2, -2, -50, -20],
-                [100, -20, 10, 5, 5, 10, -20, 100]
+                [100,-20,10,5,5,10,-20,100], [-20,-50,-2,-2,-2,-2,-50,-20],
+                [10,-2,-1,-1,-1,-1,-2,10], [5,-2,-1,-1,-1,-1,-2,5],
+                [5,-2,-1,-1,-1,-1,-2,5], [10,-2,-1,-1,-1,-1,-2,10],
+                [-20,-50,-2,-2,-2,-2,-50,-20], [100,-20,10,5,5,10,-20,100]
             ];
-
-            let bestMove = validMoves[0];
-            let maxScore = -Infinity;
-
+            let bestMove = validMoves[0], maxScore = -Infinity;
             validMoves.forEach(m => {
-                let score = weights[m.r][m.c];
-                // Cấp thấp: Thêm yếu tố ngẫu nhiên để dễ thắng
-                if (level < 20) score += Math.random() * 50;
-                
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestMove = m;
-                }
+                let score = weights[m.r][m.c] + (Math.random() * 10);
+                if (score > maxScore) { maxScore = score; bestMove = m; }
             });
-
             executeMove(bestMove.r, bestMove.c);
         }
 
-        // --- LOGIC OTHELLO CHUẨN ---
-        function getValidMoves(player) {
-            let moves = [];
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    if (getPiecesToFlip(r, c, player).length > 0) {
-                        moves.push({r, c});
-                    }
-                }
-            }
-            return moves;
-        }
-
-        function getPiecesToFlip(r, c, player) {
+        // --- 4. CORE LOGIC ---
+        function getPiecesToFlip(r, c, color) {
             if (board[r][c] !== 0) return [];
-            const opponent = player === 1 ? 2 : 1;
-            const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+            const opponent = color === 1 ? 2 : 1;
             let toFlip = [];
-
+            const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
             for (let [dr, dc] of dirs) {
-                let rCurr = r + dr, cCurr = c + dc;
-                let potential = [];
-                
-                while (rCurr >= 0 && rCurr < 8 && cCurr >= 0 && cCurr < 8 && board[rCurr][cCurr] === opponent) {
-                    potential.push({r: rCurr, c: cCurr});
-                    rCurr += dr;
-                    cCurr += dc;
+                let temp = [], nr = r + dr, nc = c + dc;
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === opponent) {
+                    temp.push({r: nr, c: nc});
+                    nr += dr; nc += dc;
                 }
-
-                if (rCurr >= 0 && rCurr < 8 && cCurr >= 0 && cCurr < 8 && board[rCurr][cCurr] === player && potential.length > 0) {
-                    toFlip = toFlip.concat(potential);
+                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === color && temp.length > 0) {
+                    toFlip = toFlip.concat(temp);
                 }
             }
             return toFlip;
         }
 
-        function updateScores() {
-            let b = 0, w = 0;
-            board.forEach(row => row.forEach(cell => {
-                if (cell === 1) b++;
-                else if (cell === 2) w++;
-            }));
-            document.getElementById('score-b').textContent = b;
-            document.getElementById('score-w').textContent = w;
-            
-            document.getElementById('p1-score').className = turn === 1 ? 'active-turn' : '';
-            document.getElementById('p2-score').className = turn === 2 ? 'active-turn' : '';
+        function getValidMoves(color) {
+            let moves = [];
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    if (board[r][c] === 0 && getPiecesToFlip(r, c, color).length > 0) moves.push({r, c});
+                }
+            }
+            return moves;
         }
 
-        // --- KẾT THÚC GAME ---
+        function updateScores() {
+            let b=0, w=0;
+            board.forEach(row => row.forEach(c => { if(c===1) b++; if(c===2) w++; }));
+            document.getElementById('score-b').textContent = b;
+            document.getElementById('score-w').textContent = w;
+            document.getElementById('p1-score').classList.toggle('active-turn', turn === 1);
+            document.getElementById('p2-score').classList.toggle('active-turn', turn === 2);
+        }
+
+        // --- 5. KẾT THÚC & API ---
         async function endGameCalculated() {
             isGameActive = false;
             const b = parseInt(document.getElementById('score-b').textContent);
             const w = parseInt(document.getElementById('score-w').textContent);
             
-            let winner = "Hòa";
-            if (b > w) winner = "Đen";
-            if (w > b) winner = "Trắng";
+            let winner = b > w ? "Đen" : (w > b ? "Trắng" : "Hòa");
+            alert(`KẾT THÚC! ${winner === 'Hòa' ? 'Hòa cờ!' : winner + ' thắng!'}`);
 
-            // Hiển thị Modal
-            const modal = document.getElementById('result-modal');
-            const title = document.getElementById('modal-title');
-            const msg = document.getElementById('modal-msg');
-            const btnNext = document.getElementById('btn-next-lvl');
-            
-            document.getElementById('final-b').textContent = b;
-            document.getElementById('final-w').textContent = w;
-
-            let isWin = false;
-            if (currentMode === 'local') {
-                title.textContent = `🏆 ${winner} THẮNG!`;
-                msg.textContent = "Ván đấu kết thúc.";
-                btnNext.style.display = 'none';
+            if (currentMode === 'pve' && b > w) {
                 confetti();
-            } else if (currentMode === 'pve') {
-                // PVE: Mình là Đen (1)
-                if (winner === "Đen") {
-                    isWin = true;
-                    title.textContent = "🏆 BÉ THẮNG RỒI!";
-                    title.style.color = "#27ae60";
-                    msg.textContent = `Bé đã đánh bại máy Cấp ${userLevel}!`;
-                    confetti();
-                    // Lưu điểm
-                    try {
-                         await fetch('/api/game/othello-win', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ level: userLevel })
-                        });
-                        userLevel++;
-                        renderAiLevels();
-                    } catch(e){}
-                    btnNext.style.display = 'block';
-                } else {
-                    title.textContent = "😢 MÁY THẮNG";
-                    title.style.color = "#e74c3c";
-                    msg.textContent = "Cố gắng lần sau nhé!";
-                    btnNext.style.display = 'none';
-                }
-            } else {
-                // PVP
-                if ((myRole === 1 && winner === "Đen") || (myRole === 2 && winner === "Trắng")) {
-                    title.textContent = "🏆 BẠN THẮNG!";
-                    confetti();
-                } else {
-                    title.textContent = "😢 BẠN THUA";
-                }
-                msg.textContent = "Trận đấu kết thúc.";
-                btnNext.style.display = 'none';
+                await fetch('/api/game/othello-win', { 
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify({ level: userLevel }) 
+                });
             }
-            modal.style.display = 'flex';
+            location.reload();
         }
 
-        // --- ONLINE SOCKET ---
-        window.createRoom = () => { socket.emit('createOthelloRoom'); statusEl.textContent = "Đang tạo..."; };
-        window.joinRoom = () => { 
-            const code = document.getElementById('room-input').value.toUpperCase();
-            if(code) socket.emit('joinOthelloRoom', code);
-            else alert("Nhập mã phòng!");
-        };
-        window.findRandomMatch = () => { socket.emit('findMatch', 'othello'); statusEl.textContent = "Đang tìm đối thủ..."; };
+        // --- 6. ONLINE ---
+        function startAiGame() { currentMode = 'pve'; startGame(); }
+        function startLocalGame() { currentMode = 'local'; startGame(); }
+        function startGame() {
+            isGameActive = true;
+            document.getElementById('control-area').style.display = 'block';
+            resetBoardUI();
+            updateStatusText();
+            gameStartTime = Date.now();
+        }
 
-        socket.on('othelloRoomCreated', (id) => {
-            currentRoom = id;
-            document.getElementById('room-input').value = id;
-            statusEl.textContent = `Mã phòng: ${id}. Đợi người vào...`;
-        });
+        function createRoom() { socket.emit('createOthelloRoom'); }
+        function joinRoom() { socket.emit('joinOthelloRoom', document.getElementById('room-input').value.toUpperCase()); }
+        function findRandomMatch() { socket.emit('findMatch', 'othello'); }
 
         socket.on('matchFound', (data) => {
-            currentMode = 'pvp';
-            switchMode('pvp');
-            currentRoom = data.room;
-            
-            // Server: 'b' hoặc 'O' là Đen (1), 'w' hoặc 'X' là Trắng (2)
-            if (data.role === 'b' || data.role === 'O') myRole = 1; else myRole = 2;
-            
-            startGameCommon();
+            currentMode = 'pvp'; currentRoom = data.room;
+            myRole = (data.role === 'b' || data.role === 'O') ? 1 : 2;
+            startGame();
             statusEl.textContent = myRole === 1 ? "Bạn cầm Đen (Đi trước)" : "Bạn cầm Trắng (Đi sau)";
-            
-            // Timer
-            if(data.matchDuration) startTournamentTimer(data.matchDuration);
         });
 
         socket.on('move', (data) => {
-            // Đối thủ đã đi -> Cập nhật bàn cờ mình
-            executeMove(data.r, data.c);
+            if (data === 'pass') turn = turn === 1 ? 2 : 1, renderBoard(), updateStatusText();
+            else executeMove(data.r, data.c);
         });
-        
-        socket.on('opponentLeft', () => { alert("Đối thủ thoát!"); location.reload(); });
-        socket.on('gameOver', () => location.href = 'giai-dau.html');
-
-        // Helper Modal
-        function closeResultModal() { document.getElementById('result-modal').style.display = 'none'; }
-        function goToNextLevel() { closeResultModal(); startAiGame(); }
-        function replayLevel() { 
-            closeResultModal(); 
-            if(currentMode==='local') startLocalGame();
-            else startAiGame();
-        }
-
-        // Timer (Dùng chung từ file cũ)
-        function startTournamentTimer(mins) {
-            clearInterval(matchTimer);
-            secondsLeft = mins * 60;
-            if(document.getElementById('tourney-timer')) document.getElementById('tourney-timer').style.display = 'block';
-            matchTimer = setInterval(() => {
-                const isMyTurn = (currentMode === 'pvp' && turn === myRole);
-                if (isMyTurn && isGameActive) {
-                    secondsLeft--;
-                    const m = Math.floor(secondsLeft / 60);
-                    const s = secondsLeft % 60;
-                    document.getElementById('time-left').textContent = `${m}:${s<10?'0'+s:s}`;
-                    if(secondsLeft<=0) {
-                        clearInterval(matchTimer);
-                        socket.emit('timeoutLoss', { room: currentRoom, loserUsername: 'me', gameType: 'Othello' });
-                    }
-                }
-            }, 1000);
-        }
 
         init();
     </script>
