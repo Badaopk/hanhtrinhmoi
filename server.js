@@ -135,60 +135,96 @@ const SEASONAL_SOUVENIRS = [
     { id: 'sov_bd_confetti', name: 'Máy Bắn Pháo Giấy', price: 500, type: 'd', category: 'souvenir', event: 'Birthday', icon: '🎉' }
 ];
 const HOME_FURNITURE = [
+    // --- 1. NỘI THẤT CƠ BẢN (furniture) ---
     { id: 'bed_lux', name: 'Giường Hoàng Gia', price: 500, type: 'f', category: 'furniture', icon: '🛌' },
+    { id: 'bed_bunk', name: 'Giường Tầng', price: 600, type: 'f', category: 'furniture', icon: '🛏️' },
     { id: 'sofa_pro', name: 'Sofa Cao Cấp', price: 400, type: 'f', category: 'furniture', icon: '🛋️' },
     { id: 'wardrobe_big', name: 'Tủ Quần Áo', price: 450, type: 'f', category: 'furniture', icon: '👗' },
-    { id: 'kit_fridge', name: 'Tủ Lạnh', price: 450, type: 'f', category: 'furniture', icon: '🧊' },
-    { id: 'bath_tub', name: 'Bồn Tắm', price: 550, type: 'f', category: 'furniture', icon: '🛁' },
-    { id: 'tv_8k', name: 'Tivi 8K', price: 600, type: 'e', category: 'furniture', icon: '📺' },
-    { id: 'pc_super', name: 'Siêu Máy Tính', price: 700, type: 'e', category: 'furniture', icon: '🖥️' },
-    { id: 'kit_fridge', name: 'Tủ Lạnh 2 Cánh', price: 450, type: 'f', icon: '🧊' },
-    { id: 'kit_stove', name: 'Bếp Nấu Ăn', price: 300, type: 'f', icon: '🍳' },
-    { id: 'kit_pot', name: 'Nồi Súp Ngon', price: 50, type: 'f', icon: '🍲' },
-    { id: 'bath_tub', name: 'Bồn Tắm Sục', price: 550, type: 'f', icon: '🛁' },
-    { id: 'bath_toilet', name: 'Bồn Cầu Vàng', price: 250, type: 'f', icon: '🚽' },
-    { id: 'bath_duck', name: 'Vịt Tắm', price: 20, type: 'f', icon: '🦆' },
+    { id: 'bookshelf', name: 'Kệ Sách Lớn', price: 350, type: 'f', category: 'furniture', icon: '📚' },
+    { id: 'desk_study', name: 'Bàn Học Tập', price: 300, type: 'f', category: 'furniture', icon: '📝' },
+    { id: 'table_wood', name: 'Bàn Ăn Bằng Gỗ', price: 250, type: 'f', category: 'furniture', icon: '🪑' },
+    { id: 'chair_wood', name: 'Ghế Tựa Gỗ', price: 100, type: 'f', category: 'furniture', icon: '🪑' },
+    
+    // --- 2. NHÀ TẮM & NHÀ BẾP (furniture) ---
+    { id: 'kit_fridge_1', name: 'Tủ Lạnh', price: 450, type: 'f', category: 'furniture', icon: '🧊' },
+    { id: 'kit_fridge_2', name: 'Tủ Lạnh 2 Cánh', price: 650, type: 'f', category: 'furniture', icon: '🧊' },
+    { id: 'kit_stove', name: 'Bếp Nấu Ăn', price: 300, type: 'f', category: 'furniture', icon: '🍳' },
+    { id: 'kit_pot', name: 'Nồi Súp Ngon', price: 50, type: 'f', category: 'furniture', icon: '🍲' },
+    { id: 'bath_tub_1', name: 'Bồn Tắm', price: 550, type: 'f', category: 'furniture', icon: '🛁' },
+    { id: 'bath_tub_2', name: 'Bồn Tắm Sục', price: 750, type: 'f', category: 'furniture', icon: '🛁' },
+    { id: 'bath_toilet', name: 'Bồn Cầu Vàng', price: 250, type: 'f', category: 'furniture', icon: '🚽' },
+    { id: 'bath_duck', name: 'Vịt Tắm', price: 20, type: 'f', category: 'furniture', icon: '🦆' },
 
-    // --- 3. ĐIỆN TỬ & CÔNG NGHỆ (e) ---
-    { id: 'tv_8k', name: 'Tivi 8K Siêu Mỏng', price: 600, type: 'e', icon: '📺' },
-    { id: 'pc_super', name: 'Siêu Máy Tính', price: 700, type: 'e', icon: '🖥️' },
-    { id: 'laptop_pro', name: 'Laptop Mỏng Nhẹ', price: 500, type: 'e', icon: '💻' },
-    { id: 'speaker_hiend', name: 'Loa Âm Thanh Vòm', price: 300, type: 'e', icon: '🔊' },
-    { id: 'robot_clean', name: 'Robot Hút Bụi', price: 200, type: 'e', icon: '🤖' },
-    { id: 'camera_sec', name: 'Camera An Ninh', price: 150, type: 'e', icon: '📹' },
-    { id: 'lamp_modern', name: 'Đèn Ngủ Cảm Ứng', price: 150, type: 'e', icon: '🏮' },
+    // --- 3. ĐIỆN TỬ & CÔNG NGHỆ (electronics) ---
+    { id: 'tv_8k_1', name: 'Tivi 8K', price: 600, type: 'e', category: 'electronics', icon: '📺' },
+    { id: 'tv_8k_slim', name: 'Tivi 8K Siêu Mỏng', price: 800, type: 'e', category: 'electronics', icon: '📺' },
+    { id: 'pc_super_1', name: 'Siêu Máy Tính', price: 700, type: 'e', category: 'electronics', icon: '🖥️' },
+    { id: 'pc_super_2', name: 'PC Gaming Pro', price: 900, type: 'e', category: 'electronics', icon: '🖥️' },
+    { id: 'laptop_pro', name: 'Laptop Mỏng Nhẹ', price: 500, type: 'e', category: 'electronics', icon: '💻' },
+    { id: 'speaker_hiend', name: 'Loa Âm Thanh Vòm', price: 300, type: 'e', category: 'electronics', icon: '🔊' },
+    { id: 'robot_clean', name: 'Robot Hút Bụi', price: 200, type: 'e', category: 'electronics', icon: '🤖' },
+    { id: 'camera_sec', name: 'Camera An Ninh', price: 150, type: 'e', category: 'electronics', icon: '📹' },
+    { id: 'lamp_modern', name: 'Đèn Ngủ Cảm Ứng', price: 150, type: 'e', category: 'electronics', icon: '🏮' },
+    { id: 'ac_unit', name: 'Điều Hòa Nhiệt Độ', price: 400, type: 'e', category: 'electronics', icon: '❄️' },
+    { id: 'game_console', name: 'Máy Chơi Game PS5', price: 800, type: 'e', category: 'electronics', icon: '🎮' },
+    { id: 'microwave', name: 'Lò Vi Sóng', price: 250, type: 'e', category: 'electronics', icon: '🍱' },
 
-    // --- 4. TRANG TRÍ & SÂN VƯỜN (d) ---
-    { id: 'piano_grand', name: 'Đàn Piano Cơ', price: 1000, type: 'd', icon: '🎹' },
-    { id: 'aquarium_pro', name: 'Bể Cá Thủy Sinh', price: 550, type: 'd', icon: '🐠' },
-    { id: 'bonsai_tree', name: 'Cây Cảnh Nghệ Thuật', price: 180, type: 'd', icon: '🪴' },
-    { id: 'xmas_tree', name: 'Cây Thông Noel', price: 300, type: 'd', icon: '🎄' },
-    { id: 'fountain', name: 'Đài Phun Nước', price: 800, type: 'd', icon: '⛲' },
-    { id: 'flower_sun', name: 'Hoa Hướng Dương', price: 50, type: 'd', icon: '🌻' },
-    { id: 'statue_moai', name: 'Tượng Moai', price: 400, type: 'd', icon: '🗿' },
-    { id: 'bear_huge', name: 'Gấu Bông Khổng Lồ', price: 120, type: 'd', icon: '🧸' },
-    { id: 'telescope_v2', name: 'Kính Thiên Văn', price: 400, type: 'd', icon: '🔭' },
-    { id: 'painting_art', name: 'Tranh Triển Lãm', price: 300, type: 'd', icon: '🖼️' },
-    { id: 'clock_gold', name: 'Đồng Hồ Quả Lắc', price: 220, type: 'd', icon: '⏰' },
-    { id: 'safe_box', name: 'Két Sắt', price: 600, type: 'd', icon: '🔐' },
-    { id: 'trophy_gold', name: 'Cúp Vô Địch', price: 900, type: 'd', icon: '🏆' },
+    // --- 4. TRANG TRÍ & SÂN VƯỜN (decor) ---
+    { id: 'piano_grand', name: 'Đàn Piano Cơ', price: 1000, type: 'd', category: 'decor', icon: '🎹' },
+    { id: 'guitar_elec', name: 'Đàn Guitar Điện', price: 450, type: 'd', category: 'decor', icon: '🎸' },
+    { id: 'drum_set', name: 'Dàn Trống Xịn', price: 600, type: 'd', category: 'decor', icon: '🥁' },
+    { id: 'aquarium_pro', name: 'Bể Cá Thủy Sinh', price: 550, type: 'd', category: 'decor', icon: '🐠' },
+    { id: 'bonsai_tree', name: 'Cây Cảnh Nghệ Thuật', price: 180, type: 'd', category: 'decor', icon: '🪴' },
+    { id: 'plant_cactus', name: 'Chậu Xương Rồng', price: 80, type: 'd', category: 'decor', icon: '🌵' },
+    { id: 'xmas_tree', name: 'Cây Thông Noel', price: 300, type: 'd', category: 'decor', icon: '🎄' },
+    { id: 'fountain', name: 'Đài Phun Nước', price: 800, type: 'd', category: 'decor', icon: '⛲' },
+    { id: 'flower_sun', name: 'Hoa Hướng Dương', price: 50, type: 'd', category: 'decor', icon: '🌻' },
+    { id: 'statue_moai', name: 'Tượng Moai', price: 400, type: 'd', category: 'decor', icon: '🗿' },
+    { id: 'bear_huge', name: 'Gấu Bông Khổng Lồ', price: 120, type: 'd', category: 'decor', icon: '🧸' },
+    { id: 'telescope_v2', name: 'Kính Thiên Văn', price: 400, type: 'd', category: 'decor', icon: '🔭' },
+    { id: 'painting_art', name: 'Tranh Triển Lãm', price: 300, type: 'd', category: 'decor', icon: '🖼️' },
+    { id: 'clock_gold', name: 'Đồng Hồ Quả Lắc', price: 220, type: 'd', category: 'decor', icon: '⏰' },
+    { id: 'safe_box', name: 'Két Sắt', price: 600, type: 'd', category: 'decor', icon: '🔐' },
+    { id: 'magic_ball', name: 'Quả Cầu Pha Lê', price: 500, type: 'd', category: 'decor', icon: '🔮' },
+    { id: 'trophy_gold', name: 'Cúp Vô Địch', price: 900, type: 'd', category: 'decor', icon: '🏆' },
 
-    // --- 5. THÚ CƯNG (p) ---
-    { id: 'cat_tree_v2', name: 'Tháp Cho Mèo', price: 280, type: 'p', icon: '🐱' },
-    { id: 'dog_house', name: 'Nhà Cho Cún Con', price: 260, type: 'p', icon: '🐶' },
-    { id: 'hamster', name: 'Hamster', price: 100, type: 'p', icon: '🐹' },
-    { id: 'parrot', name: 'Vẹt Biết Nói', price: 350, type: 'p', icon: '🦜' },
-    { id: 'unicorn', name: 'Kỳ Lân (Hiếm)', price: 5000, type: 'p', icon: '🦄' },
-
+    // --- 5. THÚ CƯNG ĐI DẠO (pet) - TỰ ĐỘNG CHẠY NHẢY TRONG GAME ---
+    { id: 'pet_cat', name: 'Mèo Lười', price: 280, type: 'p', category: 'pet', icon: '🐱' },
+    { id: 'pet_dog', name: 'Cún Corgi', price: 260, type: 'p', category: 'pet', icon: '🐶' },
+    { id: 'pet_hamster', name: 'Hamster Chạy Bộ', price: 100, type: 'p', category: 'pet', icon: '🐹' },
+    { id: 'pet_parrot', name: 'Vẹt Nhại Tiếng', price: 350, type: 'p', category: 'pet', icon: '🦜' },
+    { id: 'pet_rabbit', name: 'Thỏ Trắng Nhảy', price: 300, type: 'p', category: 'pet', icon: '🐰' },
+    { id: 'pet_piglet', name: 'Heo Con Bụ Bẫm', price: 200, type: 'p', category: 'pet', icon: '🐷' },
+    { id: 'pet_monkey', name: 'Khỉ Quậy Phá', price: 400, type: 'p', category: 'pet', icon: '🐵' },
+    { id: 'pet_turtle', name: 'Rùa Biển Cụ', price: 250, type: 'p', category: 'pet', icon: '🐢' },
+    { id: 'pet_penguin', name: 'Chim Cánh Cụt', price: 450, type: 'p', category: 'pet', icon: '🐧' },
+    { id: 'pet_unicorn', name: 'Kỳ Lân (Cực Hiếm)', price: 5000, type: 'p', category: 'pet', icon: '🦄' },
+    { id: 'pet_dragon', name: 'Rồng Lửa (Huyền Thoại)', price: 9999, type: 'p', category: 'pet', icon: '🐉' },
 ];
 
 const MATERIALS = [
-    { id: 'wall_pink', name: 'Sơn Hồng', price: 50, category: 'paint', value: '#fd79a8', icon: '🎨' },
-    { id: 'wall_blue', name: 'Sơn Xanh', price: 50, category: 'paint', value: '#0984e3', icon: '🎨' },
-    { id: 'floor_wood', name: 'Sàn Gỗ', price: 100, category: 'floor', value: '#d35400', icon: '🪵' },
-    { id: 'floor_grass', name: 'Thảm Cỏ', price: 150, category: 'floor', value: '#2ecc71', icon: '🌿' }
-];
+    // --- KHỐI XÂY DỰNG: SƠN TƯỜNG (paint) ---
+    { id: 'wall_white', name: 'Tường Trắng Sứ', price: 50, category: 'paint', value: '#ffffff', icon: '🧱' },
+    { id: 'wall_black', name: 'Tường Đen Nhám', price: 60, category: 'paint', value: '#2c3e50', icon: '🧱' },
+    { id: 'wall_pink', name: 'Sơn Hồng Nhạt', price: 50, category: 'paint', value: '#fd79a8', icon: '🎨' },
+    { id: 'wall_blue', name: 'Sơn Xanh Nước Biển', price: 50, category: 'paint', value: '#0984e3', icon: '🎨' },
+    { id: 'wall_yellow', name: 'Sơn Vàng Chanh', price: 50, category: 'paint', value: '#f1c40f', icon: '🎨' },
+    { id: 'wall_green', name: 'Sơn Xanh Lá', price: 50, category: 'paint', value: '#2ecc71', icon: '🎨' },
+    { id: 'wall_purple', name: 'Sơn Tím Thủy Chung', price: 60, category: 'paint', value: '#9b59b6', icon: '🎨' },
+    { id: 'wall_red', name: 'Sơn Đỏ Gạch', price: 60, category: 'paint', value: '#e74c3c', icon: '🎨' },
+    { id: 'wall_orange', name: 'Sơn Cam Lửa', price: 50, category: 'paint', value: '#e67e22', icon: '🎨' },
+    { id: 'wall_glass', name: 'Gạch Thủy Tinh (Xanh Kính)', price: 100, category: 'paint', value: '#81ecec', icon: '🧊' },
 
+    // --- KHỐI XÂY DỰNG: SÀN NHÀ & ĐỊA HÌNH (floor) ---
+    { id: 'floor_wood', name: 'Sàn Gỗ Cổ Điển', price: 100, category: 'floor', value: '#d35400', icon: '🪵' },
+    { id: 'floor_grass', name: 'Thảm Cỏ (Đất)', price: 150, category: 'floor', value: '#27ae60', icon: '🌿' },
+    { id: 'floor_stone', name: 'Sàn Đá Cuội', price: 120, category: 'floor', value: '#7f8c8d', icon: '🪨' },
+    { id: 'floor_sand', name: 'Khối Cát Bãi Biển', price: 80, category: 'floor', value: '#f5b041', icon: '🏜️' },
+    { id: 'floor_water', name: 'Khối Nước Biển', price: 200, category: 'floor', value: '#3498db', icon: '🌊' },
+    { id: 'floor_lava', name: 'Khối Dung Nham', price: 300, category: 'floor', value: '#c0392b', icon: '🔥' },
+    { id: 'floor_tile', name: 'Gạch Men Lát Sàn', price: 150, category: 'floor', value: '#ecf0f1', icon: '⬜' },
+    { id: 'floor_obsidian', name: 'Khối Hắc Diện Thạch', price: 500, category: 'floor', value: '#2f3640', icon: '⬛' }
+];
 const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
 const notificationSchema = new mongoose.Schema({
     title: String,
@@ -1019,10 +1055,11 @@ app.post('/api/house/buy', async (req, res) => {
 // 3. Lưu vị trí đồ đạc
 app.post('/api/house/save', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const { items, inventory, colors } = req.body;    
+    const { items, inventory } = req.body;    
+    
     await User.updateOne(
         { username: req.session.user.username }, 
-        { $set: { houseData: items, inventory: inventory,colors: colors } } // Lưu cả 2 cùng lúc
+        { $set: { houseData: items, inventory: inventory } } 
     );
     res.json({ message: "Đã lưu ngôi nhà và kho đồ!" });
 });
