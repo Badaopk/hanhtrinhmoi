@@ -343,7 +343,7 @@
             const lvl = parseInt(document.getElementById('ai-level-select').value);
             
             // Ở level 100, errorChance = 0 (Máy không bao giờ đi lỗi)
-            const errorChance = Math.max(0, 50 - (lvl * 0.5)); 
+            const errorChance = Math.max(0, 40 - (lvl * 0.4)); 
             
             if (Math.random() * 100 < errorChance) {
                 const moves = getEmptyCells();
