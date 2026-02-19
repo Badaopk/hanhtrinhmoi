@@ -1952,6 +1952,7 @@ async function autoStartTourneyLogic() {
 
 // Cứ mỗi 1 phút (60000ms), hệ thống sẽ tự quét xem có giải nào đến hạn không
 setInterval(autoStartTourneyLogic, 60000);
-server.listen(PORT, () => {
-    console.log(`🚀 Server Database đang chạy tại: http://localhost:${PORT}`);
+// Thêm tham số '0.0.0.0' để lắng nghe trên mọi giao diện mạng
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Hành Tinh Mơ Ước đã sẵn sàng tại cổng: ${PORT}`);
 });
