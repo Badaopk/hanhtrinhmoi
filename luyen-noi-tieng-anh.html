@@ -1282,73 +1282,39 @@ const levels = [
             return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
         }
 
-// Bổ sung tham số confidence để nhận chỉ số độ tin cậy từ Google API
-function checkResult(spoken, confidence) {
-    const targetObj = levels.find(l => l.id === currentLevel);
-    if (!targetObj) return; 
-    const target = targetObj.text;
+        function checkResult(spoken) {
+            const targetObj = levels.find(l => l.id === currentLevel);
+            if (!targetObj) return; 
+            const target = targetObj.text;
 
-    // 1. Hàm làm sạch và tách chuỗi thành mảng các từ (Fix lỗi cú pháp cũ)
-    const normalizeToArray = (str) => {
-        return str.toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '') // Xóa ký tự đặc biệt
-            .replace(/\s+/g, ' ')        // Xóa khoảng trắng thừa
-            .trim()
-            .split(' ');                 // Chuyển thành mảng từ
-    };
+            const normalize = (str) => {
+                return str.toLowerCase()
+                    .replace(/[^a-z0-9\s]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
 
-    const spokenWords = normalizeToArray(spoken);
-    const targetWords = normalizeToArray(target);
+            const cleanSpoken = normalize(spoken);
+            const cleanTarget = normalize(target);
 
-    // 2. Thuật toán so sánh theo TỪ (Word Matching)
-    // Thay vì dùng similarity (Levenshtein), ta đếm số từ khớp hoàn toàn
-    let matchCount = 0;
-    let tempSpokenWords = [...spokenWords];
+            const accuracy = similarity(cleanSpoken, cleanTarget);
+            const percent = Math.round(accuracy * 100);
+            
+            const scoreDisplay = document.getElementById('score-display');
+            const resultContainer = document.getElementById('result-container');
 
-    targetWords.forEach(word => {
-        const foundIndex = tempSpokenWords.indexOf(word);
-        if (foundIndex !== -1) {
-            matchCount++;
-            tempSpokenWords.splice(foundIndex, 1); // Xóa từ đã khớp để không đếm trùng
+            if (percent >= 82) {
+                scoreDisplay.innerHTML = `🎉 CHÍNH XÁC! (${percent}%) 🎉`;
+                scoreDisplay.style.color = "#27ae60";
+                resultContainer.style.background = "#dff9fb";
+                saveWin(); 
+            } else {
+                scoreDisplay.innerHTML = `Chưa đạt (${percent}%). Cần 82% để qua màn! 😅`;
+                scoreDisplay.style.color = "#d63031";
+                resultContainer.style.background = "#ffeaa7";
+            }
         }
-    });
 
-    // Tính tỷ lệ phần trăm dựa trên số lượng từ đúng
-    let percent = Math.round((matchCount / targetWords.length) * 100);
-
-    // 3. Hình phạt nếu đọc thừa từ quá nhiều (Ví dụ: Đọc "I have a cat" khi đề chỉ yêu cầu "Cat")
-    const extraWords = spokenWords.length - matchCount;
-    if (extraWords > 0) {
-        percent = Math.max(0, percent - (extraWords * 1)); // Trừ 1% cho mỗi từ thừa
-    }
-
-    // 4. LOGIC CHỐNG GOOGLE "ĐOÁN BỪA" (Confidence Penalty)
-    // Nếu Google đoán (confidence thấp < 80%), ta trừ điểm nặng
-    if (confidence < 0.50 && percent > 0) {
-        let penalty = Math.round((0.80 - confidence) * 100 * 1.5); 
-        percent = Math.max(0, percent - penalty);
-        console.log(`Bị trừ ${penalty}% vì phát âm chưa rõ (Confidence: ${confidence.toFixed(2)})`);
-    }
-
-    const scoreDisplay = document.getElementById('score-display');
-    const resultContainer = document.getElementById('result-container');
-
-    // 5. Cập nhật giao diện (Nâng tiêu chuẩn đỗ lên 85% để khó hơn)
-    if (percent >= 75) { 
-        scoreDisplay.innerHTML = `🎉 RẤT TỐT! (${percent}%) 🎉`;
-        scoreDisplay.style.color = "#27ae60";
-        resultContainer.style.background = "#dff9fb";
-        saveWin(); // Gọi API lưu kết quả
-    } else if (percent >= 50) {
-        scoreDisplay.innerHTML = `Gần đúng rồi (${percent}%). Thử đọc to, rõ hơn nhé! 😅`;
-        scoreDisplay.style.color = "#e67e22";
-        resultContainer.style.background = "#ffeaa7";
-    } else {
-        scoreDisplay.innerHTML = `Chưa chính xác (${percent}%). Cố lên! 💪`;
-        scoreDisplay.style.color = "#d63031";
-        resultContainer.style.background = "#fab1a0";
-    }
-}
         async function saveWin() {
             if (currentLevel === unlockedLevel && unlockedLevel < 1000) unlockedLevel++;
             try {
@@ -1394,9 +1360,8 @@ function checkResult(spoken, confidence) {
             recognition.onresult = (event) => {
                 recordBtn.classList.remove('recording');
                 const spoken = event.results[0][0].transcript;
-                const confidence = event.results[0][0].confidence;
                 document.getElementById('result-text').textContent = `Bé đã nói: "${spoken}"`;
-                checkResult(spoken, confidence);
+                checkResult(spoken);
             };
 
             recognition.onerror = (event) => {
