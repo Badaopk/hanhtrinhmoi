@@ -1953,6 +1953,12 @@ async function autoStartTourneyLogic() {
 // Cứ mỗi 1 phút (60000ms), hệ thống sẽ tự quét xem có giải nào đến hạn không
 setInterval(autoStartTourneyLogic, 60000);
 // Thêm tham số '0.0.0.0' để lắng nghe trên mọi giao diện mạng
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Hành Tinh Mơ Ước đã sẵn sàng tại cổng: ${PORT}`);
+// Nếu có cổng do Render cấp thì dùng, không thì mặc định là 3000
+const PORT = process.env.PORT || 3000; 
+const HOST = '0.0.0.0'; 
+
+server.listen(PORT, HOST, () => {
+    console.log(`🚀 Server đang chạy!`);
+    console.log(`🏠 Local: http://localhost:3000`);
+    console.log(`🌐 Render: Cổng ${PORT}`);
 });
