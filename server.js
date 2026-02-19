@@ -818,10 +818,10 @@ function getDynamicScore(level, basePoints) {
     if (level <= 100) return basePoints * 3; 
     if (level <= 150) return basePoints * 4;
     if (level <= 200) return basePoints * 5;
-    if (level <= 250) return basePoints * 6;
-    if (level <= 300) return basePoints * 7;
-    if (level <= 350) return basePoints * 8;
-    if (level <= 400) return basePoints * 9;
+    if (level <= 300) return basePoints * 6;
+    if (level <= 400) return basePoints * 7;
+    if (level <= 500) return basePoints * 8; 
+    if (level <= 600) return basePoints * 9;
     return basePoints *10 ;                          // Cấp 81-100: Nhân ba
 }
 
