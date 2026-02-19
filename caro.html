@@ -20,7 +20,7 @@
         .cell { width: 30px; height: 30px; background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; cursor: pointer; color: #333; border: 1px solid #ddd; }
         .cell:active { background: #f1f2f6; }
         .cell.X { color: #3498db; } .cell.O { color: #e74c3c; }
-        .cell.last-move { background: #fff9c4; border: 2px solid #f1c40f; } /* Sửa lại highlight cho rõ */
+        .cell.last-move { background: #fff9c4; border: 2px solid #f1c40f; }
         .cell.win { background: #2ecc71 !important; color: white; animation: pulse 0.5s infinite; }
 
         /* Sidebar & Menu */
@@ -32,7 +32,7 @@
         .tab-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .tab-pve { background: #f1c40f; color: #333; }
         .tab-pvp { background: #3498db; color: white; }
-        .tab-local { background: #9b59b6; color: white; } /* Thêm style cho nút Local */
+        .tab-local { background: #9b59b6; color: white; }
 
         .mode-content { display: none; }
         .mode-content.active { display: block; }
@@ -115,6 +115,18 @@
         </div>
     </div>
 
+    <div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+        <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333;">
+            <h2 id="modal-title" style="margin: 0; color: #e74c3c; font-size: 2rem;">🏆 THẮNG RỒI!</h2>
+            <div id="modal-stars" style="font-size: 2rem; margin: 10px 0;">⭐⭐⭐⭐⭐</div>
+            <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã vượt qua Cấp độ 1!</p>
+            
+            <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
+            <button class="btn-game" style="background:#3498db" onclick="replayCurrentLevel()">CHƠI LẠI 🔄</button>
+            <button class="btn-game" style="background:#95a5a6" onclick="closeModal()">QUAY LẠI MENU</button>
+        </div>
+    </div>
+
     <script>
         const boardEl = document.getElementById('caro-board');
         const statusEl = document.getElementById('status');
@@ -177,8 +189,7 @@
             setTimeout(() => { location.href = 'giai-dau.html'; }, 2000); 
         });
 
-        // --- LOGIC GAME CHUNG ---
-
+        // --- LOGIC TIMER GIẢI ĐẤU ---
         function startTournamentTimer(mins) {
             clearInterval(matchTimer);
             secondsLeft = mins * 60;
@@ -205,6 +216,7 @@
             }, 1000);
         }
 
+        // --- KHỞI TẠO DỮ LIỆU ---
         async function init() {
             try {
                 const res = await fetch('/api/user/progress');
@@ -241,7 +253,6 @@
         // --- HÀM KHỞI TẠO BÀN CỜ CHUNG ---
         function startGameCommon(boardSize) {
             document.querySelectorAll('.mode-content').forEach(el => el.style.display = 'none');
-            // document.getElementById('control-area').style.display = 'block'; // Sẽ hiện sau khi render
             
             // Hiện/Ẩn nút Undo
             document.getElementById('undo-btn').style.display = (currentMode === 'pvp') ? 'none' : 'block';
@@ -310,7 +321,7 @@
                 makeMove(r, c, playerSym);
                 
                 socket.emit('caroMove', { room: roomName, r, c }); 
-                currentTurn = aiSym; // Đổi lượt sang đối thủ (logic cục bộ)
+                currentTurn = aiSym; // Đổi lượt sang đối thủ
                 statusEl.textContent = "Đợi đối thủ...";
                 statusEl.style.color = "#bdc3c7";
             }
@@ -332,12 +343,11 @@
             const cell = boardEl.children[idx];
             cell.textContent = sym;
             cell.className = `cell ${sym} last-move`;
-            history.push({r, c, sym}); // Lưu thêm sym để undo chính xác
+            history.push({r, c, sym}); 
             
             // Xóa highlight nước đi trước đó
             if(history.length > 1) {
                 const prev = history[history.length-2];
-                // Chỉ xóa class last-move, giữ nguyên class X/O
                 boardEl.children[prev.r*size + prev.c].classList.remove('last-move');
             }
 
@@ -345,17 +355,21 @@
             if(win) endGame(sym, win);
         }
 
-        // --- AI (Giữ nguyên logic của bạn) ---
+        // --- AI (THUẬT TOÁN THÔNG MINH ĐÃ NÂNG CẤP) ---
         function aiTurn() {
             if(gameOver) return;
             const lvl = parseInt(document.getElementById('ai-level-select').value);
-            const errorChance = Math.max(0, 40 - (lvl / 2.5)); 
+            
+            // Cấp càng cao, xác suất đi ngẫu nhiên (mắc lỗi) càng thấp
+            const errorChance = Math.max(0, 50 - (lvl * 0.5)); 
             
             if (Math.random() * 100 < errorChance) {
+                // Đánh ngẫu nhiên vào các ô trống xung quanh
                 const moves = getEmptyCells();
                 const m = moves[Math.floor(Math.random() * moves.length)];
                 makeMove(m.r, m.c, aiSym);
             } else {
+                // Đánh cờ thông minh
                 const best = findBestMove(lvl);
                 makeMove(best.r, best.c, aiSym);
             }
@@ -366,69 +380,109 @@
             }
         }
 
-        // ... (Giữ nguyên các hàm findBestMove, evalPos, getEmptyCells, hasNeighbor, checkWin cũ của bạn) ...
-        // ĐỂ CODE GỌN, TÔI KHÔNG COPY LẠI CÁC HÀM AI VÌ BẠN ĐÃ CÓ RỒI.
-        // HÃY ĐẢM BẢO BẠN GIỮ LẠI CHÚNG TRONG CODE CỦA BẠN.
-
-        // Bổ sung hàm AI vào đây (nếu bạn chưa có thì copy từ file cũ vào)
         function findBestMove(lvl) {
-            let maxScore = -Infinity; let move = null;
+            let maxScore = -Infinity; 
+            let move = null;
             const empties = getEmptyCells();
+            
             if(empties.length === size*size) return {r: Math.floor(size/2), c: Math.floor(size/2)};
+            
             for(const m of empties) {
-                const atk = evalPos(m.r, m.c, aiSym);
-                const def = evalPos(m.r, m.c, playerSym);
-                const defWeight = 0.8 + (lvl / 100); 
-                const score = atk + (def * defWeight);
-                if(score > maxScore) { maxScore = score; move = m; }
+                const atkScore = evaluatePosition(m.r, m.c, aiSym);
+                const defScore = evaluatePosition(m.r, m.c, playerSym);
+                
+                let defWeight = 1;
+                if (lvl > 50) defWeight = 1.1; 
+                
+                let totalScore = atkScore + (defScore * defWeight);
+
+                if (defScore >= 100000 && atkScore < 200000) {
+                    totalScore += 500000;
+                }
+
+                if(totalScore > maxScore) { 
+                    maxScore = totalScore; 
+                    move = m; 
+                }
             }
             return move || empties[0];
         }
-        function evalPos(r, c, sym) {
-            let score = 0; const dirs = [[0,1],[1,0],[1,1],[1,-1]];
-            for(const [dr, dc] of dirs) {
-                let count = 0, block = 0;
-                for(let k=1; k<5; k++) {
-                    const nr=r+dr*k, nc=c+dc*k;
-                    if(nr<0||nr>=size||nc<0||nc>=size) { block++; break; }
-                    if(board[nr][nc] === sym) count++;
-                    else if(board[nr][nc] !== null) { block++; break; }
-                    else break;
+
+        function evaluatePosition(r, c, sym) {
+            let totalScore = 0;
+            const directions = [[0,1], [1,0], [1,1], [1,-1]]; 
+
+            for (const [dr, dc] of directions) {
+                let consecutive = 1; 
+                let openEnds = 0;
+                
+                let k = 1;
+                while (r + dr*k >= 0 && r + dr*k < size && c + dc*k >= 0 && c + dc*k < size && board[r + dr*k][c + dc*k] === sym) {
+                    consecutive++;
+                    k++;
                 }
-                for(let k=1; k<5; k++) {
-                    const nr=r-dr*k, nc=c-dc*k;
-                    if(nr<0||nr>=size||nc<0||nc>=size) { block++; break; }
-                    if(board[nr][nc] === sym) count++;
-                    else if(board[nr][nc] !== null) { block++; break; }
-                    else break;
+                if (r + dr*k >= 0 && r + dr*k < size && c + dc*k >= 0 && c + dc*k < size && board[r + dr*k][c + dc*k] === null) {
+                    openEnds++;
                 }
-                if(count >= 4) score += 100000;
-                else if(count === 3 && block === 0) score += 10000;
-                else if(count === 2 && block === 0) score += 100;
-                else if(count === 1) score += 10;
+
+                k = 1;
+                while (r - dr*k >= 0 && r - dr*k < size && c - dc*k >= 0 && c - dc*k < size && board[r - dr*k][c - dc*k] === sym) {
+                    consecutive++;
+                    k++;
+                }
+                if (r - dr*k >= 0 && r - dr*k < size && c - dc*k >= 0 && c - dc*k < size && board[r - dr*k][c - dc*k] === null) {
+                    openEnds++;
+                }
+
+                if (consecutive >= 5) {
+                    totalScore += 200000; 
+                } else if (consecutive === 4) {
+                    if (openEnds === 2) totalScore += 150000; 
+                    else if (openEnds === 1) totalScore += 100000; 
+                } else if (consecutive === 3) {
+                    if (openEnds === 2) totalScore += 50000; 
+                    else if (openEnds === 1) totalScore += 1000; 
+                } else if (consecutive === 2) {
+                    if (openEnds === 2) totalScore += 500;
+                    else if (openEnds === 1) totalScore += 50;
+                } else {
+                    totalScore += 5; 
+                }
             }
-            return score;
+            return totalScore;
         }
+
         function getEmptyCells() {
             let cells = [];
-            for(let r=0; r<size; r++) for(let c=0; c<size; c++) if(!board[r][c] && hasNeighbor(r, c)) cells.push({r, c});
+            for(let r=0; r<size; r++) {
+                for(let c=0; c<size; c++) {
+                    if(!board[r][c] && hasNeighbor(r, c)) cells.push({r, c});
+                }
+            }
             return cells.length ? cells : [{r:Math.floor(size/2),c:Math.floor(size/2)}];
         }
+
         function hasNeighbor(r, c) {
-            for(let i=r-2; i<=r+2; i++) for(let j=c-2; j<=c+2; j++) if(i>=0 && i<size && j>=0 && j<size && board[i][j]) return true;
+            for(let i=Math.max(0, r-2); i<=Math.min(size-1, r+2); i++) {
+                for(let j=Math.max(0, c-2); j<=Math.min(size-1, c+2); j++) {
+                    if(board[i][j]) return true;
+                }
+            }
             return false;
         }
+
         function checkWin(r, c, sym) {
             const dirs = [[0,1],[1,0],[1,1],[1,-1]];
             for(const [dr, dc] of dirs) {
                 let count = 1, cells = [{r, c}];
                 for(let k=1; k<5; k++) { if(board[r+dr*k]?.[c+dc*k] === sym) { count++; cells.push({r:r+dr*k, c:c+dc*k}); } else break; }
                 for(let k=1; k<5; k++) { if(board[r-dr*k]?.[c-dc*k] === sym) { count++; cells.push({r:r-dr*k, c:c-dc*k}); } else break; }
-                if(count >= 5) return cells;
+                if(count >= 5) return cells; 
             }
             return null;
         }
 
+        // --- XỬ LÝ KẾT THÚC & UNDO ---
         async function endGame(winner, cells) {
             gameOver = true;
             boardEl.classList.add('game-over');
@@ -440,7 +494,6 @@
             const msg = document.getElementById('modal-msg');
             const btnNext = document.getElementById('btn-next-lvl');
             
-            // Xử lý thông báo thắng thua cho từng chế độ
             if (currentMode === 'local') {
                 title.textContent = `🏆 ${winner} THẮNG!`;
                 title.style.color = winner === 'X' ? "#3498db" : "#e74c3c";
@@ -454,7 +507,6 @@
                     title.style.color = "#2ecc71";
                     confetti();
                     const timeSpent = Math.floor((Date.now() - gameStartTime) / 1000);
-                    // API Call... (Giữ nguyên)
                     try {
                         const lvl = parseInt(document.getElementById('ai-level-select').value);
                         const res = await fetch('/api/game/caro-win', {
@@ -478,7 +530,6 @@
                     btnNext.style.display = "none";
                 }
             } else {
-                // Online
                 title.textContent = winner === playerSym ? "🏆 BẠN THẮNG!" : "😢 BẠN THUA!";
                 msg.textContent = "Trận đấu kết thúc.";
                 btnNext.style.display = "none";
@@ -487,33 +538,28 @@
             modal.style.display = 'flex';
         }
 
-        // --- HÀM XỬ LÝ UNDO (ĐI LẠI) ---
         function undoMove() {
             if (gameOver) return;
             
-            // 1. Chế độ PVE: Đi lại 2 nước (Của mình và của máy)
             if (currentMode === 'pve' && history.length >= 2) {
                 const m1 = history.pop();
                 const m2 = history.pop();
                 board[m1.r][m1.c] = null;
                 board[m2.r][m2.c] = null;
                 
-                // Xóa hiển thị trên bàn cờ
                 const cell1 = boardEl.children[m1.r*size + m1.c];
                 cell1.textContent = ''; cell1.className = 'cell';
                 
                 const cell2 = boardEl.children[m2.r*size + m2.c];
                 cell2.textContent = ''; cell2.className = 'cell';
                 
-                // Khôi phục highlight cho nước đi trước đó nữa (nếu có)
                 if (history.length > 0) {
                     const last = history[history.length-1];
                     const lastCell = boardEl.children[last.r*size + last.c];
                     lastCell.classList.add('last-move');
-                    lastCell.classList.add(last.sym); // Thêm lại class màu
+                    lastCell.classList.add(last.sym); 
                 }
             } 
-            // 2. Chế độ LOCAL: Đi lại 1 nước (Của người vừa đi)
             else if (currentMode === 'local' && history.length >= 1) {
                 const m = history.pop();
                 board[m.r][m.c] = null;
@@ -521,7 +567,6 @@
                 const cell = boardEl.children[m.r*size + m.c];
                 cell.textContent = ''; cell.className = 'cell';
                 
-                // Đổi lại lượt
                 currentTurn = (currentTurn === 'X') ? 'O' : 'X';
                 statusEl.textContent = `Lượt của: ${currentTurn}`;
 
@@ -534,20 +579,17 @@
             }
         }
 
-        // --- TAB SWITCHER ---
         window.switchMode = function(mode) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
             document.querySelector(`.tab-${mode}`).classList.add('active');
             document.getElementById(`${mode}-panel`).classList.add('active');
             
-            // Ẩn bàn cờ khi chuyển tab để người dùng nhấn Bắt đầu lại
             document.getElementById('play-area').style.display = 'none';
             document.getElementById('menu-area').style.display = 'block';
             document.getElementById('control-area').style.display = 'none';
         }
 
-        // --- BUTTON ACTIONS ---
         window.createRoom = () => { socket.emit('createCaroRoom'); statusEl.textContent = "Đang tạo..."; };
         window.joinRoom = () => { socket.emit('joinCaroRoom', document.getElementById('room-code').value.toUpperCase()); };
         window.findRandomMatch = () => { socket.emit('findMatch', 'caro'); statusEl.textContent = "Đang tìm..."; };
@@ -566,22 +608,10 @@
         }
         function closeModal() {
             document.getElementById('result-modal').style.display = 'none';
-            switchMode(currentMode); // Quay lại menu của chế độ đó
+            switchMode(currentMode); 
         }
 
         init();
     </script>
-
-    <div id="result-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
-        <div style="background: white; padding: 30px; border-radius: 30px; text-align: center; width: 100%; max-width: 320px; color: #333;">
-            <h2 id="modal-title" style="margin: 0; color: #e74c3c; font-size: 2rem;">🏆 THẮNG RỒI!</h2>
-            <div id="modal-stars" style="font-size: 2rem; margin: 10px 0;">⭐⭐⭐⭐⭐</div>
-            <p id="modal-msg" style="font-weight: bold; color: #555;">Bé đã vượt qua Cấp độ 1!</p>
-            
-            <button class="btn-game btn-new" id="btn-next-lvl" onclick="goToNextLevel()">MÀN TIẾP THEO ➡️</button>
-            <button class="btn-game" style="background:#3498db" onclick="replayCurrentLevel()">CHƠI LẠI 🔄</button>
-            <button class="btn-game" style="background:#95a5a6" onclick="closeModal()">QUAY LẠI MENU</button>
-        </div>
-    </div>
 </body>
 </html>
