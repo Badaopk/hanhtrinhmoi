@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Minecraft Mode 9.0 (Ultimate Edition)</title>
+    <title>Biệt Thự 3D - Minecraft Mode 9.0 (Fixed)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -232,7 +232,7 @@
 
     init3D(); setupControls(); initWeather(); startAutoWeather();
     loadDataFromServer(); setupMultiplayerSockets(); 
-    animate();
+    animate(); // BẮT ĐẦU VÒNG LẶP GAME
 
     // ==========================================
     // --- 1. KHỞI TẠO ĐỒ HỌA ---
@@ -498,12 +498,9 @@
         document.getElementById('btn-interact').addEventListener('touchstart', e => { e.preventDefault(); triggerInteraction(); });
     }
 
-    // TỐI ƯU CỰC MẠNH: Dùng Bounding Box được Cache sẵn thay vì tính lại mỗi frame
     function checkCollision(playerPos) {
         playerBox.setFromCenterAndSize(new THREE.Vector3(playerPos.x, playerPos.y - 40, playerPos.z), new THREE.Vector3(20, 80, 20));
-        let isOnGround = false; let maxGroundY = -2000; 
-        
-        let inWater = false;
+        let isOnGround = false; let maxGroundY = -2000; let inWater = false;
         if (playerPos.z > 600 && playerPos.z < 1000 && playerPos.y < 50) inWater = true; 
 
         for (let obj of objects) {
@@ -517,20 +514,14 @@
     }
 
     function checkLookingAt() {
-        if (!controls.isLocked && !isGameRunning) return;
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-        
+        if (!controls.isLocked && !isGameRunning) return; raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
         const allMeshes = []; objects.forEach(o => { if(o.isGroup) allMeshes.push(...o.children); else allMeshes.push(o); });
         const intersects = raycaster.intersectObjects(allMeshes);
 
         let interactTarget = null;
         if (intersects.length > 0 && intersects[0].distance < 200) { 
             let obj = intersects[0].object; let group = obj.userData.isPart ? obj.userData.parentGroup : obj;
-            
-            if (group.geometry && group.geometry.type === 'BoxGeometry') {
-                blockHighlight.position.copy(group.position); blockHighlight.visible = true;
-            } else { blockHighlight.visible = false; }
-
+            if (group.geometry && group.geometry.type === 'BoxGeometry') { blockHighlight.position.copy(group.position); blockHighlight.visible = true; } else { blockHighlight.visible = false; }
             let id = group.userData?.id?.toLowerCase() || '';
             if (id.includes('bed')) interactTarget = { obj: group, type: '🛌 Ngủ' };
             else if (id.includes('wardrobe') || id.includes('safe') || id.includes('fridge')) interactTarget = { obj: group, type: '📦 Mở Kho' };
@@ -538,8 +529,7 @@
         } else { blockHighlight.visible = false; }
 
         const tooltip = document.getElementById('interaction-tooltip'); const btnInteract = document.getElementById('btn-interact');
-        if (interactTarget && interactTarget.type) { lookingAtInteractable = interactTarget.obj; tooltip.textContent = `[E] - ${interactTarget.type}`; tooltip.style.display = 'block'; if (isMobile) btnInteract.style.display = 'block'; } 
-        else { lookingAtInteractable = null; tooltip.style.display = 'none'; if (isMobile) btnInteract.style.display = 'none'; }
+        if (interactTarget && interactTarget.type) { lookingAtInteractable = interactTarget.obj; tooltip.textContent = `[E] - ${interactTarget.type}`; tooltip.style.display = 'block'; if (isMobile) btnInteract.style.display = 'block'; } else { lookingAtInteractable = null; tooltip.style.display = 'none'; if (isMobile) btnInteract.style.display = 'none'; }
     }
 
     // ==========================================
@@ -550,12 +540,8 @@
             if (data.id === socket.id) return;
             const pGeo = new THREE.BoxGeometry(20, 60, 20); const pMat = new THREE.MeshLambertMaterial({color: Math.random() * 0xffffff}); 
             const pMesh = new THREE.Mesh(pGeo, pMat); pMesh.position.set(0, 100, 0); pMesh.castShadow = true;
-            
-            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64; const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,256,64); ctx.fillStyle = 'white'; ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.fillText(data.username, 128, 45);
-            const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(canvas)}));
-            nameSprite.position.y = 45; nameSprite.scale.set(60, 15, 1); pMesh.add(nameSprite);
-
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64; const ctx = canvas.getContext('2d'); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,256,64); ctx.fillStyle = 'white'; ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.fillText(data.username, 128, 45);
+            const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(canvas)})); nameSprite.position.y = 45; nameSprite.scale.set(60, 15, 1); pMesh.add(nameSprite);
             scene.add(pMesh); otherPlayers[data.id] = pMesh; showNotification(`👋 Bạn ${data.username} vừa vào thăm!`);
         });
         socket.on('updatePlayerPos', (data) => { if(otherPlayers[data.id]) { otherPlayers[data.id].position.lerp(new THREE.Vector3(data.pos.x, data.pos.y - 30, data.pos.z), 0.5); otherPlayers[data.id].rotation.y = data.pos.ry; }});
@@ -579,28 +565,19 @@
     }
 
     // ==========================================
-    // --- 5. HỆ THỐNG VẬT LÝ & HIỂN THỊ (ANIMATE) ---
+    // --- 5. HỆ THỐNG VẬT LÝ & HIỂN THỊ ---
     // ==========================================
     let wasSwimming = false; 
 
     function animate() {
-        requestAnimationFrame(animate);
-        const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); prevTime = time;
-
-        if (!isSleeping) { timeOfDay += delta * timeSpeed; if(timeOfDay >= Math.PI * 2) timeOfDay = 0; }
-        checkLookingAt(); 
-
-        const sunHeight = Math.sin(timeOfDay); const sunDist = Math.cos(timeOfDay);
-        sunSphere.position.set(sunDist * 1500, sunHeight * 1500, 0); moonSphere.position.set(-sunDist * 1500, -sunHeight * 1500, 0);
-        dirLight.position.copy(sunSphere.position);
-
+        requestAnimationFrame(animate); const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); prevTime = time;
+        if (!isSleeping) { timeOfDay += delta * timeSpeed; if(timeOfDay >= Math.PI * 2) timeOfDay = 0; } checkLookingAt(); 
+        
+        const sunHeight = Math.sin(timeOfDay); const sunDist = Math.cos(timeOfDay); sunSphere.position.set(sunDist * 1500, sunHeight * 1500, 0); moonSphere.position.set(-sunDist * 1500, -sunHeight * 1500, 0); dirLight.position.copy(sunSphere.position);
+        
         let targetSkyColor = new THREE.Color(0x87CEEB); 
-        if (sunHeight > 0.2) { 
-            if (weatherType === 'rain') targetSkyColor.setHex(0x7f8c8d); else if (weatherType === 'snow') targetSkyColor.setHex(0xdfe6e9); else targetSkyColor.setHex(0x87CEEB); 
-            dirLight.intensity = weatherType === 'clear' ? 0.8 : 0.3; hemiLight.intensity = 0.6;
-        } else if (sunHeight > -0.2) { targetSkyColor.setHex(0xf39c12); dirLight.intensity = 0.4; hemiLight.intensity = 0.3;
-        } else { targetSkyColor.setHex(0x0a0a2a); dirLight.intensity = 0; hemiLight.intensity = 0.1; }
-
+        if (sunHeight > 0.2) { if (weatherType === 'rain') targetSkyColor.setHex(0x7f8c8d); else if (weatherType === 'snow') targetSkyColor.setHex(0xdfe6e9); else targetSkyColor.setHex(0x87CEEB); dirLight.intensity = weatherType === 'clear' ? 0.8 : 0.3; hemiLight.intensity = 0.6;
+        } else if (sunHeight > -0.2) { targetSkyColor.setHex(0xf39c12); dirLight.intensity = 0.4; hemiLight.intensity = 0.3; } else { targetSkyColor.setHex(0x0a0a2a); dirLight.intensity = 0; hemiLight.intensity = 0.1; }
         scene.background.lerpColors(scene.background, targetSkyColor, 0.01); scene.fog.color.lerpColors(scene.fog.color, targetSkyColor, 0.01);
 
         if (weatherType !== 'clear') {
@@ -614,46 +591,25 @@
 
         if (controls.isLocked || isGameRunning) {
             if (isMobile) { moveForward = joystickVector.y > 0.5; moveBackward = joystickVector.y < -0.5; moveLeft = joystickVector.x < -0.5; moveRight = joystickVector.x > 0.5; }
-
-            const physics = checkCollision(controls.getObject().position);
-            isPlayerSwimming = physics.isSwimming; 
+            const physics = checkCollision(controls.getObject().position); isPlayerSwimming = physics.isSwimming; 
+            if(isPlayerSwimming && !wasSwimming) { playSFX('splash'); wasSwimming = true; } else if (!isPlayerSwimming && wasSwimming) { wasSwimming = false; }
             
-            if(isPlayerSwimming && !wasSwimming) { playSFX('splash'); wasSwimming = true; }
-            else if (!isPlayerSwimming && wasSwimming) { wasSwimming = false; }
-
             const speed = isPlayerSwimming ? 2500.0 : 5000.0; 
-
             velocity.x -= velocity.x * 12.0 * delta; velocity.z -= velocity.z * 12.0 * delta; 
-            
-            if (isPlayerSwimming) {
-                velocity.y -= 9.8 * 40.0 * delta; 
-                if (velocity.y < -150) velocity.y = -150; 
-            } else {
-                velocity.y -= 9.8 * 150.0 * delta; 
-            }
-
+            if (isPlayerSwimming) { velocity.y -= 9.8 * 40.0 * delta; if (velocity.y < -150) velocity.y = -150; } else { velocity.y -= 9.8 * 150.0 * delta; }
             direction.z = Number(moveForward) - Number(moveBackward); direction.x = Number(moveRight) - Number(moveLeft); direction.normalize();
-
-            if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
-            if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
-
-            if (!physics.isColliding) { controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta); } 
-            else { velocity.x = 0; velocity.z = 0; }
-
-            controls.getObject().position.y += (velocity.y * delta);
+            if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta; if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
             
+            if (!physics.isColliding) { controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta); } else { velocity.x = 0; velocity.z = 0; }
+            controls.getObject().position.y += (velocity.y * delta);
             if (controls.getObject().position.y <= physics.groundY) { velocity.y = 0; controls.getObject().position.y = physics.groundY; canJump = true; }
             if (controls.getObject().position.y < -500) { controls.getObject().position.set(0, 100, 0); velocity.y = 0; }
-
+            
             if (time - lastMoveSendTime > 50) { socket.emit('move3DPlayer', { x: controls.getObject().position.x, y: controls.getObject().position.y, z: controls.getObject().position.z, ry: camera.rotation.y }); lastMoveSendTime = time; }
 
             animatedObjects.forEach(animal => { 
-                if (animal.userData.isVillager) return; 
-                const data = animal.userData; data.moveTimer -= delta;
-                if (data.moveTimer <= 0) {
-                    if (Math.random() > 0.4) { data.velocity.x = (Math.random() - 0.5) * 80; data.velocity.z = (Math.random() - 0.5) * 80; animal.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); } else { data.velocity.x = 0; data.velocity.z = 0; }
-                    data.moveTimer = Math.random() * 3 + 1; 
-                }
+                if (animal.userData.isVillager) return; const data = animal.userData; data.moveTimer -= delta;
+                if (data.moveTimer <= 0) { if (Math.random() > 0.4) { data.velocity.x = (Math.random() - 0.5) * 80; data.velocity.z = (Math.random() - 0.5) * 80; animal.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); } else { data.velocity.x = 0; data.velocity.z = 0; } data.moveTimer = Math.random() * 3 + 1; }
                 animal.position.x += data.velocity.x * delta; animal.position.z += data.velocity.z * delta;
                 if (data.velocity.x !== 0 || data.velocity.z !== 0) animal.position.y = (BLOCK_SIZE/2 - BLOCK_SIZE/2) + Math.abs(Math.sin(time * 0.01)) * 5; else animal.position.y = 0;
             });
