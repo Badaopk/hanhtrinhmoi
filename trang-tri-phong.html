@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hành Tinh Mơ Ước - 3D Masterpiece 21.0 (Super Smooth)</title>
+    <title>Hành Tinh Mơ Ước - Smooth Movement 23.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -12,7 +12,6 @@
     
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; background: #000; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
-        
         #landscape-warning { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #2c3e50; color: white; z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         @media screen and (orientation: portrait) { #landscape-warning { display: flex !important; } #blocker, #mobile-controls, #hotbar, #mobile-menu-btn { display: none !important; } }
         
@@ -97,9 +96,9 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 21.0</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC 23.0</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
-                <p>⌨️ <b>W, A, S, D</b>: Di chuyển | 🚀 <b>Space</b>: Nhảy</p>
+                <p>⌨️ <b>W, A, S, D</b>: Di chuyển mượt mà | 🚀 <b>Space</b>: Nhảy</p>
                 <p>🛒 <b>Phím B</b>: Mở Shop | 🔄 <b>Phím R</b>: Giải cứu (Khi bị kẹt)</p>
                 <p>🚪 <b>Phím E</b>: Tương tác (Mở Cửa / Ngồi / Mở Tủ / Ngủ)</p>
                 <p>🖱️ <b>Chuột Trái/Phải</b>: Xây/Phá</p>
@@ -151,11 +150,11 @@
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     let isGameRunning = false, isSwimming = false, canJump = false, isSitting = false;
     let sittingObj = null; 
-    let isLoadingMap = true; // FLAG FIX LỖI RƠI
+    let isLoadingMap = true; 
     
     let scene, camera, renderer, controls, raycaster;
     let objects = [], animatedObjects = [];
-    let velocity = new THREE.Vector3(), playerBox = new THREE.Box3();
+    let velocity = new THREE.Vector3(), direction = new THREE.Vector3(), playerBox = new THREE.Box3();
     let joystickVector = { x: 0, y: 0 }, prevTime = performance.now(), blockHighlight;
     let timeOfDay = Math.PI / 2, timeSpeed = 0.0005; 
     let sunSphere, moonSphere, dirLight;
@@ -168,7 +167,6 @@
     const HOTBAR_SIZE = 9;
     let hotbarSlots = new Array(HOTBAR_SIZE).fill(null), selectedHotbarIndex = 0;
 
-    // --- AUTO SAVE DEBOUNCE ---
     let autoSaveTimer = null;
     function triggerAutoSave() {
         const ind = document.getElementById('save-indicator');
@@ -185,7 +183,6 @@
         } catch(e) {}
     }
 
-    // --- AUDIO SYSTEM ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     function playSFX(type) {
@@ -197,14 +194,10 @@
         else if (type === 'door') { osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
     }
 
-    // --- TRÌNH TỰ KHỞI ĐỘNG CHUẨN ---
     init3D(); setupControls(); initWeather(); setupMultiplayer(); 
     generateWorld(); 
     animate();
 
-    // ==========================================
-    // --- 1. ENGINE 3D ---
-    // ==========================================
     function init3D() {
         scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
         scene.fog = new THREE.Fog(0x87CEEB, 200, 2000);
@@ -212,7 +205,7 @@
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
         controls = new THREE.PointerLockControls(camera, document.body);
         
-        // FIX LỖI RƠI: Bắt đầu ở độ cao 800 (Rơi từ trên trời xuống)
+        // Bắt đầu trên trời cao
         controls.getObject().position.set(0, 800, 0); 
         scene.add(controls.getObject());
 
@@ -263,27 +256,22 @@
         return new THREE.MeshLambertMaterial({ map: tex });
     }
 
-    // --- FIX LỖI RƠI: Đất và Sông dùng BoxGeometry cực dày ---
-    // --- FIX LỖI LAG: Gộp lá cây thành khối to ---
     function generateWorld() {
         objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
 
-        // Mặt đất dày cộm
         const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
         const createPart = (w, d, x, z) => {
             const g = new THREE.Mesh(new THREE.BoxGeometry(w, 50, d), floorMat);
-            g.position.set(x, -25, z); // Dời xuống để mặt trên trùng với y=0
+            g.position.set(x, -25, z); 
             g.receiveShadow = true; g.updateMatrixWorld(true);
             g.userData = { bbox: new THREE.Box3().setFromObject(g), isIndestructible: true }; scene.add(g); objects.push(g);
         };
         createPart(3000, 2100, 0, -450); createPart(3000, 500, 0, 1250); 
 
-        // Sông dày
         const river = new THREE.Mesh(new THREE.BoxGeometry(3000, 50, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
         river.position.set(0, -25, 800); river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
 
-        // Đồi núi
         const grassMat = createBlockMaterial('#27ae60'), dirtMat = createBlockMaterial('#6e2c00');  
         function spawnVoxelHill(cx, cz, rad, height) {
             for(let dx = -rad; dx <= rad; dx++) {
@@ -303,7 +291,6 @@
         }
         spawnVoxelHill(-800, -800, 6, 3); spawnVoxelHill(800, -500, 5, 2); 
 
-        // Rừng cây (TỐI ƯU HÓA: DÙNG KHỐI LÁ TO ĐỂ CHỐNG LAG)
         const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
         for(let i=0; i<15; i++){
             let x = Math.round(((Math.random()-0.5)*2000)/BLOCK_SIZE)*BLOCK_SIZE; 
@@ -313,20 +300,24 @@
                 trunk.position.set(x, y*BLOCK_SIZE + BLOCK_SIZE/2, z); trunk.castShadow = true; trunk.updateMatrixWorld(true);
                 trunk.userData = { id: 'wall_wood_plank', bbox: new THREE.Box3().setFromObject(trunk) }; scene.add(trunk); objects.push(trunk);
             }
-            
-            // Khối lá to duy nhất (Thay vì 27 khối nhỏ)
-            const leafGroup = new THREE.Mesh(new THREE.BoxGeometry(150, 100, 150), leafMat);
-            leafGroup.position.set(x, 200, z); leafGroup.castShadow = true; leafGroup.updateMatrixWorld(true);
-            leafGroup.userData = { id: 'wall_green', bbox: new THREE.Box3().setFromObject(leafGroup) }; scene.add(leafGroup); objects.push(leafGroup);
+            for(let lx=-1; lx<=1; lx++) {
+                for(let ly=0; ly<2; ly++) {
+                    for(let lz=-1; lz<=1; lz++) {
+                        if(Math.abs(lx)===1 && Math.abs(lz)===1 && ly===1) continue;
+                        const leaf = new THREE.Mesh(sharedBlockGeo, leafMat);
+                        leaf.position.set(x + lx*BLOCK_SIZE, (3+ly)*BLOCK_SIZE + BLOCK_SIZE/2, z + lz*BLOCK_SIZE); leaf.castShadow = true; leaf.updateMatrixWorld(true);
+                        leaf.userData = { id: 'wall_green', bbox: new THREE.Box3().setFromObject(leaf) }; scene.add(leaf); objects.push(leaf);
+                    }
+                }
+            }
         }
 
-        // Làng mạc
         const wallMat = createBlockMaterial('#f5cd79'), roofMat = createBlockMaterial('#c0392b');
         let sX = -400, sZ = -400;
         for(let wx = 0; wx < 5; wx++) {
             for(let wz = 0; wz < 5; wz++) {
                 if(wx===0 || wx===4 || wz===0 || wz===4) {
-                    if(wx===2 && wz===4) continue; // Cửa
+                    if(wx===2 && wz===4) continue; 
                     for(let wy=0; wy<3; wy++) {
                         const b = new THREE.Mesh(sharedBlockGeo, wallMat);
                         b.position.set(sX + wx*BLOCK_SIZE, wy*BLOCK_SIZE + BLOCK_SIZE/2, sZ + wz*BLOCK_SIZE);
@@ -345,7 +336,6 @@
             }
         }
 
-        // NPC Dân làng
         const villager = new THREE.Group();
         const vB = new THREE.Mesh(new THREE.BoxGeometry(20, 35, 15), new THREE.MeshLambertMaterial({color: 0x8e44ad})); vB.position.y = 17.5;
         const vH = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshLambertMaterial({color: 0xf1c40f})); vH.position.y = 45;
@@ -355,7 +345,7 @@
     }
 
     // ==========================================
-    // --- 2. ĐIỀU KHIỂN & VẬT LÝ TRƯỢT ---
+    // --- 2. ĐIỀU KHIỂN & VẬT LÝ DI CHUYỂN CHUẨN FPS ---
     // ==========================================
     let moveF = false, moveB = false, moveL = false, moveR = false;
 
@@ -371,6 +361,7 @@
                     break;
                 case 'KeyB': controls.unlock(); openPanel('ui-panel'); break;
                 case 'KeyE': triggerInteraction(); break;
+                // PHÍM R GIẢI CỨU KẸT TƯỜNG
                 case 'KeyR': controls.getObject().position.set(0, 800, 0); velocity.y = 0; showNotification("🚀 Đã bay lên trời giải cứu!"); break;
                 case 'Digit1': selectHotbar(0); break; case 'Digit2': selectHotbar(1); break;
                 case 'Digit3': selectHotbar(2); break; case 'Digit4': selectHotbar(3); break;
@@ -388,8 +379,8 @@
         playBtn.addEventListener('click', () => {
             if(!audioCtx) audioCtx = new AudioContext();
             
-            document.getElementById('instructions').style.display = 'none'; 
             document.getElementById('blocker').style.display = 'none';
+            document.getElementById('instructions').style.display = 'none'; 
             document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
 
             if(isMobile) { 
@@ -402,6 +393,8 @@
             }
 
             if(!myUsername) loadDataFromServer(); 
+            
+            // RESET TIME ĐỂ KHÔNG BỊ RỚT MAP DO LAG
             prevTime = performance.now();
         });
 
@@ -437,18 +430,23 @@
         mj.on('end', () => { joystickVector.x = 0; joystickVector.y = 0; });
     }
 
+    // TÍNH TOÁN VA CHẠM (GIỮ NGUYÊN BBOX, HOẠT ĐỘNG CHUẨN FPS)
     function checkCollision(pos) {
         playerBox.setFromCenterAndSize(new THREE.Vector3(pos.x, pos.y-35, pos.z), new THREE.Vector3(15, 70, 15)); 
         let maxG = -2000, water = false, blocked = false;
+        
         for(let obj of objects) {
             if(!obj.userData.bbox) continue;
             if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue; 
             
             if(playerBox.intersectsBox(obj.userData.bbox)) {
                 if(obj.userData.isWater) { water = true; continue; }
+                
                 if(pos.y - 70 >= obj.userData.bbox.max.y - 26) { 
                     if(obj.userData.bbox.max.y + 70 > maxG) maxG = obj.userData.bbox.max.y + 70; 
-                } else { blocked = true; }
+                } else { 
+                    blocked = true; 
+                }
             }
         }
         return { blocked, groundY: maxG, water };
@@ -464,7 +462,7 @@
         requestAnimationFrame(animate);
         const time = performance.now(); 
         
-        // CHỐNG KẸT GIẬT LAG
+        // CHỐNG KẸT & RƠI: GIỚI HẠN DELTA MAX 0.04s
         const delta = Math.min((time - prevTime) / 1000, 0.04); 
         prevTime = time;
 
@@ -498,27 +496,52 @@
             
             const phys = checkCollision(controls.getObject().position);
             isSwimming = phys.water; 
-            const speed = (isSwimming ? 1800 : 4500) * delta;
+            
+            // TỐI ƯU VẬT LÝ CHUẨN FPS TRÊN THREE.JS
+            const speed = (isSwimming ? 2000 : 5000);
+            velocity.x -= velocity.x * 10.0 * delta; 
+            velocity.z -= velocity.z * 10.0 * delta;
 
-            const dir = new THREE.Vector3(Number(moveR) - Number(moveL), 0, Number(moveF) - Number(moveB)).normalize();
-            const moveVec = new THREE.Vector3();
-            if(moveF || moveB) moveVec.z -= dir.z * speed; if(moveL || moveR) moveVec.x -= dir.x * speed;
-            moveVec.applyQuaternion(camera.quaternion); moveVec.y = 0;
+            direction.z = Number(moveF) - Number(moveB);
+            direction.x = Number(moveR) - Number(moveL);
+            direction.normalize();
+
+            if (moveF || moveB) velocity.z -= direction.z * speed * delta;
+            if (moveL || moveR) velocity.x -= direction.x * speed * delta;
 
             const pos = controls.getObject().position;
-            const oldX = pos.x, oldZ = pos.z;
-            
-            pos.x += moveVec.x; if(checkCollision(pos).blocked) pos.x = oldX;
-            pos.z += moveVec.z; if(checkCollision(pos).blocked) pos.z = oldZ;
+
+            // TRƯỢT TƯỜNG BẰNG HÀM CÓ SẴN CỦA THREEJS
+            const oldX = pos.x;
+            controls.moveRight(-velocity.x * delta);
+            if(checkCollision(pos).blocked) {
+                pos.x = oldX;
+                velocity.x = 0;
+            }
+
+            const oldZ = pos.z;
+            controls.moveForward(-velocity.z * delta);
+            if(checkCollision(pos).blocked) {
+                pos.z = oldZ;
+                velocity.z = 0;
+            }
+
+            // GIAO THỨC TỰ ĐỘNG CHỐNG KẸT BÊN TRONG KHỐI
+            if (checkCollision(pos).blocked) {
+                pos.y += 10; // Tự động trồi lên nếu bị mắc kẹt
+            }
 
             if (!isLoadingMap) {
                 velocity.y -= 9.8 * (isSwimming ? 50 : 150) * delta;
                 pos.y += velocity.y * delta;
                 
-                if(pos.y <= phys.groundY) { velocity.y = 0; pos.y = phys.groundY; canJump = true; }
+                if(pos.y <= phys.groundY) { 
+                    velocity.y = 0; 
+                    pos.y = phys.groundY; 
+                    canJump = true; 
+                }
                 
-                // GIẢI CỨU TỰ ĐỘNG NẾU RƠI
-                if(pos.y < -100) { pos.set(0, 800, 0); velocity.y=0; } 
+                if(pos.y < -300) { pos.set(0, 800, 0); velocity.y=0; } 
             } else {
                 velocity.y = 0; 
             }
@@ -745,7 +768,6 @@
         }
         socket.emit('join3DHouse', myUsername);
         
-        // Hoàn tất tải, cho phép người chơi rơi xuống đất
         setTimeout(() => { isLoadingMap = false; }, 500); 
     }
     
@@ -766,7 +788,7 @@
             const item = shopItems.find(x => x.id === id); 
             if(item) iGrid.innerHTML += `<div class="item-card" onclick="equipToHotbar('${id}')"><div>${item.icon}</div><b>${item.name}</b><br><div class="count-badge">Còn: ${c}</div></div>`; 
         });
-        iGrid.scrollTop = scrollPos; // Giữ vị trí cuộn trên điện thoại
+        iGrid.scrollTop = scrollPos; 
     }
     
     function renderChestUI() {
