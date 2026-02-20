@@ -1220,29 +1220,39 @@ io.on('connection', (socket) => {
         socket.disconnect();
         return;
     }
-// --- ĐỒNG BỘ 3D WORLD ---
-    socket.on('join3DHouse', (hostUsername) => {
+socket.on('join3DHouse', (hostUsername) => {
+        // Rời phòng cũ nếu có
+        if (socket.houseRoom) {
+            socket.leave(socket.houseRoom);
+            socket.to(socket.houseRoom).emit('playerLeftHouse', socket.id);
+        }
+        
         const roomId = `house-${hostUsername}`;
         socket.join(roomId);
         socket.houseRoom = roomId;
-        socket.to(roomId).emit('playerJoinedHouse', { id: socket.id, username: sessionUser?.username || 'Bạn mới' });
+
+        // Báo cho những người trong phòng biết có người mới vào
+        socket.to(roomId).emit('playerJoinedHouse', { 
+            id: socket.id, 
+            username: sessionUser?.username || 'Khách' 
+        });
     });
 
-    socket.on('move3DPlayer', (data) => {
-        if(socket.houseRoom) socket.to(socket.houseRoom).emit('updatePlayerPos', { id: socket.id, pos: data });
+    // 2. Đồng bộ vị trí di chuyển
+    socket.on('move3DPlayer', (posData) => {
+        if(socket.houseRoom) {
+            socket.to(socket.houseRoom).emit('updatePlayerPos', { id: socket.id, pos: posData });
+        }
     });
 
+    // 3. Đồng bộ Đặt gạch (Xây)
     socket.on('build3DBlock', (data) => {
         if(socket.houseRoom) socket.to(socket.houseRoom).emit('syncBuild', data);
     });
 
+    // 4. Đồng bộ Đập gạch (Phá)
     socket.on('break3DBlock', (uniqueId) => {
         if(socket.houseRoom) socket.to(socket.houseRoom).emit('syncBreak', uniqueId);
-    });
-
-    // MỚI: Đồng bộ trạng thái Đóng/Mở cửa
-    socket.on('toggle3DDoor', (data) => {
-        if(socket.houseRoom) socket.to(socket.houseRoom).emit('syncDoor', data);
     });
     // --- GAME TÌM TRẬN ---
 // --- GAME TÌM TRẬN (SỬA LỖI ĐI TRƯỚC/SAU) ---
