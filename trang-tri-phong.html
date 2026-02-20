@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Auto Save Update 18.0</title>
+    <title>Biệt Thự 3D - Ultimate Mobile UI Update</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -11,55 +11,81 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; background: #000; overscroll-behavior: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; background: #000; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+        
         #landscape-warning { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #2c3e50; color: white; z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         @media screen and (orientation: portrait) { #landscape-warning { display: flex !important; } #blocker, #mobile-controls, #hotbar, #mobile-menu-btn { display: none !important; } }
         
         #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); pointer-events: none; z-index: 100; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; }
         #interaction-tooltip { position: absolute; top: 60%; left: 50%; transform: translateX(-50%); font-weight: 800; font-size: 1.5rem; color: #f1c40f; text-shadow: 2px 2px 4px #000; display: none; z-index: 100;}
+        #save-indicator { position: absolute; bottom: 10px; right: 10px; color: rgba(255,255,255,0.9); font-weight: bold; z-index: 100; display: none; background: rgba(0,0,0,0.6); padding: 5px 20px; border-radius: 20px; font-size: 1.1rem; border: 2px solid #2ecc71;}
 
-        #blocker { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(10px); }
-        #instructions { text-align: center; color: white; padding: 40px; border-radius: 30px; border: 4px solid #f1c40f; background: rgba(0,0,0,0.4); }
+        #blocker { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(10px); flex-direction: column;}
+        #instructions { text-align: center; color: white; padding: 40px; border-radius: 30px; border: 4px solid #f1c40f; background: rgba(0,0,0,0.4); max-width: 600px; margin: 0 auto;}
+        
         .play-btn { background: #2ecc71; color: white; border: none; padding: 15px 60px; font-size: 2rem; font-family: 'Baloo 2'; font-weight: 800; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 8px 0 #27ae60; transition: transform 0.1s;}
         .play-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #27ae60; }
 
-        .panel { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 380px; background: rgba(255,255,255,0.95); border-radius: 25px; padding: 20px; display: none; flex-direction: column; z-index: 1001; box-shadow: -10px 0 30px rgba(0,0,0,0.5); }
+        /* GIAO DIỆN PANEL (SHOP & BALO) TỐI ƯU MOBILE */
+        .panel { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 400px; background: rgba(255,255,255,0.95); border-radius: 25px; padding: 20px; display: none; flex-direction: column; z-index: 1001; box-shadow: -10px 0 30px rgba(0,0,0,0.5); box-sizing: border-box;}
         .panel.show { display: flex !important; }
-        .score-badge { background:#f1c40f; color:#d35400; padding:10px; border-radius:20px; font-weight:900; font-size: 1.8rem; text-align: center; margin-bottom: 10px; }
         
-        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; overflow-y: auto; flex: 1; align-content: start;}
+        @media screen and (max-width: 800px) { 
+            .panel { width: 95vw; left: 2.5vw; right: 2.5vw; top: 2.5vh; bottom: 2.5vh; padding: 15px; } 
+            #instructions { transform: scale(0.8); }
+        }
+
+        .score-badge { background:#f1c40f; color:#d35400; padding:10px; border-radius:20px; font-weight:900; font-size: 1.8rem; text-align: center; margin-bottom: 10px; }
+        .tab-container { display:flex; gap:5px; margin-bottom:10px; background: #eee; padding: 5px; border-radius: 15px; }
+        .tab-btn { flex:1; padding:10px; cursor:pointer; font-weight: 800; background:transparent; color:#7f8c8d; border:none; border-radius:12px; font-family: inherit; font-size: 1.2rem; transition: 0.2s;}
+        .tab-btn.active { background: #3498db; color: white; }
+        
+        /* Grid Tối ưu cuộn mượt trên iOS/Android */
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow-y: auto; flex: 1; align-content: start; -webkit-overflow-scrolling: touch; padding-bottom: 10px;}
         .item-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; border: 3px solid #eee; cursor: pointer; transition: 0.2s; }
         .item-card:hover { border-color: #3498db; transform: scale(1.02); }
-        .item-card div { font-size: 3rem; }
-        .btn-general { padding: 12px; color: white; border: none; border-radius: 15px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; font-family: inherit; width: 100%; transition: 0.2s;}
+        .item-card:active { transform: scale(0.95); border-color: #2ecc71;}
+        .item-card div { font-size: 3rem; margin-bottom: 5px; }
+        .item-card b { font-size: 1.1rem; color: #2c3e50; }
+        .item-card .price { color: #d35400; font-weight: 900; font-size: 1.2rem; margin-top: 5px; }
+        .item-card .count-badge { background: #3498db; color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; display: inline-block; margin-top: 5px;}
+        
+        .panel-footer { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .panel-footer-row { display: flex; gap: 8px; }
+        .btn-general { padding: 12px; color: white; border: none; border-radius: 15px; font-weight: bold; font-size: 1.1rem; cursor: pointer; font-family: inherit; width: 100%; transition: 0.2s;}
+        .btn-general:active { transform: scale(0.95); }
 
         #hotbar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 20px; z-index: 100; }
-        .hotbar-slot { width: 55px; height: 55px; background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.4); border-radius: 12px; display: flex; justify-content: center; align-items: center; color: white; font-weight: 800; font-size: 1.8rem; cursor: pointer;}
+        .hotbar-slot { width: 55px; height: 55px; background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.4); border-radius: 12px; display: flex; justify-content: center; align-items: center; color: white; font-weight: 800; font-size: 2rem; cursor: pointer;}
         .hotbar-slot.active { border-color: #f1c40f; background: rgba(255,255,255,0.9); transform: scale(1.1); box-shadow: 0 0 15px #f1c40f; }
 
         #mobile-controls { display: none; }
         #joystick-zone { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; z-index: 20; opacity: 0.8;}
         .action-container { position: absolute; bottom: 40px; right: 40px; width: 220px; height: 220px; z-index: 20; pointer-events: none; }
-        .a-btn { position: absolute; width: 70px; height: 70px; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; pointer-events: auto; box-shadow: 0 6px 0 rgba(0,0,0,0.3); border: 3px solid rgba(255,255,255,0.5); font-weight: bold;}
+        .a-btn { position: absolute; width: 70px; height: 70px; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; pointer-events: auto; box-shadow: 0 6px 0 rgba(0,0,0,0.3); border: 3px solid rgba(255,255,255,0.5); font-weight: bold; user-select: none;}
         .a-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
         #btn-build { background: #2ecc71; top: 0; right: 60px; }
         #btn-break { background: #e74c3c; bottom: 50px; right: 0; }
         #btn-jump { background: #3498db; bottom: 0; right: 90px; }
-        #btn-interact { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: #f1c40f; color: #d35400; padding: 12px 40px; border-radius: 40px; font-weight: 900; z-index: 30; display: none; border: 4px solid white; font-size: 1.2rem; cursor:pointer;}
-        #mobile-menu-btn { position: absolute; top: 20px; right: 20px; background: #9b59b6; color: white; padding: 12px 25px; border-radius: 15px; font-weight: 800; z-index: 100; border: 3px solid white; display: none; cursor: pointer;}
-        .notif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 10px 30px; border-radius: 30px; border: 3px solid #2ecc71; font-weight: 900; z-index: 9999; color: #27ae60; animation: slideDown 0.4s ease-out; }
-        @keyframes slideDown { from { top: -60px; } to { top: 20px; } }
+        #btn-interact { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: #f1c40f; color: #d35400; padding: 12px 40px; border-radius: 40px; font-weight: 900; z-index: 30; display: none; border: 4px solid white; font-size: 1.2rem; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);}
         
-        #save-indicator { position: absolute; bottom: 10px; right: 10px; color: rgba(255,255,255,0.7); font-weight: bold; z-index: 100; display: none; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px;}
+        #mobile-menu-btn { position: absolute; top: 20px; right: 20px; background: #9b59b6; color: white; padding: 12px 25px; border-radius: 15px; font-weight: 800; z-index: 100; border: 3px solid white; display: none; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);}
+        #visit-badge { position: absolute; top: 20px; left: 20px; background: rgba(52, 152, 219, 0.9); color: white; padding: 10px 25px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.3);}
+        
+        /* Thông báo đẹp hơn */
+        .notif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 12px 35px; border-radius: 30px; border: 3px solid #2ecc71; font-weight: 900; z-index: 9999; color: #27ae60; animation: slideDown 0.4s ease-out; font-size: 1.3rem; box-shadow: 0 5px 15px rgba(0,0,0,0.2);}
+        .notif.error { border-color: #e74c3c; color: #c0392b; }
+        @keyframes slideDown { from { top: -60px; } to { top: 20px; } }
+        #fade-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; opacity: 0; pointer-events: none; z-index: 99999; transition: opacity 1.5s; }
     </style>
 </head>
 <body>
 
     <div id="landscape-warning"><h1>📱 Hãy xoay ngang điện thoại để chơi nhé!</h1></div>
-    <div id="fade-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:black; opacity:0; pointer-events:none; z-index:99999; transition: opacity 1.5s;"></div>
+    <div id="fade-overlay"></div>
     <div id="crosshair"></div>
     <div id="interaction-tooltip">[E] Tương tác</div>
-    <div id="visit-badge" style="position: absolute; top: 20px; left: 20px; background: rgba(52, 152, 219, 0.9); color: white; padding: 10px 25px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">🏡 Đang ở nhà: <span id="host-name"></span></div>
+    <div id="visit-badge">🏡 Đang ở nhà: <span id="host-name"></span></div>
     <div id="save-indicator">⏳ Đang lưu...</div>
     <div id="hotbar"></div>
 
@@ -83,31 +109,42 @@
                 <p>⌨️ <b>W, A, S, D</b>: Di chuyển mượt mà | 🚀 <b>Space</b>: Nhảy/Bơi</p>
                 <p>🛒 <b>Phím B</b>: Mở Cửa Hàng & Ba Lô</p>
                 <p>🚪 <b>Phím E</b>: Tương tác (Mở Cửa / Ngồi Ghế / Mở Tủ / Đi Ngủ)</p>
-                <p>🖱️ <b>Chuột Trái/Phải</b>: Xây / Phá (Tự động lưu trò chơi!)</p>
+                <p>🖱️ <b>Chuột Trái/Phải</b>: Xây/Phá (Auto Save kích hoạt!)</p>
             </div>
             <button class="play-btn" id="play-btn">▶️ VÀO THẾ GIỚI</button>
         </div>
+    </div>
 
-        <div id="ui-panel" class="panel">
-            <div class="score-badge">💎 <span id="score">0</span></div>
-            <div style="display:flex; gap:5px; margin-bottom:10px;">
-                <button id="tab-btn-shop" class="tab-btn active" style="flex:1" onclick="switchTab('shop')">Cửa Hàng</button>
-                <button id="tab-btn-inv" class="tab-btn" style="flex:1" onclick="switchTab('inv')">Ba Lô</button>
-            </div>
-            <div id="grid-shop" class="grid-container"></div>
-            <div id="grid-inv" class="grid-container" style="display:none"></div>
-            <button class="btn-general" style="background:#8e44ad" onclick="visitFriend()">🌐 ĐI THĂM BẠN</button>
-            <div style="text-align: center; color: #2ecc71; font-weight: bold; margin-top: 10px;">✅ Đã bật Tự Động Lưu</div>
-            <button class="btn-general" style="background:#34495e" onclick="closePanels()">TIẾP TỤC CHƠI</button>
+    <div id="ui-panel" class="panel">
+        <div class="score-badge">💎 <span id="score">0</span></div>
+        <div class="tab-container">
+            <button id="tab-btn-shop" class="tab-btn active" onclick="switchTab('shop')">Cửa Hàng</button>
+            <button id="tab-btn-inv" class="tab-btn" onclick="switchTab('inv')">Ba Lô</button>
         </div>
-
-        <div id="chest-panel" class="panel">
-            <h2 style="text-align:center; color:#2c3e50;">📦 TỦ ĐỒ</h2>
-            <div style="display:flex; gap:8px; flex:1; min-height:0">
-                <div id="grid-chest-inside" class="grid-container" style="background:#f1f2f6; border-radius:15px; padding:5px;"></div>
-                <div id="grid-chest-inv" class="grid-container" style="background:#e8f8f5; border-radius:15px; padding:5px;"></div>
+        <div id="grid-shop" class="grid-container"></div>
+        <div id="grid-inv" class="grid-container" style="display:none"></div>
+        
+        <div class="panel-footer">
+            <div style="text-align: center; color: #2ecc71; font-weight: bold; font-size: 0.9rem;">✅ Tự Động Lưu Dữ Liệu</div>
+            <div class="panel-footer-row">
+                <button class="btn-general" style="background:#8e44ad;" onclick="visitFriend()">🌐 ĐI THĂM BẠN</button>
+                <button class="btn-general" style="background:#34495e;" onclick="closePanels()">TIẾP TỤC</button>
             </div>
-            <div style="text-align: center; color: #2ecc71; font-weight: bold; margin-top: 10px;">✅ Tủ đồ tự động lưu</div>
+        </div>
+    </div>
+
+    <div id="chest-panel" class="panel">
+        <h2 style="text-align:center; color:#2c3e50; margin-top: 0;">📦 TỦ ĐỒ CỦA BÉ</h2>
+        <div style="display:flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; color: #7f8c8d;">
+            <span style="flex:1; text-align:center;">Trong tủ</span>
+            <span style="flex:1; text-align:center;">Trong Ba lô</span>
+        </div>
+        <div style="display:flex; gap:8px; flex:1; min-height:0">
+            <div id="grid-chest-inside" class="grid-container" style="background:#f1f2f6; border-radius:15px; padding:8px;"></div>
+            <div id="grid-chest-inv" class="grid-container" style="background:#e8f8f5; border-radius:15px; padding:8px;"></div>
+        </div>
+        <div class="panel-footer">
+            <div style="text-align: center; color: #2ecc71; font-weight: bold; font-size: 0.9rem;">✅ Tủ đồ tự động lưu</div>
             <button class="btn-general" style="background:#e74c3c" onclick="closePanels()">ĐÓNG TỦ</button>
         </div>
     </div>
@@ -137,32 +174,29 @@
     const HOTBAR_SIZE = 9;
     let hotbarSlots = new Array(HOTBAR_SIZE).fill(null), selectedHotbarIndex = 0;
 
-    // --- HỆ THỐNG AUTO SAVE (DEBOUNCE) ---
+    // --- AUTO SAVE DEBOUNCE ---
     let autoSaveTimer = null;
     function triggerAutoSave() {
-        const indicator = document.getElementById('save-indicator');
-        indicator.style.display = 'block'; indicator.innerText = '⏳ Đang lưu...';
+        const ind = document.getElementById('save-indicator');
+        ind.style.display = 'block'; ind.innerText = '⏳ Đang lưu...'; ind.style.borderColor = '#f1c40f';
         if (autoSaveTimer) clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(() => {
-            saveHouseSilent();
-        }, 1500); // Đợi 1.5s sau khi bé ngừng thao tác mới lưu
+        autoSaveTimer = setTimeout(saveHouseSilent, 1500); 
     }
-    
     async function saveHouseSilent() {
         try {
             await fetch('/api/house/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({items: houseState.items, inventory: houseState.inventory, chestsData: chestsData}) });
-            const indicator = document.getElementById('save-indicator');
-            indicator.innerText = '✅ Đã lưu';
-            setTimeout(() => { indicator.style.display = 'none'; }, 2000);
-        } catch(e) { console.error("Auto-save failed:", e); }
+            const ind = document.getElementById('save-indicator');
+            ind.innerText = '✅ Đã lưu'; ind.style.borderColor = '#2ecc71';
+            setTimeout(() => { ind.style.display = 'none'; }, 2000);
+        } catch(e) {}
     }
 
-    // --- AUDIO ---
+    // --- AUDIO SYSTEM ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     function playSFX(type) {
         if(!audioCtx) return; if(audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
         if (type === 'build') { osc.frequency.setValueAtTime(400, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
         else if (type === 'break') { osc.type = 'square'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
@@ -172,7 +206,7 @@
     init3D(); setupControls(); initWeather(); setupMultiplayer(); animate();
 
     // ==========================================
-    // --- 1. KHỞI TẠO 3D & THẾ GIỚI ---
+    // --- 1. ENGINE 3D ---
     // ==========================================
     function init3D() {
         scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
@@ -184,7 +218,7 @@
 
         const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); scene.add(hemi);
         dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(500, 1000, 200); dirLight.castShadow = true;
-        dirLight.shadow.camera.top = 1000; dirLight.shadow.camera.bottom = -1000; dirLight.shadow.camera.left = -1000; dirLight.shadow.camera.right = 1000;
+        dirLight.shadow.mapSize.set(1024, 1024);
         scene.add(dirLight);
 
         sunSphere = new THREE.Mesh(new THREE.SphereGeometry(80), new THREE.MeshBasicMaterial({color: 0xffff00})); scene.add(sunSphere);
@@ -210,8 +244,8 @@
     }
     function setWeather(t) {
         weatherType = t;
-        if(t==='rain') { weatherMat.color.setHex(0xa4b0be); weatherMat.size = 4; weatherSystem.visible = true; showNotification("🌧️ Mưa rồi!"); }
-        else if(t==='snow') { weatherMat.color.setHex(0xffffff); weatherMat.size = 6; weatherSystem.visible = true; showNotification("❄️ Tuyết rơi!"); }
+        if(t==='rain') { weatherMat.color.setHex(0xa4b0be); weatherMat.size = 4; weatherSystem.visible = true; showNotification("🌧️ Trời đổ mưa!"); }
+        else if(t==='snow') { weatherMat.color.setHex(0xffffff); weatherMat.size = 6; weatherSystem.visible = true; showNotification("❄️ Tuyết bắt đầu rơi!"); }
         else { weatherSystem.visible = false; }
     }
     function startAutoWeather() {
@@ -232,7 +266,7 @@
     function generateWorld() {
         objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
 
-        // Mặt đất
+        // Đất nền (Bất tử)
         const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
         const createPart = (w, d, x, z) => {
             const g = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI/2), floorMat);
@@ -241,38 +275,33 @@
         };
         createPart(3000, 2100, 0, -450); createPart(3000, 500, 0, 1250); 
 
-        // Sông
+        // Dòng sông
         const river = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI/2), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
         river.position.set(0, -10, 800); river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
 
         // Đồi núi
-        const grassMat = createBlockMaterial('#27ae60'); 
-        const dirtMat = createBlockMaterial('#6e2c00');  
-        function spawnVoxelHill(cx, cz, radiusBlocks, heightBlocks) {
-            for(let dx = -radiusBlocks; dx <= radiusBlocks; dx++) {
-                for(let dz = -radiusBlocks; dz <= radiusBlocks; dz++) {
-                    if (dx*dx + dz*dz < radiusBlocks*radiusBlocks) {
-                        let h = Math.floor(Math.random() * heightBlocks) + 1;
+        const grassMat = createBlockMaterial('#27ae60'), dirtMat = createBlockMaterial('#6e2c00');  
+        function spawnVoxelHill(cx, cz, rad, height) {
+            for(let dx = -rad; dx <= rad; dx++) {
+                for(let dz = -rad; dz <= rad; dz++) {
+                    if (dx*dx + dz*dz < rad*rad) {
+                        let h = Math.floor(Math.random() * height) + 1;
                         for(let y = 0; y < h; y++) {
-                            let mat = (y === h - 1) ? grassMat : dirtMat;
-                            let itemId = (y === h - 1) ? 'floor_grass' : 'floor_dirt';
-                            const b = new THREE.Mesh(sharedBlockGeo, mat);
+                            const b = new THREE.Mesh(sharedBlockGeo, (y === h - 1) ? grassMat : dirtMat);
                             b.position.set(cx + dx*BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE/2, cz + dz*BLOCK_SIZE); 
                             b.castShadow = true; b.receiveShadow = true; b.updateMatrixWorld(true); 
-                            b.userData = { id: itemId, bbox: new THREE.Box3().setFromObject(b) }; 
+                            b.userData = { id: (y === h - 1) ? 'floor_grass' : 'floor_dirt', bbox: new THREE.Box3().setFromObject(b) }; 
                             scene.add(b); objects.push(b);
                         }
                     }
                 }
             }
         }
-        spawnVoxelHill(-800, -800, 6, 3); 
-        spawnVoxelHill(800, -500, 5, 2); 
+        spawnVoxelHill(-800, -800, 6, 3); spawnVoxelHill(800, -500, 5, 2); 
 
-        // Sinh cây cối
-        const woodMat = createBlockMaterial('#e67e22');
-        const leafMat = createBlockMaterial('#2ecc71');
+        // Rừng cây
+        const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
         for(let i=0; i<15; i++){
             let x = Math.round(((Math.random()-0.5)*2000)/BLOCK_SIZE)*BLOCK_SIZE; 
             let z = Math.round(((Math.random()-0.5)*1200 - 300)/BLOCK_SIZE)*BLOCK_SIZE;
@@ -293,33 +322,32 @@
             }
         }
 
-        // Nhà dân làng Voxel
-        const wallMat = createBlockMaterial('#f5cd79');
-        const roofMat = createBlockMaterial('#c0392b');
-        let startX = -400, startZ = -400;
+        // Làng mạc
+        const wallMat = createBlockMaterial('#f5cd79'), roofMat = createBlockMaterial('#c0392b');
+        let sX = -400, sZ = -400;
         for(let wx = 0; wx < 5; wx++) {
             for(let wz = 0; wz < 5; wz++) {
                 if(wx===0 || wx===4 || wz===0 || wz===4) {
-                    if(wx===2 && wz===4) continue; 
+                    if(wx===2 && wz===4) continue; // Cửa
                     for(let wy=0; wy<3; wy++) {
-                        const wBlock = new THREE.Mesh(sharedBlockGeo, wallMat);
-                        wBlock.position.set(startX + wx*BLOCK_SIZE, wy*BLOCK_SIZE + BLOCK_SIZE/2, startZ + wz*BLOCK_SIZE);
-                        wBlock.castShadow=true; wBlock.receiveShadow=true; wBlock.updateMatrixWorld(true);
-                        wBlock.userData = { id: 'wall_birch', bbox: new THREE.Box3().setFromObject(wBlock) }; scene.add(wBlock); objects.push(wBlock);
+                        const b = new THREE.Mesh(sharedBlockGeo, wallMat);
+                        b.position.set(sX + wx*BLOCK_SIZE, wy*BLOCK_SIZE + BLOCK_SIZE/2, sZ + wz*BLOCK_SIZE);
+                        b.castShadow=true; b.receiveShadow=true; b.updateMatrixWorld(true);
+                        b.userData = { id: 'wall_birch', bbox: new THREE.Box3().setFromObject(b) }; scene.add(b); objects.push(b);
                     }
                 }
             }
         }
         for(let rx = -1; rx < 6; rx++) {
             for(let rz = -1; rz < 6; rz++) {
-                const rBlock = new THREE.Mesh(sharedBlockGeo, roofMat);
-                rBlock.position.set(startX + rx*BLOCK_SIZE, 3*BLOCK_SIZE + BLOCK_SIZE/2, startZ + rz*BLOCK_SIZE);
-                rBlock.castShadow=true; rBlock.receiveShadow=true; rBlock.updateMatrixWorld(true);
-                rBlock.userData = { id: 'wall_red_brick', bbox: new THREE.Box3().setFromObject(rBlock) }; scene.add(rBlock); objects.push(rBlock);
+                const r = new THREE.Mesh(sharedBlockGeo, roofMat);
+                r.position.set(sX + rx*BLOCK_SIZE, 3*BLOCK_SIZE + BLOCK_SIZE/2, sZ + rz*BLOCK_SIZE);
+                r.castShadow=true; r.receiveShadow=true; r.updateMatrixWorld(true);
+                r.userData = { id: 'wall_red_brick', bbox: new THREE.Box3().setFromObject(r) }; scene.add(r); objects.push(r);
             }
         }
 
-        // Dân làng
+        // NPC Dân làng
         const villager = new THREE.Group();
         const vB = new THREE.Mesh(new THREE.BoxGeometry(20, 35, 15), new THREE.MeshLambertMaterial({color: 0x8e44ad})); vB.position.y = 17.5;
         const vH = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshLambertMaterial({color: 0xf1c40f})); vH.position.y = 45;
@@ -360,9 +388,27 @@
         const playBtn = document.getElementById('play-btn');
         playBtn.addEventListener('click', () => {
             if(!audioCtx) audioCtx = new AudioContext();
-            if(isMobile) { isGameRunning = true; document.getElementById('blocker').style.display='none'; document.getElementById('mobile-controls').style.display='block'; document.getElementById('mobile-menu-btn').style.display='block'; initJoystick(); }
+            document.getElementById('instructions').style.display = 'none'; // Giấu menu chính
+            
+            if(isMobile) { 
+                isGameRunning = true; 
+                document.getElementById('blocker').style.display='none'; 
+                document.getElementById('mobile-controls').style.display='block'; 
+                document.getElementById('mobile-menu-btn').style.display='block'; 
+                initJoystick(); 
+            }
             else { controls.lock(); }
-            loadDataFromServer(); 
+            if(!myUsername) loadDataFromServer(); 
+        });
+
+        // Sửa lỗi hiện bảng Panel khi Unlock
+        controls.addEventListener('unlock', () => { 
+            isGameRunning = false;
+            // Chỉ hiện lại Menu chính nếu không có bảng nào đang bật
+            if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ 
+                document.getElementById('blocker').style.display = 'flex'; 
+                document.getElementById('instructions').style.display = 'block';
+            }
         });
 
         const camZone = document.getElementById('camera-zone'); let touchX, touchY;
@@ -471,22 +517,14 @@
             }
 
             animatedObjects.forEach(npc => {
-                if(npc.userData.isVillager) {
-                    npc.userData.moveTimer -= delta;
-                    if(npc.userData.moveTimer <= 0) {
-                        npc.userData.velocity.set((Math.random()-0.5)*40, 0, (Math.random()-0.5)*40);
-                        npc.userData.moveTimer = Math.random()*5+2;
-                        npc.rotation.y = Math.atan2(npc.userData.velocity.x, npc.userData.velocity.z);
-                    }
-                    npc.position.addScaledVector(npc.userData.velocity, delta);
-                } else {
-                    const data = npc.userData; data.moveTimer -= delta;
-                    if(data.moveTimer <= 0) {
-                        if (Math.random() > 0.4) { data.velocity.set((Math.random()-0.5)*60, 0, (Math.random()-0.5)*60); npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); }
-                        else { data.velocity.set(0,0,0); }
-                        data.moveTimer = Math.random()*4+2;
-                    }
-                    npc.position.addScaledVector(data.velocity, delta);
+                const data = npc.userData; data.moveTimer -= delta;
+                if(data.moveTimer <= 0) {
+                    if (Math.random() > 0.4) { data.velocity.set((Math.random()-0.5)*60, 0, (Math.random()-0.5)*60); npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); }
+                    else { data.velocity.set(0,0,0); }
+                    data.moveTimer = Math.random()*4+2;
+                }
+                npc.position.addScaledVector(data.velocity, delta);
+                if (!data.isVillager) {
                     if (data.velocity.x !== 0 || data.velocity.z !== 0) npc.position.y = (BLOCK_SIZE/2 - BLOCK_SIZE/2) + Math.abs(Math.sin(time * 0.01)) * 5; else npc.position.y = 0;
                 }
             });
@@ -514,7 +552,6 @@
             playSFX('door'); showNotification(obj.userData.isOpen ? "🔓 Đã mở cửa" : "🔒 Đã đóng cửa");
             socket.emit('toggle3DDoor', { uniqueId: obj.userData.uniqueId, isOpen: obj.userData.isOpen });
             
-            // Cập nhật trạng thái cửa vào mảng save
             const savedItem = houseState.items.find(i => i.uniqueId === obj.userData.uniqueId);
             if (savedItem) savedItem.isOpen = obj.userData.isOpen;
             triggerAutoSave();
@@ -612,7 +649,7 @@
                 houseState.inventory.splice(houseState.inventory.indexOf(id), 1);
                 
                 renderHotbarUI(); updateUI(); playSFX('build');
-                triggerAutoSave(); // LƯU NGẦM TỰ ĐỘNG
+                triggerAutoSave();
             } else {
                 const target = hits[0].object.userData.parentGroup || hits[0].object;
                 if(objects.includes(target) && target.userData.id !== undefined && !target.userData.isIndestructible) {
@@ -621,11 +658,11 @@
                     showNotification("📦 Nhận 1 " + (shopItems.find(x=>x.id===lootId)?.name || lootId));
                     
                     scene.remove(target); objects.splice(objects.indexOf(target), 1);
-                    houseState.items = houseState.items.filter(i => i.uniqueId !== target.userData.uniqueId); // Bỏ khỏi mảng save
+                    houseState.items = houseState.items.filter(i => i.uniqueId !== target.userData.uniqueId); 
                     
                     socket.emit('break3DBlock', target.userData.uniqueId);
                     renderHotbarUI(); updateUI(); playSFX('break');
-                    triggerAutoSave(); // LƯU NGẦM TỰ ĐỘNG
+                    triggerAutoSave(); 
                 } else if(target.userData.isIndestructible) {
                     showNotification("⛔ Không thể phá khối nền móng này!");
                 }
@@ -668,6 +705,9 @@
         socket.on('playerLeftHouse', id => { if(otherPlayers[id]) { scene.remove(otherPlayers[id]); delete otherPlayers[id]; } });
     }
 
+    // FIX LỖI "CHỚP NHÁY / GIẬT SCROLL" TRÊN ĐIỆN THOẠI KHI MUA ĐỒ
+    let isShopLoaded = false;
+    
     async function loadDataFromServer() {
         if(!myUsername) {
             const res = await fetch('/api/house/info'); const d = await res.json();
@@ -677,14 +717,12 @@
         
         generateWorld(); updateUI(); renderHotbarUI();
         
-        // Khôi phục nhà đã lưu
         const res = await fetch('/api/house/info'); const d = await res.json();
         if(d.houseData) {
             d.houseData.forEach(i => { 
                 const info = shopItems.find(x => x.id === i.id); 
                 if(info) {
                     spawnItem(info, i.x, i.y, i.z, i.uniqueId, true); 
-                    // Phục hồi cửa đang mở
                     if(i.isOpen) {
                         const obj = objects.find(o => o.userData.uniqueId === i.uniqueId);
                         if(obj) { obj.userData.isOpen = true; obj.rotation.y = Math.PI/2; obj.updateMatrixWorld(true); obj.userData.bbox.setFromObject(obj); }
@@ -697,11 +735,24 @@
     
     function updateUI() {
         document.getElementById('score').innerText = houseState.score.toLocaleString();
-        const sGrid = document.getElementById('grid-shop'); sGrid.innerHTML = '';
-        shopItems.forEach(i => sGrid.innerHTML += `<div class="item-card" onclick="buyItem('${i.id}')"><div>${i.icon}</div><b>${i.name}</b><br>${i.price}💎</div>`);
-        const iGrid = document.getElementById('grid-inv'); iGrid.innerHTML = '';
+        
+        // Fix mượt scroll Mobile: Chỉ render Cửa hàng 1 lần duy nhất
+        if (!isShopLoaded) {
+            const sGrid = document.getElementById('grid-shop'); sGrid.innerHTML = '';
+            shopItems.forEach(i => sGrid.innerHTML += `<div class="item-card" onclick="buyItem('${i.id}')"><div>${i.icon}</div><b>${i.name}</b><div class="price">${i.price} 💎</div></div>`);
+            isShopLoaded = true;
+        }
+
+        // Cập nhật Balo nhưng giữ vị trí Scroll
+        const iGrid = document.getElementById('grid-inv'); 
+        const scrollPos = iGrid.scrollTop;
+        iGrid.innerHTML = '';
         const counts = {}; houseState.inventory.forEach(id => counts[id] = (counts[id]||0)+1);
-        Object.entries(counts).forEach(([id, c]) => { const item = shopItems.find(x => x.id === id); if(item) iGrid.innerHTML += `<div class="item-card" onclick="equipToHotbar('${id}')"><div>${item.icon}</div><b>${item.name}</b><br><span style="background:#3498db;color:white;padding:3px 10px;border-radius:10px;">x${c}</span></div>`; });
+        Object.entries(counts).forEach(([id, c]) => { 
+            const item = shopItems.find(x => x.id === id); 
+            if(item) iGrid.innerHTML += `<div class="item-card" onclick="equipToHotbar('${id}')"><div>${item.icon}</div><b>${item.name}</b><br><div class="count-badge">Còn: ${c}</div></div>`; 
+        });
+        iGrid.scrollTop = scrollPos;
     }
     
     function renderChestUI() {
@@ -716,30 +767,54 @@
         if(dir==='toChest') { houseState.inventory.splice(houseState.inventory.indexOf(id),1); chestsData[currentChestId].push(id); }
         else { chestsData[currentChestId].splice(chestsData[currentChestId].indexOf(id),1); houseState.inventory.push(id); }
         renderChestUI(); updateUI(); renderHotbarUI();
-        triggerAutoSave(); // LƯU NGẦM TỰ ĐỘNG
+        triggerAutoSave(); 
     }
 
     async function buyItem(id) {
         const res = await fetch('/api/house/buy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({itemId:id}) });
-        const d = await res.json(); if(res.ok) { houseState.score = d.newScore; houseState.inventory.push(id); updateUI(); showNotification("🛍️ Đã mua!"); triggerAutoSave(); }
+        const d = await res.json(); 
+        if(res.ok) { 
+            houseState.score = d.newScore; houseState.inventory.push(id); updateUI(); 
+            showNotification("🛍️ Đã mua thành công!"); triggerAutoSave(); 
+        } else {
+            const notif = document.createElement('div'); notif.className='notif error'; notif.innerText = "❌ " + d.message;
+            document.body.appendChild(notif); setTimeout(()=>notif.remove(), 2500);
+        }
     }
     
-    // Nút lưu thủ công dành cho ai không yên tâm
-    async function saveHouse() { await saveHouseSilent(); showNotification("💾 Đã lưu chủ động!"); }
-    
-    async function visitFriend() {
-        const f = prompt("Nhập tên bạn bè muốn thăm:"); if(!f) return;
-        const res = await fetch(`/api/house/visit/${f}`); const d = await res.json();
-        if(res.ok) { currentHost = f; document.getElementById('host-name').innerText = f; document.getElementById('visit-badge').style.display='block'; generateWorld(); d.houseData.forEach(i => { const info = shopItems.find(x => x.id === i.id); if(info) spawnItem(info, i.x, i.y, i.z, i.uniqueId, true); }); socket.emit('join3DHouse', f); closePanels(); }
-    }
-
     function selectHotbar(i) { selectedHotbarIndex = i; renderHotbarUI(); }
     function equipToHotbar(id) { hotbarSlots[selectedHotbarIndex] = id; renderHotbarUI(); }
     function renderHotbarUI() { const h = document.getElementById('hotbar'); h.innerHTML = ''; const counts={}; houseState.inventory.forEach(id=>counts[id]=(counts[id]||0)+1); hotbarSlots.forEach((id, i) => { const info = shopItems.find(x => x.id === id); h.innerHTML += `<div class="hotbar-slot ${i === selectedHotbarIndex ? 'active' : ''}" onclick="selectHotbar(${i})">${info ? info.icon : ''}</div>`; if(id && counts[id]<=0) hotbarSlots[i]=null; }); }
-    function switchTab(t) { document.getElementById('grid-shop').style.display = t === 'shop' ? 'grid' : 'none'; document.getElementById('grid-inv').style.display = t === 'inv' ? 'grid' : 'none'; document.getElementById('tab-btn-shop').classList.toggle('active', t==='shop'); document.getElementById('tab-btn-inv').classList.toggle('active', t==='inv'); }
+    
+    function switchTab(t) { 
+        document.getElementById('grid-shop').style.display = t === 'shop' ? 'grid' : 'none'; 
+        document.getElementById('grid-inv').style.display = t === 'inv' ? 'grid' : 'none'; 
+        document.getElementById('tab-btn-shop').classList.toggle('active', t==='shop'); 
+        document.getElementById('tab-btn-inv').classList.toggle('active', t==='inv'); 
+    }
+    
     function showNotification(m) { const n = document.createElement('div'); n.className='notif'; n.innerText=m; document.body.appendChild(n); setTimeout(()=>n.remove(), 2500); }
-    function openPanel(id) { document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show')); document.getElementById(id).classList.add('show'); }
-    function closePanels() { document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show')); if(!isMobile) controls.lock(); }
+    
+    function openPanel(id) { 
+        document.getElementById('instructions').style.display = 'none'; 
+        document.getElementById('mobile-controls').style.display = 'none'; 
+        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show')); 
+        document.getElementById(id).classList.add('show'); 
+        document.getElementById('blocker').style.display = 'flex'; 
+        isGameRunning = false;
+        if (!isMobile) controls.unlock();
+    }
+    
+    function closePanels() { 
+        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show')); 
+        if(!isMobile) {
+            controls.lock(); 
+        } else { 
+            document.getElementById('blocker').style.display = 'none'; 
+            document.getElementById('mobile-controls').style.display = 'block'; 
+            isGameRunning = true; 
+        }
+    }
 </script>
 </body>
 </html>
