@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Minecraft Mode (No Falling Bug)</title>
+    <title>Biệt Thự 3D - Minecraft Mode (Bản Hoàn Chỉnh 10.0)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -84,7 +84,7 @@
         #btn-build { background: rgba(46, 204, 113, 0.8); top: 10px; right: 50px; }
         #btn-break { background: rgba(231, 76, 60, 0.8); bottom: 40px; right: -10px; }
 
-        #mobile-menu-btn { position: absolute; top: 20px; right: 20px; background: #f1c40f; color: #d35400; font-weight: bold; border: 3px solid white; padding: 10px 20px; border-radius: 20px; z-index: 100; font-size: 1.2rem; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: auto;}
+        #mobile-menu-btn { position: absolute; top: 20px; right: 20px; background: #f1c40f; color: #d35400; font-weight: bold; border: 3px solid white; padding: 10px 20px; border-radius: 20px; z-index: 100; font-size: 1.2rem; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: auto; cursor: pointer;}
         .notif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 15px 30px; border-radius: 30px; border: 3px solid #2ecc71; font-weight: 800; font-size: 1.2rem; color: #27ae60; z-index: 99999; animation: slideDown 0.3s ease-out; }
         @keyframes slideDown { from { top: -50px; opacity: 0; } to { top: 20px; opacity: 1; } }
         
@@ -101,7 +101,7 @@
     <div id="visit-badge">🏡 Đang ở nhà của: <span id="host-name"></span></div>
     <div id="hotbar"></div>
 
-    <button id="mobile-menu-btn" onclick="openPanel('ui-panel')">🎒 Menu</button>
+    <button id="mobile-menu-btn" onclick="openPanel('ui-panel')">🎒 Mở Cửa Hàng</button>
     
     <div id="mobile-controls">
         <div id="camera-zone"></div>
@@ -120,11 +120,12 @@
             <div id="pc-hint">
                 <p><b>W, A, S, D</b> = Di chuyển | <b>SPACE</b> = Nhảy / Bơi</p>
                 <p><b>Chuột Trái / Phải</b> = Đặt gạch / Đập đồ & Chặt cây</p>
-                <p><b>Phím E</b> = Ngủ (Giường) hoặc Mở kho (Tủ)</p>
+                <p><b>Phím B</b> = Mở Cửa Hàng / Ba Lô (Shop)</p>
+                <p><b>Phím E</b> = Tương tác (Ngủ/Mở tủ)</p>
             </div>
             <div id="mobile-hint" style="display:none;">
                 <p>👉 Dùng Joystick trái để <b>Di chuyển</b> | Vuốt tự do để <b>Xoay đầu</b></p>
-                <p>👉 Nút thao tác dạng cung tròn dễ bấm bằng ngón phải!</p>
+                <p>👉 Bấm nút góc phải trên cùng để mở Mua Đồ nhé!</p>
             </div>
             <button class="play-btn" id="play-btn">▶️ VÀO GAME</button>
         </div>
@@ -190,31 +191,24 @@
     let moveJoystick = null; let joystickVector = { x: 0, y: 0 };
     let blockHighlight; 
 
-    // ==========================================
-    // --- KHU VỰC TỐI ƯU HÓA (OPTIMIZATIONS) ---
-    // ==========================================
+    // --- AN TOÀN TỐI ƯU HÓA ---
     const sharedBlockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-    const materialCache = {};
     
-    function getOrCreateBlockMaterial(hexColor) {
-        if (materialCache[hexColor]) return materialCache[hexColor];
+    function createBlockMaterial(hexColor) {
         const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64; const ctx = canvas.getContext('2d'); 
         ctx.fillStyle = hexColor || '#bdc3c7'; ctx.fillRect(0, 0, 64, 64); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 4; ctx.strokeRect(0,0,64,64); 
         const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; 
-        const mat = new THREE.MeshLambertMaterial({ map: tex });
-        materialCache[hexColor] = mat; return mat;
+        return new THREE.MeshLambertMaterial({ map: tex });
     }
 
-    // --- HỆ THỐNG ÂM THANH GIẢ LẬP (WEB AUDIO API) ---
+    // --- HỆ THỐNG ÂM THANH GIẢ LẬP ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
-    
     function playSFX(type) {
         if(!audioCtx) return;
         if(audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
-        
         if (type === 'build') { 
             osc.type = 'sine'; osc.frequency.setValueAtTime(300, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
             gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
@@ -230,8 +224,13 @@
         }
     }
 
-    init3D(); setupControls(); initWeather(); startAutoWeather();
-    loadDataFromServer(); setupMultiplayerSockets(); 
+    // --- KHỞI CHẠY CHÍNH ---
+    init3D(); 
+    setupControls(); 
+    initWeather(); 
+    startAutoWeather();
+    loadDataFromServer(); 
+    setupMultiplayerSockets(); 
     animate(); 
 
     // ==========================================
@@ -255,9 +254,6 @@
         blockHighlight = new THREE.LineSegments(outlineGeo, outlineMat); blockHighlight.visible = false; scene.add(blockHighlight);
 
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
-        
-        // --- FIX LỖI RƠI KHI MỚI VÀO GAME ---
-        // Nâng vị trí xuất phát lên cao hơn một chút (100) để đảm bảo rơi xuống chạm đất
         controls = new THREE.PointerLockControls(camera, document.body);
         controls.getObject().position.set(0, 100, 0); 
         scene.add(controls.getObject()); 
@@ -267,12 +263,24 @@
 
         document.getElementById('play-btn').addEventListener('click', () => {
             if(!audioCtx) audioCtx = new AudioContext(); 
-            if (isMobile) { isGameRunning = true; blocker.style.display = 'none'; document.getElementById('mobile-controls').style.display = 'block'; closePanels(); initJoystick(); } 
+            if (isMobile) { 
+                isGameRunning = true; 
+                blocker.style.display = 'none'; 
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('mobile-menu-btn').style.display = 'block'; // Hiện nút menu trên Mobile
+                closePanels(); initJoystick(); 
+            } 
             else { controls.lock(); }
         });
 
         controls.addEventListener('lock', () => { blocker.style.display = 'none'; isGameRunning = true; });
-        controls.addEventListener('unlock', () => { if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ blocker.style.display = 'flex'; isGameRunning = false; }});
+        controls.addEventListener('unlock', () => { 
+            isGameRunning = false;
+            // Nếu bảng menu chưa được mở thì mới hiện nút Play lại (Tránh lỗi đè bảng)
+            if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ 
+                blocker.style.display = 'flex'; 
+            }
+        });
         raycaster = new THREE.Raycaster();
 
         renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(window.innerWidth, window.innerHeight);
@@ -308,7 +316,7 @@
         }, Math.floor(Math.random() * 120000) + 60000);
     }
 
-    // --- TỰ ĐỘNG SINH MẶT ĐẤT MINECRAFT & HỒ BƠI SÂU ---
+    // --- TỰ ĐỘNG SINH MẶT ĐẤT MINECRAFT & DÂN LÀNG ---
     function generateWorld() {
         objects.forEach(obj => scene.remove(obj)); animatedObjects.forEach(obj => scene.remove(obj));
         objects = []; animatedObjects = []; houseState.items = [];
@@ -318,33 +326,28 @@
         const floorTex = new THREE.CanvasTexture(canvas); floorTex.wrapS = THREE.RepeatWrapping; floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(3000/BLOCK_SIZE, 3000/BLOCK_SIZE); floorTex.magFilter = THREE.NearestFilter; 
         const floorMat = new THREE.MeshLambertMaterial({ map: floorTex });
 
-        // --- FIX LỖI MẶT ĐẤT CHÍNH --- 
-        // Phải updateMatrixWorld trước khi lấy BoundingBox
         const floor1 = new THREE.Mesh(new THREE.PlaneGeometry(3000, 2100).rotateX(-Math.PI / 2), floorMat); 
         floor1.position.z = -450; floor1.receiveShadow = true; 
-        floor1.updateMatrixWorld(true); // <--- QUAN TRỌNG: Cập nhật ma trận
-        floor1.userData = { bbox: new THREE.Box3().setFromObject(floor1) }; // <--- Gắn Hộp va chạm
+        floor1.updateMatrixWorld(true); floor1.userData = { bbox: new THREE.Box3().setFromObject(floor1) }; 
         scene.add(floor1); objects.push(floor1); 
 
         const floor2 = new THREE.Mesh(new THREE.PlaneGeometry(3000, 500).rotateX(-Math.PI / 2), floorMat); 
         floor2.position.z = 1250; floor2.receiveShadow = true; 
-        floor2.updateMatrixWorld(true); // <--- QUAN TRỌNG
-        floor2.userData = { bbox: new THREE.Box3().setFromObject(floor2) }; // <--- Gắn Hộp va chạm
+        floor2.updateMatrixWorld(true); floor2.userData = { bbox: new THREE.Box3().setFromObject(floor2) }; 
         scene.add(floor2); objects.push(floor2); 
 
         const riverBed = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x95a5a6 })); 
         riverBed.position.set(0, -60, 800); riverBed.receiveShadow = true; 
-        riverBed.updateMatrixWorld(true); // <--- QUAN TRỌNG
-        riverBed.userData = { bbox: new THREE.Box3().setFromObject(riverBed) }; // <--- Gắn Hộp va chạm
+        riverBed.updateMatrixWorld(true); riverBed.userData = { bbox: new THREE.Box3().setFromObject(riverBed) }; 
         scene.add(riverBed); objects.push(riverBed);
 
         const riverMat = new THREE.MeshLambertMaterial({ color: 0x3498db, transparent: true, opacity: 0.7 });
         const river = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI / 2), riverMat); 
-        river.position.set(0, -10, 800); 
-        river.updateMatrixWorld(true);
+        river.position.set(0, -10, 800); river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river) }; 
         scene.add(river); objects.push(river);
 
+        // Sinh đồi núi
         function spawnHill(x, z, radius, height) {
             for(let dx = -radius; dx <= radius; dx+=BLOCK_SIZE) {
                 for(let dz = -radius; dz <= radius; dz+=BLOCK_SIZE) {
@@ -355,8 +358,7 @@
                             b.position.set(x + dx, y * BLOCK_SIZE + BLOCK_SIZE/2, z + dz); 
                             b.castShadow = true; b.receiveShadow = true; 
                             b.updateMatrix(); b.matrixAutoUpdate = false; 
-                            b.updateMatrixWorld(true); // <--- FIX LỖI VA CHẠM ĐỒI NÚI
-                            b.userData = { bbox: new THREE.Box3().setFromObject(b) }; 
+                            b.updateMatrixWorld(true); b.userData = { bbox: new THREE.Box3().setFromObject(b) }; 
                             scene.add(b); objects.push(b);
                         }
                     }
@@ -365,20 +367,39 @@
         }
         spawnHill(-1000, -1000, 400, 4); spawnHill(1000, -800, 300, 3); 
 
+        // Sinh Cây cối
         for(let i=0; i<30; i++) {
             let x = (Math.random() - 0.5) * 2000; let z = (Math.random() - 0.5) * 1500 - 200; 
             const trunk = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 20), new THREE.MeshLambertMaterial({color: 0x8b4513})); 
-            trunk.position.set(x, 30, z); trunk.castShadow = true; 
-            trunk.updateMatrixWorld(true); // <--- FIX LỖI
+            trunk.position.set(x, 30, z); trunk.castShadow = true; trunk.updateMatrixWorld(true); 
             trunk.userData = { id: 'tree_trunk', bbox: new THREE.Box3().setFromObject(trunk), isPart: false }; 
             scene.add(trunk); objects.push(trunk);
             
             const leaves = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 80), new THREE.MeshLambertMaterial({color: 0x27ae60})); 
-            leaves.position.set(x, 100, z); leaves.castShadow = true; 
-            leaves.updateMatrixWorld(true); // <--- FIX LỖI
+            leaves.position.set(x, 100, z); leaves.castShadow = true; leaves.updateMatrixWorld(true); 
             leaves.userData = { id: 'tree_leaves', bbox: new THREE.Box3().setFromObject(leaves), isPart: false }; 
             scene.add(leaves); objects.push(leaves);
         }
+
+        // --- BỔ SUNG LẠI NHÀ DÂN LÀNG VÀ DÂN LÀNG ---
+        const houseWalls = new THREE.Mesh(new THREE.BoxGeometry(200, 150, 200), createBlockMaterial('#f5cd79'));
+        houseWalls.position.set(-500, 75, -500); houseWalls.castShadow = true; houseWalls.receiveShadow = true;
+        houseWalls.updateMatrixWorld(true); houseWalls.userData = { id: 'villager_house', bbox: new THREE.Box3().setFromObject(houseWalls) };
+        scene.add(houseWalls); objects.push(houseWalls);
+        
+        const roofGeo = new THREE.CylinderGeometry(0, 150, 100, 4); roofGeo.rotateY(Math.PI / 4);
+        const roof = new THREE.Mesh(roofGeo, createBlockMaterial('#e15f41'));
+        roof.position.set(-500, 200, -500); roof.castShadow = true; roof.receiveShadow = true;
+        roof.updateMatrixWorld(true); roof.userData = { id: 'villager_roof', bbox: new THREE.Box3().setFromObject(roof) };
+        scene.add(roof); objects.push(roof);
+
+        const villagerGroup = new THREE.Group();
+        const vHead = new THREE.Mesh(new THREE.BoxGeometry(30, 30, 30), new THREE.MeshLambertMaterial({color: 0xf1c40f})); vHead.position.set(0, 55, 0);
+        const vBody = new THREE.Mesh(new THREE.BoxGeometry(30, 40, 20), new THREE.MeshLambertMaterial({color: 0x8e44ad})); vBody.position.set(0, 20, 0);
+        villagerGroup.add(vHead); villagerGroup.add(vBody);
+        villagerGroup.position.set(-400, 0, -300);
+        villagerGroup.userData = { isVillager: true, velocity: new THREE.Vector3(0,0,0), moveTimer: 0 };
+        scene.add(villagerGroup); animatedObjects.push(villagerGroup);
     }
 
     // ==========================================
@@ -438,11 +459,11 @@
                     if (!hotbarSlots[selectedHotbarIndex]) hotbarSlots[selectedHotbarIndex] = 'wall_wood_plank';
                 } else if (itemId === 'tree_leaves') {
                     showNotification("🍃 Đã dọn dẹp lá cây!");
-                } else if (itemId) { 
+                } else if (itemId && !itemId.includes('villager')) { 
                     if (chestsData[targetObj.userData.uniqueId]) { 
                         houseState.inventory.push(...chestsData[targetObj.userData.uniqueId]);
                         delete chestsData[targetObj.userData.uniqueId];
-                        showNotification("📦 Đồ trong tủ đã được thu hồi vào Ba Lô!");
+                        showNotification("📦 Đồ trong tủ đã được thu hồi!");
                     }
                     houseState.inventory.push(itemId); 
                     houseState.items = houseState.items.filter(i => i.uniqueId !== targetObj.userData.uniqueId);
@@ -462,15 +483,14 @@
     function spawnItem(itemInfo, x, y, z, uniqueId, isSync = false) {
         let object3D;
         if (itemInfo.category === 'paint' || itemInfo.category === 'floor') {
-            object3D = new THREE.Mesh(sharedBlockGeo, getOrCreateBlockMaterial(itemInfo.value));
+            object3D = new THREE.Mesh(sharedBlockGeo, createBlockMaterial(itemInfo.value));
             object3D.position.set(x, y, z); object3D.castShadow = true; object3D.receiveShadow = true;
             object3D.updateMatrix(); object3D.matrixAutoUpdate = false; 
         } else {
             object3D = create3DModel(itemInfo); object3D.position.set(x, y - BLOCK_SIZE/2, z); 
         }
 
-        // --- FIX LỖI TÍNH TOÁN VA CHẠM KHỐI XÂY DỰNG ---
-        object3D.updateMatrixWorld(true); // Cập nhật ma trận trước khi sinh hộp va chạm
+        object3D.updateMatrixWorld(true); 
         object3D.userData = { id: itemInfo.id, uniqueId: uniqueId, category: itemInfo.category, bbox: new THREE.Box3().setFromObject(object3D) };
         scene.add(object3D);
 
@@ -517,6 +537,13 @@
                 case 'ArrowRight': case 'KeyD': moveRight = true; break;
                 case 'Space': if(canJump || isPlayerSwimming) { velocity.y = isPlayerSwimming ? 200 : 450; canJump = false; } break; 
                 case 'KeyE': triggerInteraction(); break;
+                // --- PHÍM B MỞ SHOP PC ---
+                case 'KeyB': 
+                    if (!isMobile && controls.isLocked) {
+                        controls.unlock(); // Sẽ kích hoạt event unlock và hiện chuột
+                        openPanel('ui-panel'); // Hiện bảng Shop
+                    }
+                    break;
                 case 'Digit1': selectHotbar(0); break; case 'Digit2': selectHotbar(1); break;
                 case 'Digit3': selectHotbar(2); break; case 'Digit4': selectHotbar(3); break;
                 case 'Digit5': selectHotbar(4); break; case 'Digit6': selectHotbar(5); break;
@@ -543,24 +570,14 @@
 
     function checkCollision(playerPos) {
         playerBox.setFromCenterAndSize(new THREE.Vector3(playerPos.x, playerPos.y - 40, playerPos.z), new THREE.Vector3(20, 80, 20));
-        let isOnGround = false; let maxGroundY = -2000; 
-        
-        let inWater = false;
-        // Kiểm tra khu vực sông
+        let isOnGround = false; let maxGroundY = -2000; let inWater = false;
         if (playerPos.z > 600 && playerPos.z < 1000 && playerPos.y < 50) inWater = true; 
 
         for (let obj of objects) {
-            let isWaterBlock = obj.userData?.id === 'floor_water' || obj.userData?.isWater; 
-            let objBox = obj.userData.bbox; 
-            
+            let isWaterBlock = obj.userData?.id === 'floor_water' || obj.userData?.isWater; let objBox = obj.userData.bbox; 
             if (objBox && playerBox.intersectsBox(objBox)) {
                 if (isWaterBlock) { inWater = true; continue; } 
-                if (playerPos.y - 80 >= objBox.max.y - 15) { 
-                    isOnGround = true; 
-                    if (objBox.max.y + 80 > maxGroundY) maxGroundY = objBox.max.y + 80; 
-                } else { 
-                    return { isColliding: true, groundY: maxGroundY, isSwimming: inWater }; 
-                }
+                if (playerPos.y - 80 >= objBox.max.y - 15) { isOnGround = true; if (objBox.max.y + 80 > maxGroundY) maxGroundY = objBox.max.y + 80; } else { return { isColliding: true, groundY: maxGroundY, isSwimming: inWater }; }
             }
         }
         return { isColliding: false, groundY: isOnGround ? maxGroundY : -2000, isOnGround, isSwimming: inWater };
@@ -638,8 +655,6 @@
             
             renderHotbarUI(); 
             updateUI(); 
-            
-            // LỖI MÀN HÌNH ĐEN ĐÃ ĐƯỢC FIX TẠI ĐÂY (Thiếu hàm tạo bản đồ)
             generateWorld(); 
             
             if(data.houseData) { 
@@ -655,6 +670,8 @@
     // ==========================================
     // --- 5. HỆ THỐNG VẬT LÝ & HIỂN THỊ ---
     // ==========================================
+    let wasSwimming = false; 
+
     function animate() {
         requestAnimationFrame(animate); const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); prevTime = time;
         if (!isSleeping) { timeOfDay += delta * timeSpeed; if(timeOfDay >= Math.PI * 2) timeOfDay = 0; } checkLookingAt(); 
@@ -691,21 +708,24 @@
             if (!physics.isColliding) { controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta); } else { velocity.x = 0; velocity.z = 0; }
             controls.getObject().position.y += (velocity.y * delta);
             if (controls.getObject().position.y <= physics.groundY) { velocity.y = 0; controls.getObject().position.y = physics.groundY; canJump = true; }
-            
-            // --- FIX RƠI XUYÊN MAP --- 
-            // Nếu rơi quá giới hạn (-500), đưa người chơi trở lại mặt đất (0, 100, 0)
-            if (controls.getObject().position.y < -500) { 
-                controls.getObject().position.set(0, 100, 0); 
-                velocity.y = 0; 
-            }
+            if (controls.getObject().position.y < -500) { controls.getObject().position.set(0, 100, 0); velocity.y = 0; }
             
             if (time - lastMoveSendTime > 50) { socket.emit('move3DPlayer', { x: controls.getObject().position.x, y: controls.getObject().position.y, z: controls.getObject().position.z, ry: camera.rotation.y }); lastMoveSendTime = time; }
 
             animatedObjects.forEach(animal => { 
-                if (animal.userData.isVillager) return; const data = animal.userData; data.moveTimer -= delta;
-                if (data.moveTimer <= 0) { if (Math.random() > 0.4) { data.velocity.x = (Math.random() - 0.5) * 80; data.velocity.z = (Math.random() - 0.5) * 80; animal.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); } else { data.velocity.x = 0; data.velocity.z = 0; } data.moveTimer = Math.random() * 3 + 1; }
+                const data = animal.userData; data.moveTimer -= delta;
+                if (data.moveTimer <= 0) { 
+                    if (Math.random() > 0.4) { data.velocity.x = (Math.random() - 0.5) * 80; data.velocity.z = (Math.random() - 0.5) * 80; animal.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); } else { data.velocity.x = 0; data.velocity.z = 0; } 
+                    data.moveTimer = Math.random() * 3 + 1; 
+                }
                 animal.position.x += data.velocity.x * delta; animal.position.z += data.velocity.z * delta;
-                if (data.velocity.x !== 0 || data.velocity.z !== 0) animal.position.y = (BLOCK_SIZE/2 - BLOCK_SIZE/2) + Math.abs(Math.sin(time * 0.01)) * 5; else animal.position.y = 0;
+                
+                // --- PHỤC HỒI DÂN LÀNG ĐI DẠO ---
+                if (data.isVillager) {
+                    animal.position.y = 0; // Dân làng không nhảy
+                } else {
+                    if (data.velocity.x !== 0 || data.velocity.z !== 0) animal.position.y = (BLOCK_SIZE/2 - BLOCK_SIZE/2) + Math.abs(Math.sin(time * 0.01)) * 5; else animal.position.y = 0;
+                }
             });
         }
         renderer.render(scene, camera);
