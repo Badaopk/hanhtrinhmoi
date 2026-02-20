@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Ultimate Voxel Update 19.1 (Fix Bugs)</title>
+    <title>Hành Tinh Mơ Ước - 3D Masterpiece 21.0 (Super Smooth)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -19,28 +19,24 @@
         #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); pointer-events: none; z-index: 100; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; }
         #interaction-tooltip { position: absolute; top: 60%; left: 50%; transform: translateX(-50%); font-weight: 800; font-size: 1.5rem; color: #f1c40f; text-shadow: 2px 2px 4px #000; display: none; z-index: 100;}
         #save-indicator { position: absolute; bottom: 10px; right: 10px; color: rgba(255,255,255,0.9); font-weight: bold; z-index: 100; display: none; background: rgba(0,0,0,0.6); padding: 5px 20px; border-radius: 20px; font-size: 1.1rem; border: 2px solid #2ecc71;}
+        #visit-badge { position: absolute; top: 20px; left: 20px; background: rgba(52, 152, 219, 0.9); color: white; padding: 10px 25px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.3);}
 
-        #blocker { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(10px); flex-direction: column;}
-        #instructions { text-align: center; color: white; padding: 40px; border-radius: 30px; border: 4px solid #f1c40f; background: rgba(0,0,0,0.4); max-width: 600px; margin: 0 auto;}
-        
+        #blocker { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(10px); flex-direction: column;}
+        #instructions { text-align: center; color: white; padding: 40px; border-radius: 30px; border: 4px solid #f1c40f; background: rgba(0,0,0,0.6); max-width: 600px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);}
         .play-btn { background: #2ecc71; color: white; border: none; padding: 15px 60px; font-size: 2rem; font-family: 'Baloo 2'; font-weight: 800; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 8px 0 #27ae60; transition: transform 0.1s;}
         .play-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #27ae60; }
 
         .panel { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 400px; background: rgba(255,255,255,0.95); border-radius: 25px; padding: 20px; display: none; flex-direction: column; z-index: 1001; box-shadow: -10px 0 30px rgba(0,0,0,0.5); box-sizing: border-box;}
         .panel.show { display: flex !important; }
-        
-        @media screen and (max-width: 800px) { 
-            .panel { width: 95vw; left: 2.5vw; right: 2.5vw; top: 2.5vh; bottom: 2.5vh; padding: 15px; } 
-            #instructions { transform: scale(0.8); }
-        }
+        @media screen and (max-width: 800px) { .panel { width: 95vw; left: 2.5vw; right: 2.5vw; top: 2.5vh; bottom: 2.5vh; padding: 15px; } #instructions { transform: scale(0.8); } }
 
-        .score-badge { background:#f1c40f; color:#d35400; padding:10px; border-radius:20px; font-weight:900; font-size: 1.8rem; text-align: center; margin-bottom: 10px; }
+        .score-badge { background:#f1c40f; color:#d35400; padding:10px; border-radius:20px; font-weight:900; font-size: 1.8rem; text-align: center; margin-bottom: 10px; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
         .tab-container { display:flex; gap:5px; margin-bottom:10px; background: #eee; padding: 5px; border-radius: 15px; }
         .tab-btn { flex:1; padding:10px; cursor:pointer; font-weight: 800; background:transparent; color:#7f8c8d; border:none; border-radius:12px; font-family: inherit; font-size: 1.2rem; transition: 0.2s;}
         .tab-btn.active { background: #3498db; color: white; }
         
         .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow-y: auto; flex: 1; align-content: start; -webkit-overflow-scrolling: touch; padding-bottom: 10px;}
-        .item-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; border: 3px solid #eee; cursor: pointer; transition: 0.2s; }
+        .item-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; border: 3px solid #eee; cursor: pointer; transition: 0.2s; position: relative;}
         .item-card:hover { border-color: #3498db; transform: scale(1.02); }
         .item-card:active { transform: scale(0.95); border-color: #2ecc71;}
         .item-card div { font-size: 3rem; margin-bottom: 5px; }
@@ -50,12 +46,12 @@
         
         .panel-footer { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         .panel-footer-row { display: flex; gap: 8px; }
-        .btn-general { padding: 12px; color: white; border: none; border-radius: 15px; font-weight: bold; font-size: 1.1rem; cursor: pointer; font-family: inherit; width: 100%; transition: 0.2s;}
-        .btn-general:active { transform: scale(0.95); }
+        .btn-general { padding: 12px; color: white; border: none; border-radius: 15px; font-weight: bold; font-size: 1.1rem; cursor: pointer; font-family: inherit; width: 100%; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);}
+        .btn-general:active { transform: scale(0.95); box-shadow: none;}
 
-        #hotbar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 20px; z-index: 100; }
-        .hotbar-slot { width: 55px; height: 55px; background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.4); border-radius: 12px; display: flex; justify-content: center; align-items: center; color: white; font-weight: 800; font-size: 2rem; cursor: pointer;}
-        .hotbar-slot.active { border-color: #f1c40f; background: rgba(255,255,255,0.9); transform: scale(1.1); box-shadow: 0 0 15px #f1c40f; }
+        #hotbar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 20px; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5);}
+        .hotbar-slot { width: 55px; height: 55px; background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.4); border-radius: 12px; display: flex; justify-content: center; align-items: center; color: white; font-weight: 800; font-size: 2rem; cursor: pointer; transition: 0.1s;}
+        .hotbar-slot.active { border-color: #f1c40f; background: rgba(255,255,255,0.9); transform: scale(1.15); box-shadow: 0 0 15px #f1c40f; z-index: 10;}
 
         #mobile-controls { display: none; }
         #joystick-zone { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; z-index: 20; opacity: 0.8;}
@@ -68,11 +64,11 @@
         #btn-interact { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: #f1c40f; color: #d35400; padding: 12px 40px; border-radius: 40px; font-weight: 900; z-index: 30; display: none; border: 4px solid white; font-size: 1.2rem; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);}
         
         #mobile-menu-btn { position: absolute; top: 20px; right: 20px; background: #9b59b6; color: white; padding: 12px 25px; border-radius: 15px; font-weight: 800; z-index: 100; border: 3px solid white; display: none; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);}
-        #visit-badge { position: absolute; top: 20px; left: 20px; background: rgba(52, 152, 219, 0.9); color: white; padding: 10px 25px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.3);}
         
-        .notif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 12px 35px; border-radius: 30px; border: 3px solid #2ecc71; font-weight: 900; z-index: 9999; color: #27ae60; animation: slideDown 0.4s ease-out; font-size: 1.3rem; box-shadow: 0 5px 15px rgba(0,0,0,0.2);}
+        .notif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 12px 35px; border-radius: 30px; border: 3px solid #2ecc71; font-weight: 900; z-index: 9999; color: #27ae60; animation: slideDown 0.4s ease-out; font-size: 1.3rem; box-shadow: 0 5px 15px rgba(0,0,0,0.3);}
         .notif.error { border-color: #e74c3c; color: #c0392b; }
         @keyframes slideDown { from { top: -60px; } to { top: 20px; } }
+        
         #fade-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; opacity: 0; pointer-events: none; z-index: 99999; transition: opacity 1.5s; }
     </style>
 </head>
@@ -101,12 +97,12 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 19.1</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC 21.0</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
-                <p>⌨️ <b>W, A, S, D</b>: Di chuyển mượt mà | 🚀 <b>Space</b>: Nhảy/Bơi</p>
-                <p>🛒 <b>Phím B</b>: Mở Cửa Hàng & Ba Lô</p>
-                <p>🚪 <b>Phím E</b>: Tương tác (Mở Cửa / Ngồi Ghế / Mở Tủ / Đi Ngủ)</p>
-                <p>🖱️ <b>Chuột Trái/Phải</b>: Xây/Phá (Auto Save kích hoạt!)</p>
+                <p>⌨️ <b>W, A, S, D</b>: Di chuyển | 🚀 <b>Space</b>: Nhảy</p>
+                <p>🛒 <b>Phím B</b>: Mở Shop | 🔄 <b>Phím R</b>: Giải cứu (Khi bị kẹt)</p>
+                <p>🚪 <b>Phím E</b>: Tương tác (Mở Cửa / Ngồi / Mở Tủ / Ngủ)</p>
+                <p>🖱️ <b>Chuột Trái/Phải</b>: Xây/Phá</p>
             </div>
             <button class="play-btn" id="play-btn">▶️ VÀO THẾ GIỚI</button>
         </div>
@@ -155,7 +151,7 @@
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     let isGameRunning = false, isSwimming = false, canJump = false, isSitting = false;
     let sittingObj = null; 
-    let isLoadingMap = false; // FLAG FIX LỖI RƠI KHI ĐANG TẢI
+    let isLoadingMap = true; // FLAG FIX LỖI RƠI
     
     let scene, camera, renderer, controls, raycaster;
     let objects = [], animatedObjects = [];
@@ -201,7 +197,10 @@
         else if (type === 'door') { osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
     }
 
-    init3D(); setupControls(); initWeather(); setupMultiplayer(); animate();
+    // --- TRÌNH TỰ KHỞI ĐỘNG CHUẨN ---
+    init3D(); setupControls(); initWeather(); setupMultiplayer(); 
+    generateWorld(); 
+    animate();
 
     // ==========================================
     // --- 1. ENGINE 3D ---
@@ -213,8 +212,8 @@
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
         controls = new THREE.PointerLockControls(camera, document.body);
         
-        // Cài đặt vị trí Spawn ban đầu (Cao lên để an toàn)
-        controls.getObject().position.set(0, 200, 0); 
+        // FIX LỖI RƠI: Bắt đầu ở độ cao 800 (Rơi từ trên trời xuống)
+        controls.getObject().position.set(0, 800, 0); 
         scene.add(controls.getObject());
 
         const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); scene.add(hemi);
@@ -264,21 +263,22 @@
         return new THREE.MeshLambertMaterial({ map: tex });
     }
 
-    // --- XÂY DỰNG MẶT ĐẤT CƠ BẢN ---
+    // --- FIX LỖI RƠI: Đất và Sông dùng BoxGeometry cực dày ---
+    // --- FIX LỖI LAG: Gộp lá cây thành khối to ---
     function generateWorld() {
         objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
 
-        // Đất nền (Bất tử & Dày để chống rơi xuyên)
+        // Mặt đất dày cộm
         const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
         const createPart = (w, d, x, z) => {
             const g = new THREE.Mesh(new THREE.BoxGeometry(w, 50, d), floorMat);
-            g.position.set(x, -25, z); // Dời xuống để mặt trên bằng 0
+            g.position.set(x, -25, z); // Dời xuống để mặt trên trùng với y=0
             g.receiveShadow = true; g.updateMatrixWorld(true);
             g.userData = { bbox: new THREE.Box3().setFromObject(g), isIndestructible: true }; scene.add(g); objects.push(g);
         };
         createPart(3000, 2100, 0, -450); createPart(3000, 500, 0, 1250); 
 
-        // Dòng sông
+        // Sông dày
         const river = new THREE.Mesh(new THREE.BoxGeometry(3000, 50, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
         river.position.set(0, -25, 800); river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
@@ -303,7 +303,7 @@
         }
         spawnVoxelHill(-800, -800, 6, 3); spawnVoxelHill(800, -500, 5, 2); 
 
-        // Rừng cây
+        // Rừng cây (TỐI ƯU HÓA: DÙNG KHỐI LÁ TO ĐỂ CHỐNG LAG)
         const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
         for(let i=0; i<15; i++){
             let x = Math.round(((Math.random()-0.5)*2000)/BLOCK_SIZE)*BLOCK_SIZE; 
@@ -313,16 +313,11 @@
                 trunk.position.set(x, y*BLOCK_SIZE + BLOCK_SIZE/2, z); trunk.castShadow = true; trunk.updateMatrixWorld(true);
                 trunk.userData = { id: 'wall_wood_plank', bbox: new THREE.Box3().setFromObject(trunk) }; scene.add(trunk); objects.push(trunk);
             }
-            for(let lx=-1; lx<=1; lx++) {
-                for(let ly=0; ly<2; ly++) {
-                    for(let lz=-1; lz<=1; lz++) {
-                        if(Math.abs(lx)===1 && Math.abs(lz)===1 && ly===1) continue;
-                        const leaf = new THREE.Mesh(sharedBlockGeo, leafMat);
-                        leaf.position.set(x + lx*BLOCK_SIZE, (3+ly)*BLOCK_SIZE + BLOCK_SIZE/2, z + lz*BLOCK_SIZE); leaf.castShadow = true; leaf.updateMatrixWorld(true);
-                        leaf.userData = { id: 'wall_green', bbox: new THREE.Box3().setFromObject(leaf) }; scene.add(leaf); objects.push(leaf);
-                    }
-                }
-            }
+            
+            // Khối lá to duy nhất (Thay vì 27 khối nhỏ)
+            const leafGroup = new THREE.Mesh(new THREE.BoxGeometry(150, 100, 150), leafMat);
+            leafGroup.position.set(x, 200, z); leafGroup.castShadow = true; leafGroup.updateMatrixWorld(true);
+            leafGroup.userData = { id: 'wall_green', bbox: new THREE.Box3().setFromObject(leafGroup) }; scene.add(leafGroup); objects.push(leafGroup);
         }
 
         // Làng mạc
@@ -376,6 +371,7 @@
                     break;
                 case 'KeyB': controls.unlock(); openPanel('ui-panel'); break;
                 case 'KeyE': triggerInteraction(); break;
+                case 'KeyR': controls.getObject().position.set(0, 800, 0); velocity.y = 0; showNotification("🚀 Đã bay lên trời giải cứu!"); break;
                 case 'Digit1': selectHotbar(0); break; case 'Digit2': selectHotbar(1); break;
                 case 'Digit3': selectHotbar(2); break; case 'Digit4': selectHotbar(3); break;
                 case 'Digit5': selectHotbar(4); break; case 'Digit6': selectHotbar(5); break;
@@ -384,7 +380,7 @@
             }
         });
         document.addEventListener('keyup', e => {
-            switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; break; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
+            switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
         });
         document.addEventListener('mousedown', e => { if(controls.isLocked && !isSitting) handleBuildBreak(e.button === 0 ? 'build' : 'break'); });
 
@@ -392,23 +388,23 @@
         playBtn.addEventListener('click', () => {
             if(!audioCtx) audioCtx = new AudioContext();
             
-            // Ép ẩn ngay khung đen mờ mờ khi ấn Play (FIX LỖI ẢNH 3)
             document.getElementById('instructions').style.display = 'none'; 
             document.getElementById('blocker').style.display = 'none';
+            document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
 
             if(isMobile) { 
                 isGameRunning = true; 
                 document.getElementById('mobile-controls').style.display='block'; 
                 document.getElementById('mobile-menu-btn').style.display='block'; 
                 initJoystick(); 
-            }
-            else { 
+            } else { 
                 controls.lock(); 
             }
+
             if(!myUsername) loadDataFromServer(); 
+            prevTime = performance.now();
         });
 
-        // Chỉ hiện lại Menu chính nếu không có bảng nào đang bật
         controls.addEventListener('unlock', () => { 
             isGameRunning = false;
             if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ 
@@ -466,7 +462,11 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); prevTime = time;
+        const time = performance.now(); 
+        
+        // CHỐNG KẸT GIẬT LAG
+        const delta = Math.min((time - prevTime) / 1000, 0.04); 
+        prevTime = time;
 
         timeOfDay += delta * timeSpeed; 
         sunSphere.position.set(Math.cos(timeOfDay)*1200, Math.sin(timeOfDay)*1200, 0);
@@ -511,17 +511,16 @@
             pos.x += moveVec.x; if(checkCollision(pos).blocked) pos.x = oldX;
             pos.z += moveVec.z; if(checkCollision(pos).blocked) pos.z = oldZ;
 
-            // FIX LỖI RƠI: Bỏ qua trọng lực nếu đang load Map
             if (!isLoadingMap) {
                 velocity.y -= 9.8 * (isSwimming ? 50 : 150) * delta;
                 pos.y += velocity.y * delta;
                 
                 if(pos.y <= phys.groundY) { velocity.y = 0; pos.y = phys.groundY; canJump = true; }
                 
-                // Nâng điểm hồi sinh cao hơn để rơi xuống mượt
-                if(pos.y < -600) { pos.set(0, 200, 0); velocity.y=0; } 
+                // GIẢI CỨU TỰ ĐỘNG NẾU RƠI
+                if(pos.y < -100) { pos.set(0, 800, 0); velocity.y=0; } 
             } else {
-                velocity.y = 0; // Tắt trọng lực
+                velocity.y = 0; 
             }
 
             if(time - lastMoveSendTime > 50) {
@@ -721,7 +720,7 @@
     let isShopLoaded = false;
     
     async function loadDataFromServer() {
-        isLoadingMap = true; // BẬT CỜ LOAD MAP CHỐNG RƠI
+        isLoadingMap = true; 
         
         if(!myUsername) {
             const res = await fetch('/api/house/info'); const d = await res.json();
@@ -729,7 +728,7 @@
             let slot = 0; [...new Set(houseState.inventory)].forEach(id => { if(slot < HOTBAR_SIZE){ hotbarSlots[slot]=id; slot++; } });
         }
         
-        generateWorld(); updateUI(); renderHotbarUI();
+        updateUI(); renderHotbarUI();
         
         const res = await fetch('/api/house/info'); const d = await res.json();
         if(d.houseData) {
@@ -746,7 +745,8 @@
         }
         socket.emit('join3DHouse', myUsername);
         
-        isLoadingMap = false; // TẮT CỜ, TRỌNG LỰC TRỞ LẠI BÌNH THƯỜNG
+        // Hoàn tất tải, cho phép người chơi rơi xuống đất
+        setTimeout(() => { isLoadingMap = false; }, 500); 
     }
     
     function updateUI() {
@@ -766,7 +766,7 @@
             const item = shopItems.find(x => x.id === id); 
             if(item) iGrid.innerHTML += `<div class="item-card" onclick="equipToHotbar('${id}')"><div>${item.icon}</div><b>${item.name}</b><br><div class="count-badge">Còn: ${c}</div></div>`; 
         });
-        iGrid.scrollTop = scrollPos;
+        iGrid.scrollTop = scrollPos; // Giữ vị trí cuộn trên điện thoại
     }
     
     function renderChestUI() {
