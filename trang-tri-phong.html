@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Ultimate Mobile UI Update</title>
+    <title>Biệt Thự 3D - Ultimate Voxel Update 19.0 (No Fall Bug)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -12,7 +12,6 @@
     
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; background: #000; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
-        
         #landscape-warning { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #2c3e50; color: white; z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         @media screen and (orientation: portrait) { #landscape-warning { display: flex !important; } #blocker, #mobile-controls, #hotbar, #mobile-menu-btn { display: none !important; } }
         
@@ -26,7 +25,6 @@
         .play-btn { background: #2ecc71; color: white; border: none; padding: 15px 60px; font-size: 2rem; font-family: 'Baloo 2'; font-weight: 800; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 8px 0 #27ae60; transition: transform 0.1s;}
         .play-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #27ae60; }
 
-        /* GIAO DIỆN PANEL (SHOP & BALO) TỐI ƯU MOBILE */
         .panel { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 400px; background: rgba(255,255,255,0.95); border-radius: 25px; padding: 20px; display: none; flex-direction: column; z-index: 1001; box-shadow: -10px 0 30px rgba(0,0,0,0.5); box-sizing: border-box;}
         .panel.show { display: flex !important; }
         
@@ -40,7 +38,6 @@
         .tab-btn { flex:1; padding:10px; cursor:pointer; font-weight: 800; background:transparent; color:#7f8c8d; border:none; border-radius:12px; font-family: inherit; font-size: 1.2rem; transition: 0.2s;}
         .tab-btn.active { background: #3498db; color: white; }
         
-        /* Grid Tối ưu cuộn mượt trên iOS/Android */
         .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow-y: auto; flex: 1; align-content: start; -webkit-overflow-scrolling: touch; padding-bottom: 10px;}
         .item-card { background: #fff; padding: 15px; border-radius: 15px; text-align: center; border: 3px solid #eee; cursor: pointer; transition: 0.2s; }
         .item-card:hover { border-color: #3498db; transform: scale(1.02); }
@@ -72,7 +69,6 @@
         #mobile-menu-btn { position: absolute; top: 20px; right: 20px; background: #9b59b6; color: white; padding: 12px 25px; border-radius: 15px; font-weight: 800; z-index: 100; border: 3px solid white; display: none; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);}
         #visit-badge { position: absolute; top: 20px; left: 20px; background: rgba(52, 152, 219, 0.9); color: white; padding: 10px 25px; border-radius: 20px; font-weight: bold; display: none; z-index: 100; border: 2px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.3);}
         
-        /* Thông báo đẹp hơn */
         .notif { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 12px 35px; border-radius: 30px; border: 3px solid #2ecc71; font-weight: 900; z-index: 9999; color: #27ae60; animation: slideDown 0.4s ease-out; font-size: 1.3rem; box-shadow: 0 5px 15px rgba(0,0,0,0.2);}
         .notif.error { border-color: #e74c3c; color: #c0392b; }
         @keyframes slideDown { from { top: -60px; } to { top: 20px; } }
@@ -104,7 +100,7 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 18.0</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC 19.0</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
                 <p>⌨️ <b>W, A, S, D</b>: Di chuyển mượt mà | 🚀 <b>Space</b>: Nhảy/Bơi</p>
                 <p>🛒 <b>Phím B</b>: Mở Cửa Hàng & Ba Lô</p>
@@ -203,7 +199,8 @@
         else if (type === 'door') { osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
     }
 
-    init3D(); setupControls(); initWeather(); setupMultiplayer(); animate();
+    // Gọi render map trước để load nhanh
+    init3D(); generateWorld(); setupControls(); initWeather(); setupMultiplayer(); animate();
 
     // ==========================================
     // --- 1. ENGINE 3D ---
@@ -214,6 +211,9 @@
         
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
         controls = new THREE.PointerLockControls(camera, document.body);
+        
+        // --- CHÚ Ý ĐIỂM SPAWN: Dịch lên cao để không bị kẹt vào mặt đất ---
+        controls.getObject().position.set(0, 150, 0); 
         scene.add(controls.getObject());
 
         const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); scene.add(hemi);
@@ -263,21 +263,23 @@
         return new THREE.MeshLambertMaterial({ map: tex });
     }
 
+    // --- FIX LỖI RƠI: Đổi mặt đất thành BoxGeometry dày cộm ---
     function generateWorld() {
         objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
 
-        // Đất nền (Bất tử)
         const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
         const createPart = (w, d, x, z) => {
-            const g = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI/2), floorMat);
-            g.position.set(x, 0, z); g.receiveShadow = true; g.updateMatrixWorld(true);
+            // Thay vì PlaneGeometry (mỏng dính), dùng BoxGeometry dày 50px
+            const g = new THREE.Mesh(new THREE.BoxGeometry(w, 50, d), floorMat);
+            g.position.set(x, -25, z); // Dời tâm xuống nửa block để mặt trên ở mức Y=0
+            g.receiveShadow = true; g.updateMatrixWorld(true);
             g.userData = { bbox: new THREE.Box3().setFromObject(g), isIndestructible: true }; scene.add(g); objects.push(g);
         };
         createPart(3000, 2100, 0, -450); createPart(3000, 500, 0, 1250); 
 
-        // Dòng sông
-        const river = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI/2), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
-        river.position.set(0, -10, 800); river.updateMatrixWorld(true);
+        // Tương tự làm dày dòng sông
+        const river = new THREE.Mesh(new THREE.BoxGeometry(3000, 50, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
+        river.position.set(0, -25, 800); river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
 
         // Đồi núi
@@ -381,14 +383,17 @@
             }
         });
         document.addEventListener('keyup', e => {
-            switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; break; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
+            switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
         });
         document.addEventListener('mousedown', e => { if(controls.isLocked && !isSitting) handleBuildBreak(e.button === 0 ? 'build' : 'break'); });
 
         const playBtn = document.getElementById('play-btn');
         playBtn.addEventListener('click', () => {
+            // Khởi tạo Audio context và Reset thời gian tránh rớt map do giật khung hình
             if(!audioCtx) audioCtx = new AudioContext();
-            document.getElementById('instructions').style.display = 'none'; // Giấu menu chính
+            prevTime = performance.now(); 
+
+            document.getElementById('instructions').style.display = 'none'; 
             
             if(isMobile) { 
                 isGameRunning = true; 
@@ -398,13 +403,14 @@
                 initJoystick(); 
             }
             else { controls.lock(); }
+            
+            // Chỉ load server nếu bé chưa load
             if(!myUsername) loadDataFromServer(); 
         });
 
         // Sửa lỗi hiện bảng Panel khi Unlock
         controls.addEventListener('unlock', () => { 
             isGameRunning = false;
-            // Chỉ hiện lại Menu chính nếu không có bảng nào đang bật
             if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ 
                 document.getElementById('blocker').style.display = 'flex'; 
                 document.getElementById('instructions').style.display = 'block';
@@ -509,7 +515,7 @@
             pos.y += velocity.y * delta;
             
             if(pos.y <= phys.groundY) { velocity.y = 0; pos.y = phys.groundY; canJump = true; }
-            if(pos.y < -600) { pos.set(0, 100, 0); velocity.y=0; } 
+            if(pos.y < -600) { pos.set(0, 150, 0); velocity.y=0; } 
 
             if(time - lastMoveSendTime > 50) {
                 socket.emit('move3DPlayer', { x: pos.x, y: pos.y, z: pos.z, ry: camera.rotation.y });
@@ -519,7 +525,7 @@
             animatedObjects.forEach(npc => {
                 const data = npc.userData; data.moveTimer -= delta;
                 if(data.moveTimer <= 0) {
-                    if (Math.random() > 0.4) { data.velocity.set((Math.random()-0.5)*60, 0, (Math.random()-0.5)*60); npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); }
+                    if (Math.random() > 0.4) { data.velocity.set((Math.random()-0.5)*50, 0, (Math.random()-0.5)*50); npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); }
                     else { data.velocity.set(0,0,0); }
                     data.moveTimer = Math.random()*4+2;
                 }
@@ -534,7 +540,7 @@
     }
 
     // ==========================================
-    // --- 3. TƯƠNG TÁC (CỬA / TỦ / GIƯỜNG / GHẾ) ---
+    // --- 3. TƯƠNG TÁC ĐỒ VẬT (CỬA, TỦ, GHẾ) ---
     // ==========================================
     let preSitPos = new THREE.Vector3();
     
@@ -603,7 +609,7 @@
         if(isMobile && !isSitting) btnI.style.display = 'none';
     }
 
-    // --- MÔ HÌNH VẬT PHẨM ĐỘC QUYỀN ---
+    // --- MÔ HÌNH VẬT PHẨM ĐỘC QUYỀN VOXEL ART ---
     function create3DModel(info) {
         const g = new THREE.Group();
         const addP = (w, h, d, c, x, y, z) => {
@@ -649,7 +655,7 @@
                 houseState.inventory.splice(houseState.inventory.indexOf(id), 1);
                 
                 renderHotbarUI(); updateUI(); playSFX('build');
-                triggerAutoSave();
+                triggerAutoSave(); 
             } else {
                 const target = hits[0].object.userData.parentGroup || hits[0].object;
                 if(objects.includes(target) && target.userData.id !== undefined && !target.userData.isIndestructible) {
@@ -705,7 +711,6 @@
         socket.on('playerLeftHouse', id => { if(otherPlayers[id]) { scene.remove(otherPlayers[id]); delete otherPlayers[id]; } });
     }
 
-    // FIX LỖI "CHỚP NHÁY / GIẬT SCROLL" TRÊN ĐIỆN THOẠI KHI MUA ĐỒ
     let isShopLoaded = false;
     
     async function loadDataFromServer() {
@@ -736,14 +741,12 @@
     function updateUI() {
         document.getElementById('score').innerText = houseState.score.toLocaleString();
         
-        // Fix mượt scroll Mobile: Chỉ render Cửa hàng 1 lần duy nhất
         if (!isShopLoaded) {
             const sGrid = document.getElementById('grid-shop'); sGrid.innerHTML = '';
             shopItems.forEach(i => sGrid.innerHTML += `<div class="item-card" onclick="buyItem('${i.id}')"><div>${i.icon}</div><b>${i.name}</b><div class="price">${i.price} 💎</div></div>`);
             isShopLoaded = true;
         }
 
-        // Cập nhật Balo nhưng giữ vị trí Scroll
         const iGrid = document.getElementById('grid-inv'); 
         const scrollPos = iGrid.scrollTop;
         iGrid.innerHTML = '';
