@@ -2,8 +2,8 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Minecraft Mode 9.0 (Fixed)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Biệt Thự 3D - Minecraft Mode (Fixed)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; touch-action: none; user-select: none; -webkit-user-select: none; background: #000; }
+        body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; touch-action: none; user-select: none; -webkit-user-select: none; background: #000; overscroll-behavior: none; }
         
         #landscape-warning { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #2c3e50; color: white; z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         #landscape-warning h1 { font-size: 3rem; color: #f1c40f; margin-bottom: 10px; }
@@ -205,7 +205,7 @@
         materialCache[hexColor] = mat; return mat;
     }
 
-    // --- HỆ THỐNG ÂM THANH GIẢ LẬP (WEB AUDIO API) ---
+    // --- HỆ THỐNG ÂM THANH GIẢ LẬP ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     
@@ -230,15 +230,19 @@
         }
     }
 
+    // Khởi tạo các thành phần
     init3D(); setupControls(); initWeather(); startAutoWeather();
     loadDataFromServer(); setupMultiplayerSockets(); 
-    animate(); // BẮT ĐẦU VÒNG LẶP GAME
+    animate(); // <--- FIX LỖI CRASH ĐEN MÀN HÌNH: ĐÃ GỌI HÀM VÒNG LẶP RENDER
 
     // ==========================================
     // --- 1. KHỞI TẠO ĐỒ HỌA ---
     // ==========================================
     function init3D() {
-        scene = new THREE.Scene(); scene.fog = new THREE.Fog(0x87CEEB, 200, 1500); 
+        scene = new THREE.Scene(); 
+        scene.background = new THREE.Color(0x87CEEB); // <--- FIX LỖI NULL BACKGROUND GÂY ĐÓNG BĂNG GAME
+        scene.fog = new THREE.Fog(0x87CEEB, 200, 1500); 
+        
         hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); hemiLight.position.set(0, 500, 0); scene.add(hemiLight);
         dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(0, 1000, 500); dirLight.castShadow = true; 
         dirLight.shadow.camera.top = 1000; dirLight.shadow.camera.bottom = -1000; dirLight.shadow.camera.left = -1000; dirLight.shadow.camera.right = 1000;
@@ -565,6 +569,41 @@
     }
 
     // ==========================================
+    // --- KHU VỰC KHỞI TẠO TẢI SERVER (SỬA LỖI ĐEN MÀN HÌNH) ---
+    // ==========================================
+    async function loadDataFromServer() { 
+        try { 
+            const res = await fetch('/api/house/info'); 
+            if(res.status === 401) return window.location.href = 'login.html'; 
+            const data = await res.json(); 
+            myUsername = data.username || "Be_" + Math.floor(Math.random()*1000); 
+            currentHost = myUsername; 
+            houseState.score = data.score || 0; 
+            houseState.inventory = data.inventory || []; 
+            shopItems = data.shopItems || []; 
+            chestsData = data.chestsData || {}; 
+            
+            let slotIdx = 0; 
+            const uniqueItems = [...new Set(houseState.inventory)]; 
+            uniqueItems.forEach(id => { if(slotIdx < HOTBAR_SIZE) { hotbarSlots[slotIdx] = id; slotIdx++; } }); 
+            
+            renderHotbarUI(); 
+            updateUI(); 
+            
+            // LỖI MÀN HÌNH ĐEN ĐÃ ĐƯỢC FIX TẠI ĐÂY (Thiếu hàm tạo bản đồ)
+            generateWorld(); 
+            
+            if(data.houseData) { 
+                data.houseData.forEach(savedItem => { 
+                    const info = shopItems.find(i => i.id === savedItem.id); 
+                    if(info) spawnItem(info, savedItem.x || 0, savedItem.y || 25, savedItem.z || 0, savedItem.uniqueId, true); 
+                }); 
+            } 
+            socket.emit('join3DHouse', myUsername); 
+        } catch(e) { console.error(e); } 
+    }
+
+    // ==========================================
     // --- 5. HỆ THỐNG VẬT LÝ & HIỂN THỊ ---
     // ==========================================
     let wasSwimming = false; 
@@ -578,7 +617,10 @@
         let targetSkyColor = new THREE.Color(0x87CEEB); 
         if (sunHeight > 0.2) { if (weatherType === 'rain') targetSkyColor.setHex(0x7f8c8d); else if (weatherType === 'snow') targetSkyColor.setHex(0xdfe6e9); else targetSkyColor.setHex(0x87CEEB); dirLight.intensity = weatherType === 'clear' ? 0.8 : 0.3; hemiLight.intensity = 0.6;
         } else if (sunHeight > -0.2) { targetSkyColor.setHex(0xf39c12); dirLight.intensity = 0.4; hemiLight.intensity = 0.3; } else { targetSkyColor.setHex(0x0a0a2a); dirLight.intensity = 0; hemiLight.intensity = 0.1; }
-        scene.background.lerpColors(scene.background, targetSkyColor, 0.01); scene.fog.color.lerpColors(scene.fog.color, targetSkyColor, 0.01);
+        
+        // CHỐNG CRASH CHO LỆNH NÀY (ĐÃ THÊM scene.background Ở HÀM init3D)
+        scene.background.lerpColors(scene.background, targetSkyColor, 0.01); 
+        scene.fog.color.lerpColors(scene.fog.color, targetSkyColor, 0.01);
 
         if (weatherType !== 'clear') {
             const positions = weatherGeo.attributes.position.array;
@@ -626,9 +668,10 @@
     function updateUI() { document.getElementById('score').innerText = houseState.score.toLocaleString(); const sGrid = document.getElementById('grid-shop'); sGrid.innerHTML = ''; shopItems.filter(i => i.category !== 'souvenir').forEach(i => { sGrid.innerHTML += `<div class="item-card" onclick="buyItem('${i.id}', '${i.category}')"><div style="font-size:3rem; margin-bottom:10px;">${i.icon}</div><b style="font-size:1.1rem; color:#2c3e50;">${i.name}</b><br><div style="color:#d35400; font-weight:900; font-size:1.2rem; margin-top:5px;">${i.price} 💎</div></div>`; }); const iGrid = document.getElementById('grid-inv'); iGrid.innerHTML = ''; const counts = {}; houseState.inventory.forEach(id => { counts[id] = (counts[id] || 0) + 1; }); for(let [id, count] of Object.entries(counts)) { const item = shopItems.find(x => x.id === id); if(item && item.category !== 'souvenir') { const isEquipped = hotbarSlots[selectedHotbarIndex] === id; const borderStyle = isEquipped ? 'border-color: #2ecc71; background: #e8f8f5;' : ''; iGrid.innerHTML += `<div class="item-card" style="${borderStyle}" onclick="equipToHotbar('${id}')"><div style="font-size:3rem; margin-bottom:10px;">${item.icon}</div><b style="font-size:1.1rem; color:#2c3e50;">${item.name}</b><br><div style="background:#3498db; color:white; padding:5px 15px; border-radius:20px; font-weight:bold; display:inline-block; margin-top:5px;">Còn: ${count}</div></div>`; } } }
     function renderChestUI() { const cGrid = document.getElementById('grid-chest-inside'); cGrid.innerHTML = ''; const iGrid = document.getElementById('grid-chest-inv'); iGrid.innerHTML = ''; const chestCounts = {}; chestsData[currentChestId].forEach(id => { chestCounts[id] = (chestCounts[id] || 0) + 1; }); const invCounts = {}; houseState.inventory.forEach(id => { invCounts[id] = (invCounts[id] || 0) + 1; }); for(let [id, count] of Object.entries(chestCounts)) { const item = shopItems.find(x => x.id === id); if(item) cGrid.innerHTML += `<div class="item-card" onclick="moveItem('${id}', 'toInv')"><div style="font-size:2rem;">${item.icon}</div><div style="font-weight:bold; margin-top:5px;">x${count}</div></div>`; } for(let [id, count] of Object.entries(invCounts)) { const item = shopItems.find(x => x.id === id); if(item) iGrid.innerHTML += `<div class="item-card" onclick="moveItem('${id}', 'toChest')"><div style="font-size:2rem;">${item.icon}</div><div style="font-weight:bold; margin-top:5px;">x${count}</div></div>`; } }
     function moveItem(id, direction) { if (direction === 'toChest') { const idx = houseState.inventory.indexOf(id); if(idx > -1) { houseState.inventory.splice(idx, 1); chestsData[currentChestId].push(id); } } else { const idx = chestsData[currentChestId].indexOf(id); if(idx > -1) { chestsData[currentChestId].splice(idx, 1); houseState.inventory.push(id); } } renderChestUI(); updateUI(); renderHotbarUI(); }
-    async function loadDataFromServer() { try { const res = await fetch('/api/house/info'); if(res.status === 401) return window.location.href = 'login.html'; const data = await res.json(); myUsername = data.username || "Be_" + Math.floor(Math.random()*1000); currentHost = myUsername; houseState.score = data.score || 0; houseState.inventory = data.inventory || []; shopItems = data.shopItems || []; chestsData = data.chestsData || {}; let slotIdx = 0; const uniqueItems = [...new Set(houseState.inventory)]; uniqueItems.forEach(id => { if(slotIdx < HOTBAR_SIZE) { hotbarSlots[slotIdx] = id; slotIdx++; } }); renderHotbarUI(); updateUI(); if(data.houseData) { data.houseData.forEach(savedItem => { const info = shopItems.find(i => i.id === savedItem.id); if(info) spawnItem(info, savedItem.x || 0, savedItem.y || 25, savedItem.z || 0, savedItem.uniqueId, true); }); } socket.emit('join3DHouse', myUsername); } catch(e) { console.error(e); } }
+    
     async function buyItem(id, category) { const res = await fetch('/api/house/buy', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: id}) }); const d = await res.json(); if(res.ok) { houseState.score = d.newScore; if(category === 'paint' || category === 'floor') { for(let i=0; i<10; i++) houseState.inventory.push(id); showNotification(`🛍️ Đã mua 10 khối!`); } else { houseState.inventory.push(id); showNotification(`🛍️ Mua thành công!`); } if (!hotbarSlots.includes(id)) { if (!hotbarSlots[selectedHotbarIndex]) hotbarSlots[selectedHotbarIndex] = id; else { const emptyIdx = hotbarSlots.indexOf(null); if (emptyIdx !== -1) hotbarSlots[emptyIdx] = id; } } updateUI(); renderHotbarUI(); } else alert(d.message); }
     async function saveHouse() { await fetch('/api/house/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items: houseState.items, inventory: houseState.inventory, chestsData: chestsData }) }); showNotification("✅ Đã lưu Thế Giới 3D!"); }
+    
     function switchTab(t) { document.getElementById('grid-shop').style.display = t==='shop'?'grid':'none'; document.getElementById('grid-inv').style.display = t==='inv'?'grid':'none'; document.getElementById('tab-shop').classList.toggle('active', t==='shop'); document.getElementById('tab-inv').classList.toggle('active', t==='inv'); document.getElementById('x10-note').style.display = t==='shop' ? 'block' : 'none'; }
     function showNotification(msg) { const n = document.createElement('div'); n.className = 'notif'; n.innerHTML = msg; document.body.appendChild(n); setTimeout(()=>n.remove(), 2500); }
     function openPanel(id) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('show')); document.getElementById(id).classList.add('show'); document.getElementById('blocker').style.display = 'flex'; }
