@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Minecraft Mode (Fixed)</title>
+    <title>Biệt Thự 3D - Minecraft Mode (Stable)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -190,31 +190,26 @@
     let moveJoystick = null; let joystickVector = { x: 0, y: 0 };
     let blockHighlight; 
 
-    // ==========================================
-    // --- KHU VỰC TỐI ƯU HÓA (OPTIMIZATIONS) ---
-    // ==========================================
+    // --- AN TOÀN TỐI ƯU HÓA ---
+    // Khởi tạo Geometry tĩnh duy nhất cho block
     const sharedBlockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-    const materialCache = {};
     
-    function getOrCreateBlockMaterial(hexColor) {
-        if (materialCache[hexColor]) return materialCache[hexColor];
+    // Hàm tạo Material an toàn (Không lưu Cache nữa để tránh lỗi WebGL/Canvas trên một số máy)
+    function createBlockMaterial(hexColor) {
         const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64; const ctx = canvas.getContext('2d'); 
         ctx.fillStyle = hexColor || '#bdc3c7'; ctx.fillRect(0, 0, 64, 64); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 4; ctx.strokeRect(0,0,64,64); 
         const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; 
-        const mat = new THREE.MeshLambertMaterial({ map: tex });
-        materialCache[hexColor] = mat; return mat;
+        return new THREE.MeshLambertMaterial({ map: tex });
     }
 
     // --- HỆ THỐNG ÂM THANH GIẢ LẬP ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
-    
     function playSFX(type) {
         if(!audioCtx) return;
         if(audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
-        
         if (type === 'build') { 
             osc.type = 'sine'; osc.frequency.setValueAtTime(300, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
             gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
@@ -230,17 +225,21 @@
         }
     }
 
-    // Khởi tạo các thành phần
-    init3D(); setupControls(); initWeather(); startAutoWeather();
-    loadDataFromServer(); setupMultiplayerSockets(); 
-    animate(); // <--- FIX LỖI CRASH ĐEN MÀN HÌNH: ĐÃ GỌI HÀM VÒNG LẶP RENDER
+    // --- KHỞI CHẠY CHÍNH ---
+    init3D(); 
+    setupControls(); 
+    initWeather(); 
+    startAutoWeather();
+    loadDataFromServer(); // loadData sẽ gọi generateWorld()
+    setupMultiplayerSockets(); 
+    animate(); 
 
     // ==========================================
     // --- 1. KHỞI TẠO ĐỒ HỌA ---
     // ==========================================
     function init3D() {
         scene = new THREE.Scene(); 
-        scene.background = new THREE.Color(0x87CEEB); // <--- FIX LỖI NULL BACKGROUND GÂY ĐÓNG BĂNG GAME
+        scene.background = new THREE.Color(0x87CEEB); 
         scene.fog = new THREE.Fog(0x87CEEB, 200, 1500); 
         
         hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); hemiLight.position.set(0, 500, 0); scene.add(hemiLight);
@@ -304,7 +303,7 @@
         }, Math.floor(Math.random() * 120000) + 60000);
     }
 
-    // --- TỰ ĐỘNG SINH MẶT ĐẤT MINECRAFT & HỒ BƠI SÂU ---
+    // --- SINH MẶT ĐẤT MINECRAFT & HỒ BƠI SÂU ---
     function generateWorld() {
         objects.forEach(obj => scene.remove(obj)); animatedObjects.forEach(obj => scene.remove(obj));
         objects = []; animatedObjects = []; houseState.items = [];
@@ -357,7 +356,6 @@
         const intersectsStatic = raycaster.intersectObjects(staticMeshes);
 
         if (intersectsAll.length > 0) {
-            // XÂY LÊN
             if (actionType === 'build' && intersectsStatic.length > 0) {
                 const currentItemId = hotbarSlots[selectedHotbarIndex];
                 if (!currentItemId) return showNotification("Ô này trống!");
@@ -385,7 +383,6 @@
                 socket.emit('build3DBlock', { itemInfo, x: pos.x, y: pos.y, z: pos.z, uniqueId });
             }
 
-            // ĐẬP PHÁ
             if (actionType === 'break') {
                 let hitMesh = intersectsAll[0].object;
                 if (hitMesh === objects[0] || hitMesh === objects[1] || hitMesh.userData.isWater) return; 
@@ -425,7 +422,7 @@
     function spawnItem(itemInfo, x, y, z, uniqueId, isSync = false) {
         let object3D;
         if (itemInfo.category === 'paint' || itemInfo.category === 'floor') {
-            object3D = new THREE.Mesh(sharedBlockGeo, getOrCreateBlockMaterial(itemInfo.value));
+            object3D = new THREE.Mesh(sharedBlockGeo, createBlockMaterial(itemInfo.value));
             object3D.position.set(x, y, z); object3D.castShadow = true; object3D.receiveShadow = true;
             object3D.updateMatrix(); object3D.matrixAutoUpdate = false; 
         } else {
@@ -569,7 +566,7 @@
     }
 
     // ==========================================
-    // --- KHU VỰC KHỞI TẠO TẢI SERVER (SỬA LỖI ĐEN MÀN HÌNH) ---
+    // --- LOAD DỮ LIỆU TỪ SERVER ---
     // ==========================================
     async function loadDataFromServer() { 
         try { 
@@ -590,7 +587,7 @@
             renderHotbarUI(); 
             updateUI(); 
             
-            // LỖI MÀN HÌNH ĐEN ĐÃ ĐƯỢC FIX TẠI ĐÂY (Thiếu hàm tạo bản đồ)
+            // Xây dựng thế giới trước khi đặt đồ đạc lên
             generateWorld(); 
             
             if(data.houseData) { 
@@ -618,7 +615,6 @@
         if (sunHeight > 0.2) { if (weatherType === 'rain') targetSkyColor.setHex(0x7f8c8d); else if (weatherType === 'snow') targetSkyColor.setHex(0xdfe6e9); else targetSkyColor.setHex(0x87CEEB); dirLight.intensity = weatherType === 'clear' ? 0.8 : 0.3; hemiLight.intensity = 0.6;
         } else if (sunHeight > -0.2) { targetSkyColor.setHex(0xf39c12); dirLight.intensity = 0.4; hemiLight.intensity = 0.3; } else { targetSkyColor.setHex(0x0a0a2a); dirLight.intensity = 0; hemiLight.intensity = 0.1; }
         
-        // CHỐNG CRASH CHO LỆNH NÀY (ĐÃ THÊM scene.background Ở HÀM init3D)
         scene.background.lerpColors(scene.background, targetSkyColor, 0.01); 
         scene.fog.color.lerpColors(scene.fog.color, targetSkyColor, 0.01);
 
