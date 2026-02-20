@@ -203,27 +203,55 @@ const HOME_FURNITURE = [
 ];
 
 const MATERIALS = [
-    // --- KHỐI XÂY DỰNG: SƠN TƯỜNG (paint) ---
+    // =======================================================
+    // --- 1. KHỐI XÂY DỰNG: TƯỜNG & GẠCH (20 LOẠI - 'paint') ---
+    // =======================================================
     { id: 'wall_white', name: 'Tường Trắng Sứ', price: 50, category: 'paint', value: '#ffffff', icon: '🧱' },
-    { id: 'wall_black', name: 'Tường Đen Nhám', price: 60, category: 'paint', value: '#2c3e50', icon: '🧱' },
+    { id: 'wall_black', name: 'Tường Đen Nhám', price: 60, category: 'paint', value: '#2c3e50', icon: '⬛' },
+    { id: 'wall_red_brick', name: 'Khối Gạch Đỏ', price: 60, category: 'paint', value: '#c0392b', icon: '🧱' },
+    { id: 'wall_stone_brick', name: 'Khối Gạch Đá Xám', price: 70, category: 'paint', value: '#7f8c8d', icon: '🪨' },
+    { id: 'wall_wood_plank', name: 'Ván Gỗ Sồi', price: 80, category: 'paint', value: '#e67e22', icon: '🪵' },
     { id: 'wall_pink', name: 'Sơn Hồng Nhạt', price: 50, category: 'paint', value: '#fd79a8', icon: '🎨' },
     { id: 'wall_blue', name: 'Sơn Xanh Nước Biển', price: 50, category: 'paint', value: '#0984e3', icon: '🎨' },
     { id: 'wall_yellow', name: 'Sơn Vàng Chanh', price: 50, category: 'paint', value: '#f1c40f', icon: '🎨' },
     { id: 'wall_green', name: 'Sơn Xanh Lá', price: 50, category: 'paint', value: '#2ecc71', icon: '🎨' },
-    { id: 'wall_purple', name: 'Sơn Tím Thủy Chung', price: 60, category: 'paint', value: '#9b59b6', icon: '🎨' },
-    { id: 'wall_red', name: 'Sơn Đỏ Gạch', price: 60, category: 'paint', value: '#e74c3c', icon: '🎨' },
-    { id: 'wall_orange', name: 'Sơn Cam Lửa', price: 50, category: 'paint', value: '#e67e22', icon: '🎨' },
-    { id: 'wall_glass', name: 'Gạch Thủy Tinh (Xanh Kính)', price: 100, category: 'paint', value: '#81ecec', icon: '🧊' },
+    { id: 'wall_glass', name: 'Kính Trong Suốt', price: 100, category: 'paint', value: '#81ecec', icon: '🧊' },
+    // --- MỚI BỔ SUNG ---
+    { id: 'wall_diamond', name: 'Khối Kim Cương', price: 500, category: 'paint', value: '#00cec9', icon: '💎' },
+    { id: 'wall_gold', name: 'Khối Vàng Ròng', price: 400, category: 'paint', value: '#f39c12', icon: '👑' },
+    { id: 'wall_emerald', name: 'Khối Lục Bảo', price: 450, category: 'paint', value: '#00b894', icon: '❇️' },
+    { id: 'wall_amethyst', name: 'Khối Thạch Anh Tím', price: 300, category: 'paint', value: '#a29bfe', icon: '🔮' },
+    { id: 'wall_quartz', name: 'Khối Thạch Anh Trắng', price: 200, category: 'paint', value: '#f5f6fa', icon: '🏛️' },
+    { id: 'wall_dark_oak', name: 'Ván Gỗ Sồi Sẫm', price: 90, category: 'paint', value: '#5c2c16', icon: '🪵' },
+    { id: 'wall_birch', name: 'Ván Gỗ Bạch Dương', price: 90, category: 'paint', value: '#f5cd79', icon: '🪵' },
+    { id: 'wall_magma', name: 'Khối Magma Phun Trào', price: 350, category: 'paint', value: '#e15f41', icon: '🌋' },
+    { id: 'wall_ice', name: 'Khối Băng Giá', price: 150, category: 'paint', value: '#74b9ff', icon: '❄️' },
+    { id: 'wall_prismarine', name: 'Gạch Lăng Kính Biển', price: 250, category: 'paint', value: '#00cec9', icon: '🧜‍♂️' },
 
-    // --- KHỐI XÂY DỰNG: SÀN NHÀ & ĐỊA HÌNH (floor) ---
+    // ========================================================
+    // --- 2. KHỐI XÂY DỰNG: SÀN NHÀ & ĐỊA HÌNH (20 LOẠI - 'floor') ---
+    // ========================================================
     { id: 'floor_wood', name: 'Sàn Gỗ Cổ Điển', price: 100, category: 'floor', value: '#d35400', icon: '🪵' },
-    { id: 'floor_grass', name: 'Thảm Cỏ (Đất)', price: 150, category: 'floor', value: '#27ae60', icon: '🌿' },
-    { id: 'floor_stone', name: 'Sàn Đá Cuội', price: 120, category: 'floor', value: '#7f8c8d', icon: '🪨' },
-    { id: 'floor_sand', name: 'Khối Cát Bãi Biển', price: 80, category: 'floor', value: '#f5b041', icon: '🏜️' },
+    { id: 'floor_grass', name: 'Khối Cỏ Xanh', price: 150, category: 'floor', value: '#27ae60', icon: '🌿' },
+    { id: 'floor_dirt', name: 'Khối Đất Nâu', price: 80, category: 'floor', value: '#6e2c00', icon: '🟤' },
+    { id: 'floor_stone', name: 'Đá Cuội', price: 120, category: 'floor', value: '#95a5a6', icon: '🪨' },
+    { id: 'floor_sand', name: 'Cát Sa Mạc', price: 80, category: 'floor', value: '#f1c40f', icon: '🏜️' },
     { id: 'floor_water', name: 'Khối Nước Biển', price: 200, category: 'floor', value: '#3498db', icon: '🌊' },
-    { id: 'floor_lava', name: 'Khối Dung Nham', price: 300, category: 'floor', value: '#c0392b', icon: '🔥' },
+    { id: 'floor_lava', name: 'Khối Dung Nham', price: 300, category: 'floor', value: '#e74c3c', icon: '🔥' },
+    { id: 'floor_snow', name: 'Khối Tuyết', price: 120, category: 'floor', value: '#dfe6e9', icon: '❄️' },
     { id: 'floor_tile', name: 'Gạch Men Lát Sàn', price: 150, category: 'floor', value: '#ecf0f1', icon: '⬜' },
-    { id: 'floor_obsidian', name: 'Khối Hắc Diện Thạch', price: 500, category: 'floor', value: '#2f3640', icon: '⬛' }
+    { id: 'floor_obsidian', name: 'Hắc Diện Thạch', price: 500, category: 'floor', value: '#2f3640', icon: '⬛' },
+    // --- MỚI BỔ SUNG ---
+    { id: 'floor_red_sand', name: 'Cát Đỏ Khô Cằn', price: 90, category: 'floor', value: '#d35400', icon: '🏜️' },
+    { id: 'floor_clay', name: 'Đất Sét Xám', price: 100, category: 'floor', value: '#d1d8e0', icon: '🧱' },
+    { id: 'floor_packed_ice', name: 'Băng Trơn Trượt', price: 180, category: 'floor', value: '#81ecec', icon: '🧊' },
+    { id: 'floor_red_carpet', name: 'Thảm Đỏ Trải Sàn', price: 130, category: 'floor', value: '#c0392b', icon: '🟥' },
+    { id: 'floor_blue_carpet', name: 'Thảm Xanh Trải Sàn', price: 130, category: 'floor', value: '#0984e3', icon: '🟦' },
+    { id: 'floor_warped_nylium', name: 'Thảm Nấm Xanh Lạ', price: 250, category: 'floor', value: '#008b8b', icon: '🦠' },
+    { id: 'floor_crimson_nylium', name: 'Thảm Nấm Đỏ Lạ', price: 250, category: 'floor', value: '#8b0000', icon: '🍄' },
+    { id: 'floor_gravel', name: 'Sỏi Rải Đường', price: 70, category: 'floor', value: '#a4b0be', icon: '⚪' },
+    { id: 'floor_concrete_gray', name: 'Bê Tông Đổ Đường', price: 110, category: 'floor', value: '#7f8c8d', icon: '🛣️' },
+    { id: 'floor_slime', name: 'Khối Nhầy Tưng Tưng', price: 400, category: 'floor', value: '#55efc4', icon: '🟩' }
 ];
 const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
 const notificationSchema = new mongoose.Schema({
@@ -297,20 +325,49 @@ let maintenanceMode = false; // Đã khôi phục biến bảo trì
 app.post('/api/house/save-drawing', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
     const { level, image } = req.body;
-    await User.updateOne(
-        { username: req.session.user.username },
-        { $push: { galleryDrawings: { level, image, date: new Date() } } }
-    );
-    res.json({ message: "Bức tranh đã được đưa vào triển lãm!" });
+    
+    // 1. Tìm user trong cơ sở dữ liệu
+    const user = await User.findOne({ username: req.session.user.username });
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy user' });
+
+    // 2. Lưu bức tranh
+    user.galleryDrawings.push({ level, image, date: new Date() });
+    
+    // 3. KÍCH HOẠT NHIỆM VỤ "Vẽ Tranh"
+    updateQuestProgress(user, 'Vẽ Tranh', { timeTaken: 0, isWin: true });
+    
+    // 4. Lưu lại toàn bộ vào Database
+    user.markModified('galleryDrawings');
+    user.markModified('quests');
+    await user.save();
+    
+    res.json({ message: "Bức tranh đã được đưa vào triển lãm và nhiệm vụ đã hoàn thành!" });
 });
-// 1. Kho nhiệm vụ đa dạng (Càng lên cấp cao nhiệm vụ càng khó)
+
+// 1. Kho nhiệm vụ đa dạng (Đã được căn chỉnh khớp 100% với tên API)
 const QUEST_POOL = [
-    { taskType: 'Cờ Vua', levelKey: 'chessLevel', targetBase: 1, rewardBase: 50, penaltyBase: 20, timeLimitBase: 600 },
-    { taskType: 'Ghép Hình', levelKey: 'memoryLevel', targetBase: 2, rewardBase: 30, penaltyBase: 10, timeLimitBase: 300 },
-    { taskType: 'Ô Chữ', levelKey: 'crosswordLevel', targetBase: 1, rewardBase: 40, penaltyBase: 15, timeLimitBase: 450 },
-    { taskType: 'Thám tử', levelKey: 'detectiveLevel', targetBase: 1, rewardBase: 60, penaltyBase: 25, timeLimitBase: 600 },
-    { taskType: 'Cờ Caro', levelKey: 'caroLevel', targetBase: 2, rewardBase: 50, penaltyBase: 15, timeLimitBase: 400 },
-    { taskType: 'Cờ Vây', levelKey: 'goLevel', targetBase: 1, rewardBase: 100, penaltyBase: 50, timeLimitBase: 1200 }
+    // --- 1. Nhóm Tư Duy & Logic ---
+    { taskType: 'Cờ Vua', levelKey: 'chessLevel', targetBase: 1, rewardBase: 50, penaltyBase: 20, timeLimitBase: 86400 },
+    { taskType: 'Cờ Vây', levelKey: 'goLevel', targetBase: 1, rewardBase: 100, penaltyBase: 50, timeLimitBase: 86400 },
+    { taskType: 'Phục Kích', levelKey: 'othelloLevel', targetBase: 1, rewardBase: 50, penaltyBase: 20, timeLimitBase: 86400 },
+    { taskType: 'Cờ Caro', levelKey: 'caroLevel', targetBase: 2, rewardBase: 50, penaltyBase: 15, timeLimitBase: 86400 },
+
+    // --- 2. Nhóm Sáng Tạo & Ngôn Ngữ ---
+    { taskType: 'Sáng Tác', levelKey: 'storyLevel', targetBase: 1, rewardBase: 80, penaltyBase: 20, timeLimitBase: 86400 },
+    { taskType: 'Tiếng Anh', levelKey: 'englishSpeechLevel', targetBase: 2, rewardBase: 40, penaltyBase: 15, timeLimitBase: 86400 },
+    { taskType: 'Luyện Nói Việt', levelKey: 'vietSpeechLevel', targetBase: 2, rewardBase: 40, penaltyBase: 15, timeLimitBase: 86400 },
+
+    // --- 3. Nhóm Giải Trí & Kỹ Năng ---
+    { taskType: 'Âm Nhạc', levelKey: 'musicLevel', targetBase: 1, rewardBase: 40, penaltyBase: 10, timeLimitBase: 86400 },
+    { taskType: 'Thám tử', levelKey: 'detectiveLevel', targetBase: 1, rewardBase: 60, penaltyBase: 25, timeLimitBase: 86400 },
+    { taskType: 'Ghép Hình', levelKey: 'shapeLevel', targetBase: 2, rewardBase: 40, penaltyBase: 15, timeLimitBase: 86400 }, // shapeLevel -> Ghép Hình
+    { taskType: 'Xây Dựng', levelKey: 'buildLevel', targetBase: 1, rewardBase: 50, penaltyBase: 20, timeLimitBase: 86400 },
+    { taskType: 'Trí Nhớ', levelKey: 'memoryLevel', targetBase: 2, rewardBase: 30, penaltyBase: 10, timeLimitBase: 86400 }, // memoryLevel -> Trí Nhớ
+    { taskType: 'Ô Chữ', levelKey: 'crosswordLevel', targetBase: 1, rewardBase: 40, penaltyBase: 15, timeLimitBase: 86400 },
+
+    // --- 4. Các môn đặc biệt (Vẽ tranh, Bài kiểm tra) ---
+    { taskType: 'Kiểm Tra', levelKey: 'testLevel', targetBase: 1, rewardBase: 100, penaltyBase: 30, timeLimitBase: 86400 },
+    { taskType: 'Vẽ Tranh', levelKey: 'paintingLevel', targetBase: 1, rewardBase: 50, penaltyBase: 10, timeLimitBase: 86400 }
 ];
 // 2. Hàm tự động cấp 4 nhiệm vụ "hợp trình độ" mỗi ngày
 async function refreshDailyQuests(user) {
@@ -1074,7 +1131,21 @@ app.post('/api/admin/reset-all-levels', async (req, res) => {
     }
 });
 // --- API NGÔI NHÀ CỦA BÉ ---
+// --- API MỚI: TẢI NHÀ CỦA BẠN BÈ ĐỂ ĐI THĂM ---
+app.get('/api/house/visit/:friendUsername', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
+    try {
+        const friend = await User.findOne({ username: req.params.friendUsername });
+        if (!friend) return res.status(404).json({ message: 'Không tìm thấy người bạn này!' });
 
+        res.json({ 
+            friendName: friend.username,
+            houseData: friend.houseData || []
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+});
 // 1. Lấy thông tin nhà và Shop
 app.get('/api/house/info', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
@@ -1115,11 +1186,12 @@ app.post('/api/house/buy', async (req, res) => {
 // 3. Lưu vị trí đồ đạc
 app.post('/api/house/save', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const { items, inventory } = req.body;    
+    const { items, inventory, chestsData } = req.body;    
     
+    // Bạn cần vào userSchema khai báo thêm: chestsData: { type: Object, default: {} }
     await User.updateOne(
         { username: req.session.user.username }, 
-        { $set: { houseData: items, inventory: inventory } } 
+        { $set: { houseData: items, inventory: inventory, chestsData: chestsData || {} } } 
     );
     res.json({ message: "Đã lưu ngôi nhà và kho đồ!" });
 });
@@ -1144,7 +1216,40 @@ io.on('connection', (socket) => {
         socket.disconnect();
         return;
     }
+socket.on('join3DHouse', (hostUsername) => {
+        // Rời phòng cũ nếu có
+        if (socket.houseRoom) {
+            socket.leave(socket.houseRoom);
+            socket.to(socket.houseRoom).emit('playerLeftHouse', socket.id);
+        }
+        
+        const roomId = `house-${hostUsername}`;
+        socket.join(roomId);
+        socket.houseRoom = roomId;
 
+        // Báo cho những người trong phòng biết có người mới vào
+        socket.to(roomId).emit('playerJoinedHouse', { 
+            id: socket.id, 
+            username: sessionUser?.username || 'Khách' 
+        });
+    });
+
+    // 2. Đồng bộ vị trí di chuyển
+    socket.on('move3DPlayer', (posData) => {
+        if(socket.houseRoom) {
+            socket.to(socket.houseRoom).emit('updatePlayerPos', { id: socket.id, pos: posData });
+        }
+    });
+
+    // 3. Đồng bộ Đặt gạch (Xây)
+    socket.on('build3DBlock', (data) => {
+        if(socket.houseRoom) socket.to(socket.houseRoom).emit('syncBuild', data);
+    });
+
+    // 4. Đồng bộ Đập gạch (Phá)
+    socket.on('break3DBlock', (uniqueId) => {
+        if(socket.houseRoom) socket.to(socket.houseRoom).emit('syncBreak', uniqueId);
+    });
     // --- GAME TÌM TRẬN ---
 // --- GAME TÌM TRẬN (SỬA LỖI ĐI TRƯỚC/SAU) ---
 socket.on('findMatch', (gameType) => {
@@ -1776,6 +1881,7 @@ socket.on('buildHouse', ({ roomId, tileId }) => {
         // Xóa khỏi hàng chờ
         Object.keys(waitingPlayers).forEach(key => { if (waitingPlayers[key] === socket) delete waitingPlayers[key]; });
         const idx = monopolyQueue.indexOf(socket.id);
+        if(socket.houseRoom) socket.to(socket.houseRoom).emit('playerLeftHouse', socket.id);
         if (idx > -1) monopolyQueue.splice(idx, 1);
 
         // Xóa khỏi phòng chơi 1vs1 (Caro, Chess...)
