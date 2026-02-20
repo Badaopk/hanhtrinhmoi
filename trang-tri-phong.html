@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hành Tinh Mơ Ước - Smooth Movement 23.0</title>
+    <title>Hành Tinh Mơ Ước - Final Gold Edition 24.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -11,7 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; background: #000; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Baloo 2', cursive; background: #000; touch-action: none; }
+        
         #landscape-warning { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #2c3e50; color: white; z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         @media screen and (orientation: portrait) { #landscape-warning { display: flex !important; } #blocker, #mobile-controls, #hotbar, #mobile-menu-btn { display: none !important; } }
         
@@ -25,7 +27,7 @@
         .play-btn { background: #2ecc71; color: white; border: none; padding: 15px 60px; font-size: 2rem; font-family: 'Baloo 2'; font-weight: 800; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 8px 0 #27ae60; transition: transform 0.1s;}
         .play-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #27ae60; }
 
-        .panel { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 400px; background: rgba(255,255,255,0.95); border-radius: 25px; padding: 20px; display: none; flex-direction: column; z-index: 1001; box-shadow: -10px 0 30px rgba(0,0,0,0.5); box-sizing: border-box;}
+        .panel { position: absolute; right: 20px; top: 20px; bottom: 20px; width: 400px; background: rgba(255,255,255,0.95); border-radius: 25px; padding: 20px; display: none; flex-direction: column; z-index: 1001; box-shadow: -10px 0 30px rgba(0,0,0,0.5);}
         .panel.show { display: flex !important; }
         @media screen and (max-width: 800px) { .panel { width: 95vw; left: 2.5vw; right: 2.5vw; top: 2.5vh; bottom: 2.5vh; padding: 15px; } #instructions { transform: scale(0.8); } }
 
@@ -55,7 +57,7 @@
         #mobile-controls { display: none; }
         #joystick-zone { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; z-index: 20; opacity: 0.8;}
         .action-container { position: absolute; bottom: 40px; right: 40px; width: 220px; height: 220px; z-index: 20; pointer-events: none; }
-        .a-btn { position: absolute; width: 70px; height: 70px; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; pointer-events: auto; box-shadow: 0 6px 0 rgba(0,0,0,0.3); border: 3px solid rgba(255,255,255,0.5); font-weight: bold; user-select: none;}
+        .a-btn { position: absolute; width: 70px; height: 70px; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; pointer-events: auto; box-shadow: 0 6px 0 rgba(0,0,0,0.3); border: 3px solid rgba(255,255,255,0.5); font-weight: bold;}
         .a-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
         #btn-build { background: #2ecc71; top: 0; right: 60px; }
         #btn-break { background: #e74c3c; bottom: 50px; right: 0; }
@@ -96,10 +98,10 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 23.0</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC FINAL</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
-                <p>⌨️ <b>W, A, S, D</b>: Di chuyển mượt mà | 🚀 <b>Space</b>: Nhảy</p>
-                <p>🛒 <b>Phím B</b>: Mở Shop | 🔄 <b>Phím R</b>: Giải cứu (Khi bị kẹt)</p>
+                <p>⌨️ <b>W, A, S, D</b>: Di chuyển | 🚀 <b>Space</b>: Nhảy</p>
+                <p>🛒 <b>Phím B</b>: Mở Shop | 🔄 <b>Phím R</b>: Bay lên trời (Chống kẹt)</p>
                 <p>🚪 <b>Phím E</b>: Tương tác (Mở Cửa / Ngồi / Mở Tủ / Ngủ)</p>
                 <p>🖱️ <b>Chuột Trái/Phải</b>: Xây/Phá</p>
             </div>
@@ -150,11 +152,12 @@
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     let isGameRunning = false, isSwimming = false, canJump = false, isSitting = false;
     let sittingObj = null; 
-    let isLoadingMap = true; 
+    let isLoadingMap = true; // NGĂN CHẶN RƠI XUYÊN MAP KHI ĐANG LOAD
+    let moveJoystick = null;
     
     let scene, camera, renderer, controls, raycaster;
     let objects = [], animatedObjects = [];
-    let velocity = new THREE.Vector3(), direction = new THREE.Vector3(), playerBox = new THREE.Box3();
+    let velocity = new THREE.Vector3(), playerBox = new THREE.Box3();
     let joystickVector = { x: 0, y: 0 }, prevTime = performance.now(), blockHighlight;
     let timeOfDay = Math.PI / 2, timeSpeed = 0.0005; 
     let sunSphere, moonSphere, dirLight;
@@ -167,6 +170,7 @@
     const HOTBAR_SIZE = 9;
     let hotbarSlots = new Array(HOTBAR_SIZE).fill(null), selectedHotbarIndex = 0;
 
+    // --- AUTO SAVE DEBOUNCE ---
     let autoSaveTimer = null;
     function triggerAutoSave() {
         const ind = document.getElementById('save-indicator');
@@ -183,6 +187,7 @@
         } catch(e) {}
     }
 
+    // --- AUDIO SYSTEM ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     function playSFX(type) {
@@ -194,10 +199,14 @@
         else if (type === 'door') { osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
     }
 
+    // --- TRÌNH TỰ KHỞI ĐỘNG CHUẨN ---
     init3D(); setupControls(); initWeather(); setupMultiplayer(); 
-    generateWorld(); 
+    generateWorld(); // TẠO TRƯỚC BẢN ĐỒ
     animate();
 
+    // ==========================================
+    // --- 1. ENGINE 3D ---
+    // ==========================================
     function init3D() {
         scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
         scene.fog = new THREE.Fog(0x87CEEB, 200, 2000);
@@ -205,7 +214,7 @@
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
         controls = new THREE.PointerLockControls(camera, document.body);
         
-        // Bắt đầu trên trời cao
+        // FIX KẸT 100%: Cho spawn thẳng trên mây
         controls.getObject().position.set(0, 800, 0); 
         scene.add(controls.getObject());
 
@@ -256,20 +265,21 @@
         return new THREE.MeshLambertMaterial({ map: tex });
     }
 
+    // --- FIX LỖI RƠI: Dùng BoxGeometry 1000px Bê Tông ---
     function generateWorld() {
         objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
 
         const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
         const createPart = (w, d, x, z) => {
-            const g = new THREE.Mesh(new THREE.BoxGeometry(w, 50, d), floorMat);
-            g.position.set(x, -25, z); 
+            const g = new THREE.Mesh(new THREE.BoxGeometry(w, 1000, d), floorMat);
+            g.position.set(x, -500, z); // Dời xuống để mặt phẳng ở cao độ 0
             g.receiveShadow = true; g.updateMatrixWorld(true);
             g.userData = { bbox: new THREE.Box3().setFromObject(g), isIndestructible: true }; scene.add(g); objects.push(g);
         };
         createPart(3000, 2100, 0, -450); createPart(3000, 500, 0, 1250); 
 
-        const river = new THREE.Mesh(new THREE.BoxGeometry(3000, 50, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
-        river.position.set(0, -25, 800); river.updateMatrixWorld(true);
+        const river = new THREE.Mesh(new THREE.BoxGeometry(3000, 1000, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
+        river.position.set(0, -510, 800); river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
 
         const grassMat = createBlockMaterial('#27ae60'), dirtMat = createBlockMaterial('#6e2c00');  
@@ -317,7 +327,7 @@
         for(let wx = 0; wx < 5; wx++) {
             for(let wz = 0; wz < 5; wz++) {
                 if(wx===0 || wx===4 || wz===0 || wz===4) {
-                    if(wx===2 && wz===4) continue; 
+                    if(wx===2 && wz===4) continue; // Cửa
                     for(let wy=0; wy<3; wy++) {
                         const b = new THREE.Mesh(sharedBlockGeo, wallMat);
                         b.position.set(sX + wx*BLOCK_SIZE, wy*BLOCK_SIZE + BLOCK_SIZE/2, sZ + wz*BLOCK_SIZE);
@@ -345,7 +355,7 @@
     }
 
     // ==========================================
-    // --- 2. ĐIỀU KHIỂN & VẬT LÝ DI CHUYỂN CHUẨN FPS ---
+    // --- 2. ĐIỀU KHIỂN & VẬT LÝ FPS ---
     // ==========================================
     let moveF = false, moveB = false, moveL = false, moveR = false;
 
@@ -361,7 +371,7 @@
                     break;
                 case 'KeyB': controls.unlock(); openPanel('ui-panel'); break;
                 case 'KeyE': triggerInteraction(); break;
-                // PHÍM R GIẢI CỨU KẸT TƯỜNG
+                // FIX KẸT 100%: PHÍM R ĐỂ RESET LÊN TRỜI
                 case 'KeyR': controls.getObject().position.set(0, 800, 0); velocity.y = 0; showNotification("🚀 Đã bay lên trời giải cứu!"); break;
                 case 'Digit1': selectHotbar(0); break; case 'Digit2': selectHotbar(1); break;
                 case 'Digit3': selectHotbar(2); break; case 'Digit4': selectHotbar(3); break;
@@ -379,6 +389,7 @@
         playBtn.addEventListener('click', () => {
             if(!audioCtx) audioCtx = new AudioContext();
             
+            // XÓA SẠCH GIAO DIỆN CHỐNG KẸT MÀN HÌNH MỜ (FIX ẢNH 3)
             document.getElementById('blocker').style.display = 'none';
             document.getElementById('instructions').style.display = 'none'; 
             document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
@@ -394,7 +405,7 @@
 
             if(!myUsername) loadDataFromServer(); 
             
-            // RESET TIME ĐỂ KHÔNG BỊ RỚT MAP DO LAG
+            // Reset Delta Time chống rớt bản đồ do lag mạng
             prevTime = performance.now();
         });
 
@@ -424,13 +435,12 @@
     }
 
     function initJoystick() {
-        if(document.getElementById('joystick-zone').innerHTML !== '') return;
-        const mj = nipplejs.create({ zone: document.getElementById('joystick-zone'), mode: 'static', position: { left: '50%', top: '50%' }, color: 'white', size: 100 });
-        mj.on('move', (e, d) => { joystickVector.x = d.vector.x; joystickVector.y = d.vector.y; });
-        mj.on('end', () => { joystickVector.x = 0; joystickVector.y = 0; });
+        if(moveJoystick) return;
+        moveJoystick = nipplejs.create({ zone: document.getElementById('joystick-zone'), mode: 'static', position: { left: '50%', top: '50%' }, color: 'white', size: 100 });
+        moveJoystick.on('move', (e, d) => { joystickVector.x = d.vector.x; joystickVector.y = d.vector.y; });
+        moveJoystick.on('end', () => { joystickVector.x = 0; joystickVector.y = 0; });
     }
 
-    // TÍNH TOÁN VA CHẠM (GIỮ NGUYÊN BBOX, HOẠT ĐỘNG CHUẨN FPS)
     function checkCollision(pos) {
         playerBox.setFromCenterAndSize(new THREE.Vector3(pos.x, pos.y-35, pos.z), new THREE.Vector3(15, 70, 15)); 
         let maxG = -2000, water = false, blocked = false;
@@ -497,7 +507,7 @@
             const phys = checkCollision(controls.getObject().position);
             isSwimming = phys.water; 
             
-            // TỐI ƯU VẬT LÝ CHUẨN FPS TRÊN THREE.JS
+            // LOGIC DI CHUYỂN FPS ĐỘC LẬP
             const speed = (isSwimming ? 2000 : 5000);
             velocity.x -= velocity.x * 10.0 * delta; 
             velocity.z -= velocity.z * 10.0 * delta;
@@ -511,36 +521,21 @@
 
             const pos = controls.getObject().position;
 
-            // TRƯỢT TƯỜNG BẰNG HÀM CÓ SẴN CỦA THREEJS
             const oldX = pos.x;
             controls.moveRight(-velocity.x * delta);
-            if(checkCollision(pos).blocked) {
-                pos.x = oldX;
-                velocity.x = 0;
-            }
+            if(checkCollision(pos).blocked) { pos.x = oldX; velocity.x = 0; }
 
             const oldZ = pos.z;
             controls.moveForward(-velocity.z * delta);
-            if(checkCollision(pos).blocked) {
-                pos.z = oldZ;
-                velocity.z = 0;
-            }
-
-            // GIAO THỨC TỰ ĐỘNG CHỐNG KẸT BÊN TRONG KHỐI
-            if (checkCollision(pos).blocked) {
-                pos.y += 10; // Tự động trồi lên nếu bị mắc kẹt
-            }
+            if(checkCollision(pos).blocked) { pos.z = oldZ; velocity.z = 0; }
 
             if (!isLoadingMap) {
                 velocity.y -= 9.8 * (isSwimming ? 50 : 150) * delta;
                 pos.y += velocity.y * delta;
                 
-                if(pos.y <= phys.groundY) { 
-                    velocity.y = 0; 
-                    pos.y = phys.groundY; 
-                    canJump = true; 
-                }
+                if(pos.y <= phys.groundY) { velocity.y = 0; pos.y = phys.groundY; canJump = true; }
                 
+                // Rơi vực -> Hồi sinh trên trời
                 if(pos.y < -300) { pos.set(0, 800, 0); velocity.y=0; } 
             } else {
                 velocity.y = 0; 
@@ -667,7 +662,7 @@
         return g;
     }
 
-    // --- CƠ CHẾ XÂY/PHÁ AUTO-SAVE ---
+    // --- CƠ CHẾ XÂY/PHÁ LÀM TRÒN GRID 100% CHÍNH XÁC ---
     function handleBuildBreak(type) {
         raycaster.setFromCamera(new THREE.Vector2(), camera);
         const hits = raycaster.intersectObjects(objects, true);
@@ -676,7 +671,11 @@
                 const id = hotbarSlots[selectedHotbarIndex]; if(!id) return;
                 const item = shopItems.find(x => x.id === id); if(!item) return;
                 const pos = hits[0].point.clone().add(hits[0].face.normal.multiplyScalar(BLOCK_SIZE/2));
-                pos.x = Math.round(pos.x/BLOCK_SIZE)*BLOCK_SIZE; pos.y = Math.round(pos.y/BLOCK_SIZE)*BLOCK_SIZE; pos.z = Math.round(pos.z/BLOCK_SIZE)*BLOCK_SIZE;
+                
+                // LÀM TRÒN ĐỂ SNAP LÊN GRID CHUẨN MỰC NHẤT
+                pos.x = Math.floor(pos.x/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
+                pos.y = Math.floor(pos.y/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
+                pos.z = Math.floor(pos.z/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
                 
                 const uid = 'item_'+Date.now();
                 spawnItem(item, pos.x, pos.y, pos.z, uid);
@@ -743,8 +742,6 @@
     let isShopLoaded = false;
     
     async function loadDataFromServer() {
-        isLoadingMap = true; 
-        
         if(!myUsername) {
             const res = await fetch('/api/house/info'); const d = await res.json();
             myUsername = d.username; houseState.score = d.score; houseState.inventory = d.inventory; shopItems = d.shopItems; chestsData = d.chestsData;
@@ -753,8 +750,10 @@
         
         updateUI(); renderHotbarUI();
         
+        // FIX LỖI MẤT DỮ LIỆU: Phải đồng bộ mảng trước khi vẽ
         const res = await fetch('/api/house/info'); const d = await res.json();
         if(d.houseData) {
+            houseState.items = d.houseData; 
             d.houseData.forEach(i => { 
                 const info = shopItems.find(x => x.id === i.id); 
                 if(info) {
@@ -768,6 +767,7 @@
         }
         socket.emit('join3DHouse', myUsername);
         
+        // Mở lại vật lý rơi sau khi đã load xong đồ
         setTimeout(() => { isLoadingMap = false; }, 500); 
     }
     
