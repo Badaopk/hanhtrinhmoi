@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Biệt Thự 3D - Minecraft Mode (Stable)</title>
+    <title>Biệt Thự 3D - Minecraft Mode (No Falling Bug)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -190,26 +190,31 @@
     let moveJoystick = null; let joystickVector = { x: 0, y: 0 };
     let blockHighlight; 
 
-    // --- AN TOÀN TỐI ƯU HÓA ---
-    // Khởi tạo Geometry tĩnh duy nhất cho block
+    // ==========================================
+    // --- KHU VỰC TỐI ƯU HÓA (OPTIMIZATIONS) ---
+    // ==========================================
     const sharedBlockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    const materialCache = {};
     
-    // Hàm tạo Material an toàn (Không lưu Cache nữa để tránh lỗi WebGL/Canvas trên một số máy)
-    function createBlockMaterial(hexColor) {
+    function getOrCreateBlockMaterial(hexColor) {
+        if (materialCache[hexColor]) return materialCache[hexColor];
         const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64; const ctx = canvas.getContext('2d'); 
         ctx.fillStyle = hexColor || '#bdc3c7'; ctx.fillRect(0, 0, 64, 64); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 4; ctx.strokeRect(0,0,64,64); 
         const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; 
-        return new THREE.MeshLambertMaterial({ map: tex });
+        const mat = new THREE.MeshLambertMaterial({ map: tex });
+        materialCache[hexColor] = mat; return mat;
     }
 
-    // --- HỆ THỐNG ÂM THANH GIẢ LẬP ---
+    // --- HỆ THỐNG ÂM THANH GIẢ LẬP (WEB AUDIO API) ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
+    
     function playSFX(type) {
         if(!audioCtx) return;
         if(audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
+        
         if (type === 'build') { 
             osc.type = 'sine'; osc.frequency.setValueAtTime(300, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
             gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
@@ -225,13 +230,8 @@
         }
     }
 
-    // --- KHỞI CHẠY CHÍNH ---
-    init3D(); 
-    setupControls(); 
-    initWeather(); 
-    startAutoWeather();
-    loadDataFromServer(); // loadData sẽ gọi generateWorld()
-    setupMultiplayerSockets(); 
+    init3D(); setupControls(); initWeather(); startAutoWeather();
+    loadDataFromServer(); setupMultiplayerSockets(); 
     animate(); 
 
     // ==========================================
@@ -255,7 +255,12 @@
         blockHighlight = new THREE.LineSegments(outlineGeo, outlineMat); blockHighlight.visible = false; scene.add(blockHighlight);
 
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
+        
+        // --- FIX LỖI RƠI KHI MỚI VÀO GAME ---
+        // Nâng vị trí xuất phát lên cao hơn một chút (100) để đảm bảo rơi xuống chạm đất
         controls = new THREE.PointerLockControls(camera, document.body);
+        controls.getObject().position.set(0, 100, 0); 
+        scene.add(controls.getObject()); 
         
         const blocker = document.getElementById('blocker');
         if(isMobile) { document.getElementById('pc-hint').style.display = 'none'; document.getElementById('mobile-hint').style.display = 'block'; }
@@ -268,7 +273,7 @@
 
         controls.addEventListener('lock', () => { blocker.style.display = 'none'; isGameRunning = true; });
         controls.addEventListener('unlock', () => { if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ blocker.style.display = 'flex'; isGameRunning = false; }});
-        scene.add(controls.getObject()); raycaster = new THREE.Raycaster();
+        raycaster = new THREE.Raycaster();
 
         renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; document.body.appendChild(renderer.domElement);
@@ -303,7 +308,7 @@
         }, Math.floor(Math.random() * 120000) + 60000);
     }
 
-    // --- SINH MẶT ĐẤT MINECRAFT & HỒ BƠI SÂU ---
+    // --- TỰ ĐỘNG SINH MẶT ĐẤT MINECRAFT & HỒ BƠI SÂU ---
     function generateWorld() {
         objects.forEach(obj => scene.remove(obj)); animatedObjects.forEach(obj => scene.remove(obj));
         objects = []; animatedObjects = []; houseState.items = [];
@@ -313,12 +318,32 @@
         const floorTex = new THREE.CanvasTexture(canvas); floorTex.wrapS = THREE.RepeatWrapping; floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(3000/BLOCK_SIZE, 3000/BLOCK_SIZE); floorTex.magFilter = THREE.NearestFilter; 
         const floorMat = new THREE.MeshLambertMaterial({ map: floorTex });
 
-        const floor1 = new THREE.Mesh(new THREE.PlaneGeometry(3000, 2100).rotateX(-Math.PI / 2), floorMat); floor1.position.z = -450; floor1.receiveShadow = true; scene.add(floor1); objects.push(floor1); 
-        const floor2 = new THREE.Mesh(new THREE.PlaneGeometry(3000, 500).rotateX(-Math.PI / 2), floorMat); floor2.position.z = 1250; floor2.receiveShadow = true; scene.add(floor2); objects.push(floor2); 
+        // --- FIX LỖI MẶT ĐẤT CHÍNH --- 
+        // Phải updateMatrixWorld trước khi lấy BoundingBox
+        const floor1 = new THREE.Mesh(new THREE.PlaneGeometry(3000, 2100).rotateX(-Math.PI / 2), floorMat); 
+        floor1.position.z = -450; floor1.receiveShadow = true; 
+        floor1.updateMatrixWorld(true); // <--- QUAN TRỌNG: Cập nhật ma trận
+        floor1.userData = { bbox: new THREE.Box3().setFromObject(floor1) }; // <--- Gắn Hộp va chạm
+        scene.add(floor1); objects.push(floor1); 
 
-        const riverBed = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x95a5a6 })); riverBed.position.set(0, -60, 800); riverBed.receiveShadow = true; scene.add(riverBed); objects.push(riverBed);
+        const floor2 = new THREE.Mesh(new THREE.PlaneGeometry(3000, 500).rotateX(-Math.PI / 2), floorMat); 
+        floor2.position.z = 1250; floor2.receiveShadow = true; 
+        floor2.updateMatrixWorld(true); // <--- QUAN TRỌNG
+        floor2.userData = { bbox: new THREE.Box3().setFromObject(floor2) }; // <--- Gắn Hộp va chạm
+        scene.add(floor2); objects.push(floor2); 
+
+        const riverBed = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x95a5a6 })); 
+        riverBed.position.set(0, -60, 800); riverBed.receiveShadow = true; 
+        riverBed.updateMatrixWorld(true); // <--- QUAN TRỌNG
+        riverBed.userData = { bbox: new THREE.Box3().setFromObject(riverBed) }; // <--- Gắn Hộp va chạm
+        scene.add(riverBed); objects.push(riverBed);
+
         const riverMat = new THREE.MeshLambertMaterial({ color: 0x3498db, transparent: true, opacity: 0.7 });
-        const river = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI / 2), riverMat); river.position.set(0, -10, 800); river.userData = { isWater: true }; scene.add(river); objects.push(river);
+        const river = new THREE.Mesh(new THREE.PlaneGeometry(3000, 400).rotateX(-Math.PI / 2), riverMat); 
+        river.position.set(0, -10, 800); 
+        river.updateMatrixWorld(true);
+        river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river) }; 
+        scene.add(river); objects.push(river);
 
         function spawnHill(x, z, radius, height) {
             for(let dx = -radius; dx <= radius; dx+=BLOCK_SIZE) {
@@ -327,8 +352,12 @@
                         let h = Math.floor(Math.random() * height) + 1;
                         for(let y = 0; y < h; y++) {
                             const b = new THREE.Mesh(sharedBlockGeo, floorMat);
-                            b.position.set(x + dx, y * BLOCK_SIZE + BLOCK_SIZE/2, z + dz); b.castShadow = true; b.receiveShadow = true; 
-                            b.updateMatrix(); b.matrixAutoUpdate = false; b.userData = { bbox: new THREE.Box3().setFromObject(b) }; scene.add(b); objects.push(b);
+                            b.position.set(x + dx, y * BLOCK_SIZE + BLOCK_SIZE/2, z + dz); 
+                            b.castShadow = true; b.receiveShadow = true; 
+                            b.updateMatrix(); b.matrixAutoUpdate = false; 
+                            b.updateMatrixWorld(true); // <--- FIX LỖI VA CHẠM ĐỒI NÚI
+                            b.userData = { bbox: new THREE.Box3().setFromObject(b) }; 
+                            scene.add(b); objects.push(b);
                         }
                     }
                 }
@@ -338,8 +367,17 @@
 
         for(let i=0; i<30; i++) {
             let x = (Math.random() - 0.5) * 2000; let z = (Math.random() - 0.5) * 1500 - 200; 
-            const trunk = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 20), new THREE.MeshLambertMaterial({color: 0x8b4513})); trunk.position.set(x, 30, z); trunk.castShadow = true; trunk.geometry.computeBoundingBox(); trunk.userData = { id: 'tree_trunk', bbox: new THREE.Box3().setFromObject(trunk), isPart: false }; scene.add(trunk); objects.push(trunk);
-            const leaves = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 80), new THREE.MeshLambertMaterial({color: 0x27ae60})); leaves.position.set(x, 100, z); leaves.castShadow = true; leaves.geometry.computeBoundingBox(); leaves.userData = { id: 'tree_leaves', bbox: new THREE.Box3().setFromObject(leaves), isPart: false }; scene.add(leaves); objects.push(leaves);
+            const trunk = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 20), new THREE.MeshLambertMaterial({color: 0x8b4513})); 
+            trunk.position.set(x, 30, z); trunk.castShadow = true; 
+            trunk.updateMatrixWorld(true); // <--- FIX LỖI
+            trunk.userData = { id: 'tree_trunk', bbox: new THREE.Box3().setFromObject(trunk), isPart: false }; 
+            scene.add(trunk); objects.push(trunk);
+            
+            const leaves = new THREE.Mesh(new THREE.BoxGeometry(80, 80, 80), new THREE.MeshLambertMaterial({color: 0x27ae60})); 
+            leaves.position.set(x, 100, z); leaves.castShadow = true; 
+            leaves.updateMatrixWorld(true); // <--- FIX LỖI
+            leaves.userData = { id: 'tree_leaves', bbox: new THREE.Box3().setFromObject(leaves), isPart: false }; 
+            scene.add(leaves); objects.push(leaves);
         }
     }
 
@@ -356,6 +394,7 @@
         const intersectsStatic = raycaster.intersectObjects(staticMeshes);
 
         if (intersectsAll.length > 0) {
+            // XÂY LÊN
             if (actionType === 'build' && intersectsStatic.length > 0) {
                 const currentItemId = hotbarSlots[selectedHotbarIndex];
                 if (!currentItemId) return showNotification("Ô này trống!");
@@ -383,6 +422,7 @@
                 socket.emit('build3DBlock', { itemInfo, x: pos.x, y: pos.y, z: pos.z, uniqueId });
             }
 
+            // ĐẬP PHÁ
             if (actionType === 'break') {
                 let hitMesh = intersectsAll[0].object;
                 if (hitMesh === objects[0] || hitMesh === objects[1] || hitMesh.userData.isWater) return; 
@@ -422,13 +462,15 @@
     function spawnItem(itemInfo, x, y, z, uniqueId, isSync = false) {
         let object3D;
         if (itemInfo.category === 'paint' || itemInfo.category === 'floor') {
-            object3D = new THREE.Mesh(sharedBlockGeo, createBlockMaterial(itemInfo.value));
+            object3D = new THREE.Mesh(sharedBlockGeo, getOrCreateBlockMaterial(itemInfo.value));
             object3D.position.set(x, y, z); object3D.castShadow = true; object3D.receiveShadow = true;
             object3D.updateMatrix(); object3D.matrixAutoUpdate = false; 
         } else {
             object3D = create3DModel(itemInfo); object3D.position.set(x, y - BLOCK_SIZE/2, z); 
         }
 
+        // --- FIX LỖI TÍNH TOÁN VA CHẠM KHỐI XÂY DỰNG ---
+        object3D.updateMatrixWorld(true); // Cập nhật ma trận trước khi sinh hộp va chạm
         object3D.userData = { id: itemInfo.id, uniqueId: uniqueId, category: itemInfo.category, bbox: new THREE.Box3().setFromObject(object3D) };
         scene.add(object3D);
 
@@ -501,14 +543,24 @@
 
     function checkCollision(playerPos) {
         playerBox.setFromCenterAndSize(new THREE.Vector3(playerPos.x, playerPos.y - 40, playerPos.z), new THREE.Vector3(20, 80, 20));
-        let isOnGround = false; let maxGroundY = -2000; let inWater = false;
+        let isOnGround = false; let maxGroundY = -2000; 
+        
+        let inWater = false;
+        // Kiểm tra khu vực sông
         if (playerPos.z > 600 && playerPos.z < 1000 && playerPos.y < 50) inWater = true; 
 
         for (let obj of objects) {
-            let isWaterBlock = obj.userData?.id === 'floor_water' || obj.userData?.isWater; let objBox = obj.userData.bbox; 
+            let isWaterBlock = obj.userData?.id === 'floor_water' || obj.userData?.isWater; 
+            let objBox = obj.userData.bbox; 
+            
             if (objBox && playerBox.intersectsBox(objBox)) {
                 if (isWaterBlock) { inWater = true; continue; } 
-                if (playerPos.y - 80 >= objBox.max.y - 15) { isOnGround = true; if (objBox.max.y + 80 > maxGroundY) maxGroundY = objBox.max.y + 80; } else { return { isColliding: true, groundY: maxGroundY, isSwimming: inWater }; }
+                if (playerPos.y - 80 >= objBox.max.y - 15) { 
+                    isOnGround = true; 
+                    if (objBox.max.y + 80 > maxGroundY) maxGroundY = objBox.max.y + 80; 
+                } else { 
+                    return { isColliding: true, groundY: maxGroundY, isSwimming: inWater }; 
+                }
             }
         }
         return { isColliding: false, groundY: isOnGround ? maxGroundY : -2000, isOnGround, isSwimming: inWater };
@@ -587,7 +639,7 @@
             renderHotbarUI(); 
             updateUI(); 
             
-            // Xây dựng thế giới trước khi đặt đồ đạc lên
+            // LỖI MÀN HÌNH ĐEN ĐÃ ĐƯỢC FIX TẠI ĐÂY (Thiếu hàm tạo bản đồ)
             generateWorld(); 
             
             if(data.houseData) { 
@@ -603,8 +655,6 @@
     // ==========================================
     // --- 5. HỆ THỐNG VẬT LÝ & HIỂN THỊ ---
     // ==========================================
-    let wasSwimming = false; 
-
     function animate() {
         requestAnimationFrame(animate); const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); prevTime = time;
         if (!isSleeping) { timeOfDay += delta * timeSpeed; if(timeOfDay >= Math.PI * 2) timeOfDay = 0; } checkLookingAt(); 
@@ -641,7 +691,13 @@
             if (!physics.isColliding) { controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta); } else { velocity.x = 0; velocity.z = 0; }
             controls.getObject().position.y += (velocity.y * delta);
             if (controls.getObject().position.y <= physics.groundY) { velocity.y = 0; controls.getObject().position.y = physics.groundY; canJump = true; }
-            if (controls.getObject().position.y < -500) { controls.getObject().position.set(0, 100, 0); velocity.y = 0; }
+            
+            // --- FIX RƠI XUYÊN MAP --- 
+            // Nếu rơi quá giới hạn (-500), đưa người chơi trở lại mặt đất (0, 100, 0)
+            if (controls.getObject().position.y < -500) { 
+                controls.getObject().position.set(0, 100, 0); 
+                velocity.y = 0; 
+            }
             
             if (time - lastMoveSendTime > 50) { socket.emit('move3DPlayer', { x: controls.getObject().position.x, y: controls.getObject().position.y, z: controls.getObject().position.z, ry: camera.rotation.y }); lastMoveSendTime = time; }
 
