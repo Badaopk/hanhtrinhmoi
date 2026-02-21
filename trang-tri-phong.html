@@ -735,22 +735,47 @@
         if(!isSync) houseState.items.push({ id:info.id, uniqueId:uid, x, y, z });
     }
 
-    function setupMultiplayer() {
+function setupMultiplayer() {
         socket.on('playerJoinedHouse', d => {
             showNotification(`${d.username} đã vào!`);
             const p = new THREE.Mesh(new THREE.BoxGeometry(20, 60, 20), new THREE.MeshLambertMaterial({color: Math.random()*0xffffff}));
             scene.add(p); otherPlayers[d.id] = p;
         });
         socket.on('updatePlayerPos', d => { if(otherPlayers[d.id]) { otherPlayers[d.id].position.lerp(new THREE.Vector3(d.pos.x, d.pos.y-30, d.pos.z), 0.5); otherPlayers[d.id].rotation.y = d.pos.ry; } });
-        socket.on('syncBuild', d => spawnItem(d.itemInfo, d.x, d.y, d.z, d.uniqueId, true));
-        socket.on('syncBreak', uid => { const t = objects.find(o => o.userData.uniqueId === uid); if(t) { scene.remove(t); objects.splice(objects.indexOf(t), 1); } });
+        
+        // --- SỬA Ở ĐÂY ---
+        socket.on('syncBuild', d => {
+            spawnItem(d.itemInfo, d.x, d.y, d.z, d.uniqueId, true);
+            // Kích hoạt lưu nhà nếu tôi là CHỦ NHÀ
+            if (currentHost === myUsername) triggerAutoSave(); 
+        });
+        
+        socket.on('syncBreak', uid => { 
+            const t = objects.find(o => o.userData.uniqueId === uid); 
+            if(t) { 
+                scene.remove(t); objects.splice(objects.indexOf(t), 1); 
+                // Cập nhật lại mảng items
+                houseState.items = houseState.items.filter(i => i.uniqueId !== uid);
+                // Kích hoạt lưu nhà nếu tôi là CHỦ NHÀ
+                if (currentHost === myUsername) triggerAutoSave();
+            } 
+        });
+        
         socket.on('syncDoor', d => {
             const door = objects.find(o => o.userData.uniqueId === d.uniqueId);
-            if(door) { door.userData.isOpen = d.isOpen; door.rotation.y = d.isOpen ? Math.PI/2 : 0; door.updateMatrixWorld(true); door.userData.bbox.setFromObject(door); }
+            if(door) { 
+                door.userData.isOpen = d.isOpen; door.rotation.y = d.isOpen ? Math.PI/2 : 0; door.updateMatrixWorld(true); door.userData.bbox.setFromObject(door); 
+                // Cập nhật trạng thái cửa vào mảng
+                const savedItem = houseState.items.find(i => i.uniqueId === d.uniqueId);
+                if (savedItem) savedItem.isOpen = d.isOpen;
+                // Kích hoạt lưu nhà nếu tôi là CHỦ NHÀ
+                if (currentHost === myUsername) triggerAutoSave();
+            }
         });
+        // ------------------
+        
         socket.on('playerLeftHouse', id => { if(otherPlayers[id]) { scene.remove(otherPlayers[id]); delete otherPlayers[id]; } });
     }
-
     let isShopLoaded = false;
     
     async function loadDataFromServer() {
