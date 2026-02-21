@@ -1187,12 +1187,16 @@ app.post('/api/house/buy', async (req, res) => {
     res.json({ message: `Đã mua ${item.name}!`, newScore: user.score });
 });
 
-// 3. Lưu vị trí đồ đạc
+// 3. Lưu vị trí đồ đạc (ĐÃ FIX LỖI CƯỚP NHÀ)
 app.post('/api/house/save', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const { items, inventory, chestsData } = req.body;    
+    const { username, items, inventory, chestsData } = req.body;    
     
-    // Bạn cần vào userSchema khai báo thêm: chestsData: { type: Object, default: {} }
+    // BẢO MẬT: Chặn không cho lưu nếu tên chủ nhà (gửi từ frontend) khác với tên người đang đăng nhập
+    if (username && username !== req.session.user.username) {
+        return res.status(403).json({ message: "Bạn chỉ có thể lưu khi ở nhà của chính mình!" });
+    }
+
     await User.updateOne(
         { username: req.session.user.username }, 
         { $set: { houseData: items, inventory: inventory, chestsData: chestsData || {} } } 
@@ -1253,6 +1257,12 @@ socket.on('join3DHouse', (hostUsername) => {
     // 4. Đồng bộ Đập gạch (Phá)
     socket.on('break3DBlock', (uniqueId) => {
         if(socket.houseRoom) socket.to(socket.houseRoom).emit('syncBreak', uniqueId);
+    });
+// 5. Đồng bộ Đóng/Mở cửa
+    socket.on('toggle3DDoor', (data) => {
+        if(socket.houseRoom) {
+            socket.to(socket.houseRoom).emit('syncDoor', data);
+        }
     });
     // --- GAME TÌM TRẬN ---
 // --- GAME TÌM TRẬN (SỬA LỖI ĐI TRƯỚC/SAU) ---

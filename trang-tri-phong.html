@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hành Tinh Mơ Ước - Manual Save Sandbox 25.0</title>
+    <title>Hành Tinh Mơ Ước - Final Polish 27.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -96,7 +96,7 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 25.0</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC 27.0</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
                 <p>⌨️ <b>W, A, S, D</b>: Di chuyển | 🚀 <b>Space</b>: Nhảy</p>
                 <p>🛒 <b>Phím B</b>: Mở Shop | 🔄 <b>Phím R</b>: Giải cứu (Khi bị kẹt)</p>
@@ -151,10 +151,13 @@
     let sittingObj = null; 
     let isLoadingMap = true; 
     let moveJoystick = null;
+    let lastMoveSendTime = 0; 
+    let lookingAtInteractable = null; 
     
     let scene, camera, renderer, controls, raycaster;
     let objects = [], animatedObjects = [];
     let velocity = new THREE.Vector3(), direction = new THREE.Vector3(), playerBox = new THREE.Box3();
+    let moveF = false, moveB = false, moveL = false, moveR = false; 
     let joystickVector = { x: 0, y: 0 }, prevTime = performance.now(), blockHighlight;
     let timeOfDay = Math.PI / 2, timeSpeed = 0.0005; 
     let sunSphere, moonSphere, dirLight;
@@ -167,6 +170,8 @@
     const HOTBAR_SIZE = 9;
     let hotbarSlots = new Array(HOTBAR_SIZE).fill(null), selectedHotbarIndex = 0;
 
+    const materialCache = {}; 
+
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     function playSFX(type) {
@@ -178,7 +183,12 @@
         else if (type === 'door') { osc.type = 'sine'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
     }
 
-    init3D(); setupControls(); initWeather(); setupMultiplayer(); 
+    // --- TRÌNH TỰ KHỞI ĐỘNG CHUẨN ---
+    init3D(); 
+    setupControls(); 
+    initWeather(); 
+    startAutoWeather(); // ĐÃ FIX: Kích hoạt thời tiết
+    setupMultiplayer(); 
     generateWorld(); 
     loadDataFromServer();
     animate();
@@ -234,10 +244,15 @@
     }
 
     function createBlockMaterial(hexColor) {
+        if (materialCache[hexColor]) return materialCache[hexColor];
+        
         const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64; const ctx = canvas.getContext('2d'); 
         ctx.fillStyle = hexColor || '#bdc3c7'; ctx.fillRect(0, 0, 64, 64); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 4; ctx.strokeRect(0,0,64,64); 
         const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter; 
-        return new THREE.MeshLambertMaterial({ map: tex });
+        const mat = new THREE.MeshLambertMaterial({ map: tex });
+        
+        materialCache[hexColor] = mat;
+        return mat;
     }
 
     function generateWorld() {
@@ -277,8 +292,8 @@
 
         const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
         for(let i=0; i<15; i++){
-            let x = Math.round(((Math.random()-0.5)*2000)/BLOCK_SIZE)*BLOCK_SIZE; 
-            let z = Math.round(((Math.random()-0.5)*1200 - 300)/BLOCK_SIZE)*BLOCK_SIZE;
+            let x = Math.floor(((Math.random()-0.5)*2000)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
+            let z = Math.floor(((Math.random()-0.5)*1200 - 300)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
             for(let y=0; y<3; y++) {
                 const trunk = new THREE.Mesh(sharedBlockGeo, woodMat);
                 trunk.position.set(x, y*BLOCK_SIZE + BLOCK_SIZE/2, z); trunk.castShadow = true; trunk.updateMatrixWorld(true);
@@ -297,7 +312,7 @@
         }
 
         const wallMat = createBlockMaterial('#f5cd79'), roofMat = createBlockMaterial('#c0392b');
-        let sX = -400, sZ = -400;
+        let sX = -400 + BLOCK_SIZE/2, sZ = -400 + BLOCK_SIZE/2;
         for(let wx = 0; wx < 5; wx++) {
             for(let wz = 0; wz < 5; wz++) {
                 if(wx===0 || wx===4 || wz===0 || wz===4) {
@@ -327,8 +342,6 @@
         villager.userData = { isVillager: true, velocity: new THREE.Vector3(), moveTimer: 0 };
         scene.add(villager); animatedObjects.push(villager);
     }
-
-    let moveF = false, moveB = false, moveL = false, moveR = false;
 
     function setupControls() {
         document.addEventListener('keydown', e => {
@@ -507,8 +520,7 @@
             controls.moveForward(-velocity.z * delta);
             if(checkCollision(pos).blocked) { pos.z = oldZ; velocity.z = 0; }
 
-            // AUTO UNSTUCK CỨU KẸT BÊN TRONG KHỐI
-            if (moveX === 0 && moveZ === 0 && checkCollision(pos).blocked) {
+            if (!moveF && !moveB && !moveL && !moveR && checkCollision(pos).blocked) {
                 pos.y += 10;
             }
 
@@ -540,21 +552,43 @@
                     else { data.velocity.set(0,0,0); }
                     data.moveTimer = Math.random()*4+2;
                 }
-                npc.position.addScaledVector(data.velocity, delta);
+                
+                const nextPosX = npc.position.x + data.velocity.x * delta;
+                const nextPosZ = npc.position.z + data.velocity.z * delta;
+                let isColliding = false;
+                
+                const petBox = new THREE.Box3().setFromCenterAndSize(
+                    new THREE.Vector3(nextPosX, npc.position.y + 10, nextPosZ), 
+                    new THREE.Vector3(15, 20, 15)
+                );
+
+                for(let obj of objects) {
+                    if(obj.userData.bbox && !obj.userData.isWater) {
+                        if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
+                        if(petBox.intersectsBox(obj.userData.bbox)) {
+                            isColliding = true; break;
+                        }
+                    }
+                }
+
+                if (!isColliding) {
+                    npc.position.x = nextPosX; npc.position.z = nextPosZ;
+                } else {
+                    data.velocity.x *= -1; data.velocity.z *= -1;
+                    npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z);
+                    data.moveTimer = Math.random()*2 + 1;
+                }
+
                 if (!data.isVillager) {
                     if (data.velocity.x !== 0 || data.velocity.z !== 0) npc.position.y = (BLOCK_SIZE/2 - BLOCK_SIZE/2) + Math.abs(Math.sin(time * 0.01)) * 5; else npc.position.y = 0;
                 }
             });
+            
             checkLookingAt();
         }
         renderer.render(scene, camera);
     }
 
-    // ==========================================
-    // --- 3. TƯƠNG TÁC ĐỒ VẬT (CỬA, TỦ, GHẾ) ---
-    // ==========================================
-    let preSitPos = new THREE.Vector3();
-    
     function triggerInteraction() {
         if(isSitting) { standUp(); return; }
         if(!lookingAtInteractable) return;
@@ -619,7 +653,6 @@
         if(isMobile && !isSitting) btnI.style.display = 'none';
     }
 
-    // --- MÔ HÌNH VẬT PHẨM ĐỘC QUYỀN VOXEL ART ---
     function create3DModel(info) {
         const g = new THREE.Group();
         const addP = (w, h, d, c, x, y, z) => {
@@ -656,6 +689,7 @@
                 const id = hotbarSlots[selectedHotbarIndex]; if(!id) return;
                 const item = shopItems.find(x => x.id === id); if(!item) return;
                 const pos = hits[0].point.clone().add(hits[0].face.normal.multiplyScalar(BLOCK_SIZE/2));
+                
                 pos.x = Math.floor(pos.x/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
                 pos.y = Math.floor(pos.y/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
                 pos.z = Math.floor(pos.z/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
@@ -701,9 +735,6 @@
         if(!isSync) houseState.items.push({ id:info.id, uniqueId:uid, x, y, z });
     }
 
-    // ==========================================
-    // --- MULTIPLAYER & SERVER API ---
-    // ==========================================
     function setupMultiplayer() {
         socket.on('playerJoinedHouse', d => {
             showNotification(`${d.username} đã vào!`);
@@ -735,6 +766,7 @@
             chestsData = d.chestsData || {};
             
             let slot = 0; [...new Set(houseState.inventory)].forEach(id => { if(slot < HOTBAR_SIZE){ hotbarSlots[slot]=id; slot++; } });
+            
             updateUI(); renderHotbarUI();
             
             if(d.houseData) {
@@ -752,13 +784,14 @@
             }
             socket.emit('join3DHouse', myUsername);
             
-            // XÓA FLAG SAU KHI TẢI ĐỂ RƠI XUỐNG
+            // XÓA FLAG ĐỂ RƠI XUỐNG
             setTimeout(() => { isLoadingMap = false; }, 500); 
         } catch(error) { showNotification("⚠️ Lỗi tải dữ liệu. Hãy F5!"); }
     }
     
     function updateUI() {
         document.getElementById('score').innerText = houseState.score.toLocaleString();
+        
         if (!isShopLoaded) {
             const sGrid = document.getElementById('grid-shop'); sGrid.innerHTML = '';
             shopItems.forEach(i => sGrid.innerHTML += `<div class="item-card" onclick="buyItem('${i.id}')"><div>${i.icon}</div><b>${i.name}</b><div class="price">${i.price} 💎</div></div>`);
@@ -790,8 +823,9 @@
         renderChestUI(); updateUI(); renderHotbarUI();
     }
 
+    // FIX LỖI #5: GỬI KÈM USERNAME CHO LỆNH BUY (PHÒNG HỜ MẤT SESSION)
     async function buyItem(id) {
-        const res = await fetch('/api/house/buy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({itemId:id}) });
+        const res = await fetch('/api/house/buy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: myUsername, itemId:id}) });
         const d = await res.json(); 
         if(res.ok) { 
             houseState.score = d.newScore; houseState.inventory.push(id); updateUI(); 
@@ -802,10 +836,44 @@
         }
     }
 
-    // NÚT LƯU THỦ CÔNG 
+    // LƯU Ý LỖI #5: GỬI KÈM USERNAME KHI SAVE THỦ CÔNG
     async function saveHouse() {
-        await fetch('/api/house/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({items: houseState.items, inventory: houseState.inventory, chestsData: chestsData}) });
+        await fetch('/api/house/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: myUsername, items: houseState.items, inventory: houseState.inventory, chestsData: chestsData}) });
         showNotification("💾 Đã lưu Thế Giới thành công!");
+    }
+
+    // FIX LỖI #1: TRẢ LẠI HÀM VISIT FRIEND
+    async function visitFriend() {
+        const f = prompt("Nhập tên bạn bè muốn thăm:"); if(!f) return;
+        try {
+            const res = await fetch(`/api/house/visit/${f}`); 
+            const d = await res.json();
+            if(res.ok) { 
+                currentHost = f; 
+                document.getElementById('host-name').innerText = f; 
+                document.getElementById('visit-badge').style.display='block'; 
+                generateWorld(); 
+                if(d.houseData) {
+                    d.houseData.forEach(i => { 
+                        const info = shopItems.find(x => x.id === i.id); 
+                        if(info) {
+                            spawnItem(info, i.x, i.y, i.z, i.uniqueId, true);
+                            if(i.isOpen) {
+                                const obj = objects.find(o => o.userData.uniqueId === i.uniqueId);
+                                if(obj) { obj.userData.isOpen = true; obj.rotation.y = Math.PI/2; obj.updateMatrixWorld(true); obj.userData.bbox.setFromObject(obj); }
+                            }
+                        }
+                    }); 
+                }
+                socket.emit('join3DHouse', f); 
+                closePanels(); 
+                showNotification(`✈️ Đã bay tới nhà của ${f}`);
+            } else {
+                showNotification(`❌ ${d.message}`);
+            }
+        } catch(e) {
+            showNotification("⚠️ Lỗi kết nối!");
+        }
     }
     
     function selectHotbar(i) { selectedHotbarIndex = i; renderHotbarUI(); }
