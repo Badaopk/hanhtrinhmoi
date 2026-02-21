@@ -313,8 +313,11 @@
                 }
             }
         }
-        spawnVoxelHill(-800, -800, 6, 3); spawnVoxelHill(800, -500, 5, 2); 
-
+        spawnVoxelHill(-1500, -1000, 12, 25); 
+        spawnVoxelHill(1800, -800, 15, 10);  // Ngọn núi cao nhất
+        spawnVoxelHill(-2000, 2000, 10, 8);  // Bên kia sông
+        spawnVoxelHill(2500, 1800, 14, 9);   // Bên kia sông
+        spawnVoxelHill(0, 2500, 11, 7);
         const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
         for(let i=0; i<45; i++){
             let x = Math.floor(((Math.random()-0.5)*5000)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
@@ -420,7 +423,8 @@
             villager.userData = { 
                 isVillager: true, 
                 velocity: new THREE.Vector3(initVelX, 0, initVelZ), 
-                moveTimer: Math.random() * 3 + 2 
+                moveTimer: Math.random() * 3 + 2 ,
+                baseY: 0
             };
             // Xoay mặt về hướng đi ban đầu
             villager.rotation.y = Math.atan2(initVelX, initVelZ);
@@ -661,16 +665,20 @@
                     new THREE.Vector3(nextPosX, npc.position.y + 10, nextPosZ), 
                     new THREE.Vector3(15, 20, 15)
                 );
-
                 for(let obj of objects) {
                     if(obj.userData.bbox && !obj.userData.isWater) {
                         if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
-                        if(petBox.intersectsBox(obj.userData.bbox)) {
-                            isColliding = true; break;
+                        
+                        // CHỈ THÊM DÒNG NÀY: Bỏ qua mặt đất, chỉ chặn nếu vật cản cao hơn chân 5 pixel
+                        if(obj.userData.bbox.max.y > npc.position.y + 5) {
+                            if(petBox.intersectsBox(obj.userData.bbox)) {
+                                isColliding = true; break;
+                            }
                         }
                     }
                 }
 
+                // (Giữ nguyên logic đi tiếp hoặc quay đầu)
                 if (!isColliding) {
                     npc.position.x = nextPosX; npc.position.z = nextPosZ;
                 } else {
@@ -679,11 +687,15 @@
                     data.moveTimer = Math.random()*2 + 1;
                 }
 
-                if (!data.isVillager) {
-                    if (data.velocity.x !== 0 || data.velocity.z !== 0) npc.position.y = (BLOCK_SIZE/2 - BLOCK_SIZE/2) + Math.abs(Math.sin(time * 0.01)) * 5; else npc.position.y = 0;
+                // SỬA LẠI LOGIC NHẢY CỦA PET: Dùng data.baseY thay vì ép về số 0
+                if (!data.isVillager && data.baseY !== undefined) {
+                    if (data.velocity.x !== 0 || data.velocity.z !== 0) {
+                        npc.position.y = data.baseY + Math.abs(Math.sin(time * 0.01)) * 5; 
+                    } else {
+                        npc.position.y = data.baseY;
+                    }
                 }
             });
-            
             checkLookingAt();
         }
         renderer.render(scene, camera);
@@ -845,7 +857,12 @@
         m.userData = { id: info.id, uniqueId: uid };
         m.updateMatrixWorld(true); m.userData.bbox = new THREE.Box3().setFromObject(m);
         scene.add(m); objects.push(m);
-        if(info.category === 'pet' || info.type === 'p') { m.userData.velocity=new THREE.Vector3(); m.userData.moveTimer=0; animatedObjects.push(m); }
+        if(info.category === 'pet' || info.type === 'p') { 
+            m.userData.velocity = new THREE.Vector3(); 
+            m.userData.moveTimer = 0; 
+            m.userData.baseY = m.position.y; 
+            animatedObjects.push(m); 
+        }
         if(!isSync) houseState.items.push({ id:info.id, uniqueId:uid, x, y, z });
     }
 
