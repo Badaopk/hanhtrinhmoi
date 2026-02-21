@@ -679,7 +679,19 @@
             animatedObjects.forEach(npc => {
                 const data = npc.userData; 
                 data.moveTimer -= delta;
+                const groundCheck = checkCollision(new THREE.Vector3(npc.position.x, npc.position.y + 70, npc.position.z));
+                if (groundCheck.groundY !== -2000) {
+                    data.baseY = groundCheck.groundY - 70; // Cập nhật cao độ sàn mới
+                }
+                // 1. NHẬN DIỆN LOẠI ĐỐI TƯỢNG
+                const isPet = data.id && (data.id.includes('pet') || data.type === 'p');
+                const isVillager = data.isVillager;
 
+                // 2. TỰ ĐỘNG CHỈNH KÍCH THƯỚC HỘP VA CHẠM (HITBOX)
+                // Nếu là Pet: Hộp nhỏ (15x20). Nếu là Dân làng: Hộp to (20x40)
+                const hbWidth = isPet ? 15 : 20;
+                const hbHeight = isPet ? 20 : 40;
+                const hbOffset = isPet ? 10 : 15; // Nâng tâm hộp lên để không chạm sàn
                 // 1. CHỌN HƯỚNG ĐI NGẪU NHIÊN
                 if(data.moveTimer <= 0) {
                     if (Math.random() > 0.4) { 
@@ -696,22 +708,20 @@
 
                 // 2. KIỂM TRA VA CHẠM
                 let isColliding = false;
-                let collidedObjectBox = null;
-                
-                const petHitBox = new THREE.Box3().setFromCenterAndSize(
-                    new THREE.Vector3(nextPosX, npc.position.y + 10, nextPosZ), 
-                    new THREE.Vector3(15, 20, 15)
+                let obstacle = null;                
+                const hitBox = new THREE.Box3().setFromCenterAndSize(
+                    new THREE.Vector3(nextPosX, npc.position.y + hbOffset, nextPosZ), 
+                    new THREE.Vector3(hbWidth, hbHeight, hbWidth)
                 );
-
                 for(let obj of objects) {
                     if(obj.userData.bbox && !obj.userData.isWater) {
                         if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
                         
-                        // Bỏ qua mặt sàn (chỉ chặn nếu vật cản cao hơn chân Pet 5 đơn vị)
-                        if(obj.userData.bbox.max.y > npc.position.y + 5) {
-                            if(petHitBox.intersectsBox(obj.userData.bbox)) {
+                        // Bỏ qua mặt sàn (chỉ chặn nếu vật cản cao hơn chân Pet 10 đơn vị)
+                        if(obj.userData.bbox.max.y > npc.position.y + 10) {
+                            if(hitBox.intersectsBox(obj.userData.bbox)) {
                                 isColliding = true; 
-                                collidedObjectBox = obj.userData.bbox; // Lưu lại vật cản để tính lực đẩy
+                                obstacle = obj.userData.bbox; // Lưu lại vật cản để tính lực đẩy
                                 break;
                             }
                         }
@@ -722,17 +732,16 @@
                 if (!isColliding) {
                     npc.position.x = nextPosX; 
                     npc.position.z = nextPosZ;
-                } else if (collidedObjectBox) {
+                } else if (obstacle) {
                     // TÍNH LỰC ĐẨY: Lấy tâm vật cản đẩy ngược ra vị trí Pet
                     const boxCenter = new THREE.Vector3();
-                    collidedObjectBox.getCenter(boxCenter);
+                    obstacle.getCenter(boxCenter);
                     
                     let pushX = npc.position.x - boxCenter.x;
                     let pushZ = npc.position.z - boxCenter.z;
-                    if (pushX === 0 && pushZ === 0) pushX = 1; // Tránh chia cho 0
-
-                    const dist = Math.sqrt(pushX * pushX + pushZ * pushZ);
-                    
+                    if (pushX === 0 && pushZ === 0) pushX = 1;
+                    const dist = Math.sqrt(pushX * pushX + pushZ * pushZ) || 1;
+                           
                     // Đẩy Pet văng ra ngoài vật cản 5 đơn vị
                     npc.position.x += (pushX / dist) * 10; 
                     npc.position.z += (pushZ / dist) * 10;
@@ -744,9 +753,9 @@
                 }
 
                 // 4. HIỆU ỨNG NHẢY LÒ CÒ DỰA TRÊN BASEY
-                if (!data.isVillager && data.baseY !== undefined) {
+                if (isPet && data.baseY !== undefined) {
                     if (data.velocity.x !== 0 || data.velocity.z !== 0) {
-                        npc.position.y = data.baseY + Math.abs(Math.sin(time * 0.01)) * 5; 
+                        npc.position.y = data.baseY + Math.abs(Math.sin(performance.now() * 0.01)) * 5;
                     } else {
                         npc.position.y = data.baseY;
                     }
@@ -1019,6 +1028,13 @@
                 if(objects.includes(target) && target.userData.id !== undefined && !target.userData.isIndestructible) {
                     const lootId = target.userData.id;
                     houseState.inventory.push(lootId); 
+                    let existingSlot = hotbarSlots.indexOf(lootId);
+                    if (existingSlot === -1) {
+                        let emptySlot = hotbarSlots.indexOf(null);
+                        if (emptySlot !== -1) {
+                            hotbarSlots[emptySlot] = lootId;
+                        }
+                    }
                     showNotification("📦 Nhận 1 " + (shopItems.find(x=>x.id===lootId)?.name || lootId));
                     
                     scene.remove(target); objects.splice(objects.indexOf(target), 1);
@@ -1043,7 +1059,7 @@
             m = create3DModel(info); 
             // Đặt Pet đứng trên sàn (y), đồ đạc hạ thấp (y-25)
             if(info.category === 'pet' || info.type === 'p') {
-                m.position.set(x, y, z); 
+                m.position.set(x, y-5, z); 
             } else {
                 m.position.set(x, y - 25, z);
             }
