@@ -707,7 +707,7 @@
                         if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
                         
                         // Bỏ qua mặt sàn (chỉ chặn nếu vật cản cao hơn chân Pet 5 đơn vị)
-                        if(obj.userData.bbox.max.y > npc.position.y + 15) {
+                        if(obj.userData.bbox.max.y > npc.position.y + 5) {
                             if(petHitBox.intersectsBox(obj.userData.bbox)) {
                                 isColliding = true; 
                                 collidedObjectBox = obj.userData.bbox; // Lưu lại vật cản để tính lực đẩy
