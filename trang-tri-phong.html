@@ -676,45 +676,60 @@
             }
 
             animatedObjects.forEach(npc => {
-                const data = npc.userData; data.moveTimer -= delta;
+                const data = npc.userData; 
+                data.moveTimer -= delta;
+
+                // 1. CHỌN HƯỚNG ĐI NGẪU NHIÊN
                 if(data.moveTimer <= 0) {
-                    if (Math.random() > 0.4) { data.velocity.set((Math.random()-0.5)*50, 0, (Math.random()-0.5)*50); npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); }
-                    else { data.velocity.set(0,0,0); }
+                    if (Math.random() > 0.4) { 
+                        data.velocity.set((Math.random()-0.5)*60, 0, (Math.random()-0.5)*60); 
+                        npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z); 
+                    } else { 
+                        data.velocity.set(0,0,0); 
+                    }
                     data.moveTimer = Math.random()*4+2;
                 }
-                
+
+                // 2. TÍNH TOÁN VỊ TRÍ TIẾP THEO
                 const nextPosX = npc.position.x + data.velocity.x * delta;
                 const nextPosZ = npc.position.z + data.velocity.z * delta;
+
+                // 3. KIỂM TRA VA CHẠM (CHỐNG XUYÊN TƯỜNG)
                 let isColliding = false;
-                
-                const petBox = new THREE.Box3().setFromCenterAndSize(
-                    new THREE.Vector3(nextPosX, npc.position.y + 13, nextPosZ), 
-                    new THREE.Vector3(12, 15, 12)
+                // Tạo một hộp va chạm ảo tại vị trí định đi tới
+                const petHitBox = new THREE.Box3().setFromCenterAndSize(
+                    new THREE.Vector3(nextPosX, npc.position.y + 10, nextPosZ), 
+                    new THREE.Vector3(15, 20, 15) // Kích thước vùng va chạm của Pet
                 );
-                
+
                 for(let obj of objects) {
                     if(obj.userData.bbox && !obj.userData.isWater) {
+                        // Bỏ qua cửa nếu cửa đang mở
                         if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
                         
-                        // CHỈ THÊM DÒNG NÀY: Bỏ qua mặt đất, chỉ chặn nếu vật cản cao hơn chân 5 pixel
-                        if(obj.userData.bbox.max.y > npc.position.y + 20) {
-                            if(petBox.intersectsBox(obj.userData.bbox)) {
-                                isColliding = true; break;
+                        // QUAN TRỌNG: Chỉ chặn nếu vật cản cao hơn chân Pet 5 đơn vị (để không kẹt vào sàn)
+                        if(obj.userData.bbox.max.y > npc.position.y + 5) {
+                            if(petHitBox.intersectsBox(obj.userData.bbox)) {
+                                isColliding = true; 
+                                break;
                             }
                         }
                     }
                 }
 
-                // (Giữ nguyên logic đi tiếp hoặc quay đầu)
+                // 4. ÁP DỤNG DI CHUYỂN HOẶC QUAY ĐẦU
                 if (!isColliding) {
-                    npc.position.x = nextPosX; npc.position.z = nextPosZ;
+                    npc.position.x = nextPosX; 
+                    npc.position.z = nextPosZ;
                 } else {
-                    data.velocity.x *= -1; data.velocity.z *= -1;
+                    // Nếu đụng tường thì quay ngược lại ngay lập tức
+                    data.velocity.x *= -1; 
+                    data.velocity.z *= -1;
                     npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z);
-                    data.moveTimer = Math.random()*2 + 1;
+                    data.moveTimer = 1; // Giảm thời gian chờ để sớm đổi hướng mới
                 }
 
-                // SỬA LẠI LOGIC NHẢY CỦA PET: Dùng data.baseY thay vì ép về số 0
+                // 5. HIỆU ỨNG NHẢY LÒ CÒ CHO PET
                 if (!data.isVillager && data.baseY !== undefined) {
                     if (data.velocity.x !== 0 || data.velocity.z !== 0) {
                         npc.position.y = data.baseY + Math.abs(Math.sin(time * 0.01)) * 5; 
@@ -1006,25 +1021,25 @@
             m.position.set(x, y, z);
         } else {
             m = create3DModel(info); 
+            // FIX: Pet đứng trên mặt đất (y), Đồ đạc hạ thấp (y-25)
             if(info.category === 'pet' || info.type === 'p') {
                 m.position.set(x, y, z); 
             } else {
                 m.position.set(x, y - 25, z);
             }
-            
         }
         m.userData = { id: info.id, uniqueId: uid };
         m.updateMatrixWorld(true); m.userData.bbox = new THREE.Box3().setFromObject(m);
         scene.add(m); objects.push(m);
+
         if(info.category === 'pet' || info.type === 'p') { 
             m.userData.velocity = new THREE.Vector3(); 
             m.userData.moveTimer = 0; 
-            m.userData.baseY = m.position.y; 
+            m.userData.baseY = m.position.y; // Ghi nhớ độ cao gốc để nhảy lò cò
             animatedObjects.push(m); 
         }
         if(!isSync) houseState.items.push({ id:info.id, uniqueId:uid, x, y, z });
     }
-
 function setupMultiplayer() {
         socket.on('playerJoinedHouse', d => {
             showNotification(`${d.username} đã vào!`);
