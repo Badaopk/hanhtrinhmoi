@@ -690,46 +690,59 @@
                     data.moveTimer = Math.random()*4+2;
                 }
 
-                // 2. TÍNH TOÁN VỊ TRÍ TIẾP THEO
                 const nextPosX = npc.position.x + data.velocity.x * delta;
                 const nextPosZ = npc.position.z + data.velocity.z * delta;
 
-                // 3. KIỂM TRA VA CHẠM (CHỐNG XUYÊN TƯỜNG)
+                // 2. KIỂM TRA VA CHẠM
                 let isColliding = false;
-                // Tạo một hộp va chạm ảo tại vị trí định đi tới
+                let collidedObjectBox = null;
+                
                 const petHitBox = new THREE.Box3().setFromCenterAndSize(
                     new THREE.Vector3(nextPosX, npc.position.y + 10, nextPosZ), 
-                    new THREE.Vector3(15, 20, 15) // Kích thước vùng va chạm của Pet
+                    new THREE.Vector3(15, 20, 15)
                 );
 
                 for(let obj of objects) {
                     if(obj.userData.bbox && !obj.userData.isWater) {
-                        // Bỏ qua cửa nếu cửa đang mở
                         if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
                         
-                        // QUAN TRỌNG: Chỉ chặn nếu vật cản cao hơn chân Pet 5 đơn vị (để không kẹt vào sàn)
-                        if(obj.userData.bbox.max.y > npc.position.y + 5) {
+                        // Bỏ qua mặt sàn (chỉ chặn nếu vật cản cao hơn chân Pet 5 đơn vị)
+                        if(obj.userData.bbox.max.y > npc.position.y + 15) {
                             if(petHitBox.intersectsBox(obj.userData.bbox)) {
                                 isColliding = true; 
+                                collidedObjectBox = obj.userData.bbox; // Lưu lại vật cản để tính lực đẩy
                                 break;
                             }
                         }
                     }
                 }
 
-                // 4. ÁP DỤNG DI CHUYỂN HOẶC QUAY ĐẦU
+                // 3. XỬ LÝ DI CHUYỂN HOẶC ĐẨY RA (ANTI-STUCK)
                 if (!isColliding) {
                     npc.position.x = nextPosX; 
                     npc.position.z = nextPosZ;
-                } else {
-                    // Nếu đụng tường thì quay ngược lại ngay lập tức
-                    data.velocity.x *= -1; 
-                    data.velocity.z *= -1;
+                } else if (collidedObjectBox) {
+                    // TÍNH LỰC ĐẨY: Lấy tâm vật cản đẩy ngược ra vị trí Pet
+                    const boxCenter = new THREE.Vector3();
+                    collidedObjectBox.getCenter(boxCenter);
+                    
+                    let pushX = npc.position.x - boxCenter.x;
+                    let pushZ = npc.position.z - boxCenter.z;
+                    if (pushX === 0 && pushZ === 0) pushX = 1; // Tránh chia cho 0
+
+                    const dist = Math.sqrt(pushX * pushX + pushZ * pushZ);
+                    
+                    // Đẩy Pet văng ra ngoài vật cản 5 đơn vị
+                    npc.position.x += (pushX / dist) * 10; 
+                    npc.position.z += (pushZ / dist) * 10;
+
+                    // Sau khi bị đẩy, Pet sẽ chọn hướng đi mới ngay lập tức
+                    data.velocity.set((Math.random()-0.5)*80, 0, (Math.random()-0.5)*80);
                     npc.rotation.y = Math.atan2(data.velocity.x, data.velocity.z);
-                    data.moveTimer = 1; // Giảm thời gian chờ để sớm đổi hướng mới
+                    data.moveTimer = 2; 
                 }
 
-                // 5. HIỆU ỨNG NHẢY LÒ CÒ CHO PET
+                // 4. HIỆU ỨNG NHẢY LÒ CÒ DỰA TRÊN BASEY
                 if (!data.isVillager && data.baseY !== undefined) {
                     if (data.velocity.x !== 0 || data.velocity.z !== 0) {
                         npc.position.y = data.baseY + Math.abs(Math.sin(time * 0.01)) * 5; 
@@ -1021,7 +1034,7 @@
             m.position.set(x, y, z);
         } else {
             m = create3DModel(info); 
-            // FIX: Pet đứng trên mặt đất (y), Đồ đạc hạ thấp (y-25)
+            // Đặt Pet đứng trên sàn (y), đồ đạc hạ thấp (y-25)
             if(info.category === 'pet' || info.type === 'p') {
                 m.position.set(x, y, z); 
             } else {
@@ -1035,7 +1048,7 @@
         if(info.category === 'pet' || info.type === 'p') { 
             m.userData.velocity = new THREE.Vector3(); 
             m.userData.moveTimer = 0; 
-            m.userData.baseY = m.position.y; // Ghi nhớ độ cao gốc để nhảy lò cò
+            m.userData.baseY = m.position.y; // Lưu cao độ gốc để chống lún
             animatedObjects.push(m); 
         }
         if(!isSync) houseState.items.push({ id:info.id, uniqueId:uid, x, y, z });
