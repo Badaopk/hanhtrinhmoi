@@ -982,7 +982,13 @@
             m = new THREE.Mesh(sharedBlockGeo, new THREE.MeshLambertMaterial({color: info.value, transparent: isGlass, opacity: isGlass ? 0.3 : 1}));
             m.position.set(x, y, z);
         } else {
-            m = create3DModel(info); m.position.set(x, y - 25, z);
+            m = create3DModel(info); 
+            if(info.category === 'pet' || info.type === 'p') {
+                m.position.set(x, y, z); 
+            } else {
+                m.position.set(x, y - 25, z);
+            }
+            
         }
         m.userData = { id: info.id, uniqueId: uid };
         m.updateMatrixWorld(true); m.userData.bbox = new THREE.Box3().setFromObject(m);
