@@ -42,8 +42,17 @@
         .item-card div { font-size: 3rem; margin-bottom: 5px; }
         .item-card b { font-size: 1.1rem; color: #2c3e50; }
         .item-card .price { color: #d35400; font-weight: 900; font-size: 1.2rem; margin-top: 5px; }
-        .item-card .count-badge { background: #3498db; color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; display: inline-block; margin-top: 5px;}
-        
+.item-card .count-badge { 
+    background: #3498db; 
+    color: white; 
+    padding: 4px 15px; 
+    border-radius: 20px; 
+    font-weight: bold; 
+    display: inline-block; 
+    margin-top: 5px;
+    font-size: 1rem !important; 
+    line-height: 1.2;
+}        
         .panel-footer { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         .panel-footer-row { display: flex; gap: 8px; }
         .btn-general { padding: 12px; color: white; border: none; border-radius: 15px; font-weight: bold; font-size: 1.1rem; cursor: pointer; font-family: inherit; width: 100%; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);}
@@ -224,7 +233,7 @@
 
     function initWeather() {
         weatherGeo = new THREE.BufferGeometry(); const positions = new Float32Array(particleCount * 3);
-        for(let i=0; i<particleCount; i++) { positions[i*3] = (Math.random() - 0.5) * 3000; positions[i*3+1] = Math.random() * 2000; positions[i*3+2] = (Math.random() - 0.5) * 3000; }
+        for(let i=0; i<particleCount; i++) { positions[i*3] = (Math.random() - 0.5) * 6000; positions[i*3+1] = Math.random() * 2000; positions[i*3+2] = (Math.random() - 0.5) * 6000; }
         weatherGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         weatherMat = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 3, transparent: true, opacity: 0.8 });
         weatherSystem = new THREE.Points(weatherGeo, weatherMat); weatherSystem.visible = false; scene.add(weatherSystem);
@@ -257,7 +266,6 @@
 
     function generateWorld() {
         objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
-
         const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
         const createPart = (w, d, x, z) => {
             const g = new THREE.Mesh(new THREE.BoxGeometry(w, 1000, d), floorMat);
@@ -265,12 +273,29 @@
             g.receiveShadow = true; g.updateMatrixWorld(true);
             g.userData = { bbox: new THREE.Box3().setFromObject(g), isIndestructible: true }; scene.add(g); objects.push(g);
         };
-        createPart(3000, 2100, 0, -450); createPart(3000, 500, 0, 1250); 
+        
+        // Khu đất bờ bên này và bên kia sông
+        createPart(6000, 3000, 0, -500);  // Bờ chính (3000x6000)
+        createPart(6000, 2000, 0, 2400);  // Bờ bên kia sông (2000x6000)
 
-        const river = new THREE.Mesh(new THREE.BoxGeometry(3000, 1000, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
-        river.position.set(0, -510, 800); river.updateMatrixWorld(true);
+        // Dòng sông kéo dài ra 6000 để vắt ngang bản đồ
+        const river = new THREE.Mesh(new THREE.BoxGeometry(6000, 1000, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
+        river.position.set(0, -510, 1200); // Nằm chính giữa 2 bờ
+        river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
 
+        // Đáy sông cát vàng cũng dài 6000
+        const riverBed = new THREE.Mesh(new THREE.BoxGeometry(6000, 500, 400), createBlockMaterial('#f1c40f')); 
+        riverBed.position.set(0, -1000, 1200);
+        riverBed.updateMatrixWorld(true);
+        riverBed.userData = { bbox: new THREE.Box3().setFromObject(riverBed), isIndestructible: true }; scene.add(riverBed); objects.push(riverBed);
+
+        // LƯỚI GRID MỞ RỘNG THEO SIZE 6000
+        const gridHelper = new THREE.GridHelper(6000, 6000 / BLOCK_SIZE, 0x000000, 0x000000);
+        gridHelper.position.set(0, 1, 450); // Căn giữa bề mặt
+        gridHelper.material.opacity = 0.2;
+        gridHelper.material.transparent = true;
+        scene.add(gridHelper);
         const grassMat = createBlockMaterial('#27ae60'), dirtMat = createBlockMaterial('#6e2c00');  
         function spawnVoxelHill(cx, cz, rad, height) {
             for(let dx = -rad; dx <= rad; dx++) {
@@ -291,9 +316,9 @@
         spawnVoxelHill(-800, -800, 6, 3); spawnVoxelHill(800, -500, 5, 2); 
 
         const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
-        for(let i=0; i<15; i++){
-            let x = Math.floor(((Math.random()-0.5)*2000)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
-            let z = Math.floor(((Math.random()-0.5)*1200 - 300)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
+        for(let i=0; i<45; i++){
+            let x = Math.floor(((Math.random()-0.5)*5000)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
+            let z = Math.floor(((Math.random()-0.5)*4000 - 300)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
             for(let y=0; y<3; y++) {
                 const trunk = new THREE.Mesh(sharedBlockGeo, woodMat);
                 trunk.position.set(x, y*BLOCK_SIZE + BLOCK_SIZE/2, z); trunk.castShadow = true; trunk.updateMatrixWorld(true);
@@ -335,14 +360,74 @@
             }
         }
 
-        const villager = new THREE.Group();
-        const vB = new THREE.Mesh(new THREE.BoxGeometry(20, 35, 15), new THREE.MeshLambertMaterial({color: 0x8e44ad})); vB.position.y = 17.5;
-        const vH = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshLambertMaterial({color: 0xf1c40f})); vH.position.y = 45;
-        villager.add(vB); villager.add(vH); villager.position.set(-300, 0, -300);
-        villager.userData = { isVillager: true, velocity: new THREE.Vector3(), moveTimer: 0 };
-        scene.add(villager); animatedObjects.push(villager);
-    }
+        // BỔ SUNG: XÂY THÊM VÀI NGÔI NHÀ DÂN LÀNG RẢI RÁC (Map 6000)
+        const addVillageHouse = (startX, startZ) => {
+            for(let wx = 0; wx < 4; wx++) {
+                for(let wz = 0; wz < 4; wz++) {
+                    if(wx===0 || wx===3 || wz===0 || wz===3) {
+                        if(wx===1 && wz===3) continue; // Chừa cửa ra vào
+                        for(let wy=0; wy<2; wy++) {
+                            const b = new THREE.Mesh(sharedBlockGeo, wallMat);
+                            b.position.set(startX + wx*BLOCK_SIZE, wy*BLOCK_SIZE + BLOCK_SIZE/2, startZ + wz*BLOCK_SIZE);
+                            b.castShadow=true; b.receiveShadow=true; b.updateMatrixWorld(true);
+                            b.userData = { id: 'wall_birch', bbox: new THREE.Box3().setFromObject(b) }; scene.add(b); objects.push(b);
+                        }
+                    }
+                    // Mái nhà
+                    const r = new THREE.Mesh(sharedBlockGeo, roofMat);
+                    r.position.set(startX + wx*BLOCK_SIZE, 2*BLOCK_SIZE + BLOCK_SIZE/2, startZ + wz*BLOCK_SIZE);
+                    r.castShadow=true; r.receiveShadow=true; r.updateMatrixWorld(true);
+                    r.userData = { id: 'wall_red_brick', bbox: new THREE.Box3().setFromObject(r) }; scene.add(r); objects.push(r);
+                }
+            }
+        };
+        
+        // Đặt nhà rải rác khắp bản đồ rộng
+        addVillageHouse(400, -200);     // Khu trung tâm
+        addVillageHouse(-600, 200);     // Khu trung tâm
+        addVillageHouse(2000, -800);    // Tít bên phải
+        addVillageHouse(-2500, 2500);   // Bên kia bờ sông
+        addVillageHouse(1500, 2800);    // Bên kia bờ sông
+        addVillageHouse(-1200, -600);   // Thêm nhà ở góc trên bên trái
+        addVillageHouse(800, -1200);    // Thêm nhà ở gần khu trung tâm
+        addVillageHouse(2200, 1500);    // Thêm nhà ở bờ bên kia sông
+        addVillageHouse(-1800, 800);    // Thêm một nhà nữa gần bờ sông
+        addVillageHouse(0, -1500);
 
+        // BỔ SUNG: TẠO 10 DÂN LÀNG VỚI TẦM HOẠT ĐỘNG RỘNG HƠN
+        for (let i = 0; i < 30; i++) {
+            const villager = new THREE.Group();
+            // Đổi màu áo ngẫu nhiên cho đa dạng
+            const shirtColors = [0x8e44ad, 0x3498db, 0xe74c3c, 0x2ecc71];
+            const vB = new THREE.Mesh(new THREE.BoxGeometry(20, 35, 15), new THREE.MeshLambertMaterial({color: shirtColors[Math.floor(Math.random()*shirtColors.length)]})); 
+            vB.position.y = 17.5;
+            const vH = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshLambertMaterial({color: 0xf1c40f})); 
+            vH.position.y = 45;
+            villager.add(vB); villager.add(vH); 
+            
+            // Đặt vị trí ngẫu nhiên rải đều khắp bản đồ (5000x4000 thay vì 1000 như cũ)
+            let vX = (Math.random() - 0.5) * 5000;
+            let vZ = (Math.random() - 0.5) * 4000;
+            // Dịch Z xuống một chút để họ bao phủ cả 2 bờ sông
+            if (Math.random() > 0.5) vZ += 1000; 
+            
+            villager.position.set(vX, 0, vZ);
+            
+            // SET VẬN TỐC BAN ĐẦU ĐỂ HỌ ĐI LIỀN
+            const initVelX = (Math.random() - 0.5) * 80;
+            const initVelZ = (Math.random() - 0.5) * 80;
+            
+            villager.userData = { 
+                isVillager: true, 
+                velocity: new THREE.Vector3(initVelX, 0, initVelZ), 
+                moveTimer: Math.random() * 3 + 2 
+            };
+            // Xoay mặt về hướng đi ban đầu
+            villager.rotation.y = Math.atan2(initVelX, initVelZ);
+            
+            scene.add(villager); animatedObjects.push(villager);
+        }
+    }
     function setupControls() {
         document.addEventListener('keydown', e => {
             if(!isGameRunning && !controls.isLocked) return;
@@ -431,7 +516,7 @@
         );
         
         let maxG = -2000, water = false, blocked = false;
-        
+        let hitBox = null;
         for(let obj of objects) {
             const box = obj.userData.bbox;
             if(!box) continue;
@@ -451,9 +536,10 @@
             
             if (!obj.userData.isWater && wallBox.intersectsBox(box)) {
                 blocked = true;
+                hitBox = box;
             }
         }
-        return { blocked, groundY: maxG === -2000 ? -2000 : maxG + ph, water };
+        return { blocked, groundY: maxG === -2000 ? -2000 : maxG + ph, water, hitBox };
     }
 
     function checkIndoor() {
@@ -486,8 +572,8 @@
                 if(weatherType==='rain') pos[i*3+1] -= 40; else pos[i*3+1] -= 5;
                 if(pos[i*3+1] < 0) { 
                     pos[i*3+1] = 1000 + Math.random()*500; 
-                    pos[i*3] = controls.getObject().position.x + (Math.random()-0.5)*1500; 
-                    pos[i*3+2] = controls.getObject().position.z + (Math.random()-0.5)*1500; 
+                    pos[i*3] = controls.getObject().position.x + (Math.random()-0.5)*3000; 
+                    pos[i*3+2] = controls.getObject().position.z + (Math.random()-0.5)*3000; 
                 }
             }
             weatherGeo.attributes.position.needsUpdate = true;
@@ -520,10 +606,24 @@
             controls.moveForward(-velocity.z * delta);
             if(checkCollision(pos).blocked) { pos.z = oldZ; velocity.z = 0; }
 
-            if (!moveF && !moveB && !moveL && !moveR && checkCollision(pos).blocked) {
-                pos.y += 10;
-            }
+            // ANTI-STUCK MỚI: Đẩy trượt ngang ra khỏi tường (Không nảy lên trời nữa)
+            const finalStuckCheck = checkCollision(pos);
+            if (finalStuckCheck.blocked && finalStuckCheck.hitBox) {
+                const boxCenter = new THREE.Vector3();
+                finalStuckCheck.hitBox.getCenter(boxCenter);
+        
+        // Tính toán hướng đẩy từ tâm khối gạch chỉa ra người chơi
+                let pushX = pos.x - boxCenter.x;
+                let pushZ = pos.z - boxCenter.z;
+        
+        // Đề phòng trường hợp đứng ngay chính giữa tâm tuyệt đối
+                if (pushX === 0 && pushZ === 0) pushX = 1; 
 
+        // Chuẩn hóa vector và đẩy lùi ra ngoài một cách mượt mà
+                const dist = Math.sqrt(pushX * pushX + pushZ * pushZ);
+                pos.x += (pushX / dist) * 3; // Đẩy ngang trục X
+                pos.z += (pushZ / dist) * 3; // Đẩy ngang trục Z
+            }
             if (!isLoadingMap) {
                 velocity.y -= 9.8 * (isSwimming ? 50 : 150) * delta;
                 pos.y += velocity.y * delta;
@@ -693,7 +793,21 @@
                 pos.x = Math.floor(pos.x/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
                 pos.y = Math.floor(pos.y/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
                 pos.z = Math.floor(pos.z/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
-                
+                const pr = 12; const ph = 60; 
+                const playerPos = controls.getObject().position;
+                const playerBoxBounds = new THREE.Box3(
+                    new THREE.Vector3(playerPos.x - pr, playerPos.y - ph, playerPos.z - pr),
+                    new THREE.Vector3(playerPos.x + pr, playerPos.y, playerPos.z + pr)
+                );
+                const blockBoxBounds = new THREE.Box3().setFromCenterAndSize(
+                    new THREE.Vector3(pos.x, pos.y, pos.z),
+                    new THREE.Vector3(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+                );
+
+                if (playerBoxBounds.intersectsBox(blockBoxBounds)) {
+                    showNotification("⛔ Vui lòng bước ra khỏi vị trí này để đặt gạch!");
+                    return; // Chặn đứng lệnh xây gạch
+                }
                 const uid = 'item_'+Date.now();
                 spawnItem(item, pos.x, pos.y, pos.z, uid);
                 socket.emit('build3DBlock', { itemInfo: item, x:pos.x, y:pos.y, z:pos.z, uniqueId:uid });
@@ -785,6 +899,7 @@ function setupMultiplayer() {
             const d = await res.json();
             
             myUsername = d.username || "Be_" + Math.floor(Math.random()*1000); 
+            currentHost = myUsername;
             houseState.score = d.score || 0; 
             houseState.inventory = d.inventory || []; 
             shopItems = d.shopItems || []; 
@@ -926,8 +1041,11 @@ function setupMultiplayer() {
     
     function closePanels() { 
         document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show')); 
+        document.getElementById('blocker').style.display = 'none'; 
+        document.getElementById('instructions').style.display = 'none';
         if(!isMobile) {
             controls.lock(); 
+            isGameRunning = true;
         } else { 
             document.getElementById('blocker').style.display = 'none'; 
             document.getElementById('mobile-controls').style.display = 'block'; 
