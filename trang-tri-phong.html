@@ -172,7 +172,7 @@
     let sunSphere, moonSphere, dirLight;
     
     let weatherType = 'clear', weatherSystem, weatherGeo, weatherMat, autoWeatherTimer;
-    const particleCount = 4000; 
+    const particleCount = 1500; 
 
     const BLOCK_SIZE = 50;
     const sharedBlockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
@@ -395,7 +395,7 @@
         addVillageHouse(0, -1500);
 
         // BỔ SUNG: TẠO 10 DÂN LÀNG VỚI TẦM HOẠT ĐỘNG RỘNG HƠN
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 15; i++) {
             const villager = new THREE.Group();
             // Đổi màu áo ngẫu nhiên cho đa dạng
             const shirtColors = [0x8e44ad, 0x3498db, 0xe74c3c, 0x2ecc71];
@@ -572,8 +572,8 @@
                 if(weatherType==='rain') pos[i*3+1] -= 40; else pos[i*3+1] -= 5;
                 if(pos[i*3+1] < 0) { 
                     pos[i*3+1] = 1000 + Math.random()*500; 
-                    pos[i*3] = controls.getObject().position.x + (Math.random()-0.5)*3000; 
-                    pos[i*3+2] = controls.getObject().position.z + (Math.random()-0.5)*3000; 
+                    pos[i*3] = controls.getObject().position.x + (Math.random()-0.5)*1500; 
+                    pos[i*3+2] = controls.getObject().position.z + (Math.random()-0.5)*1500; 
                 }
             }
             weatherGeo.attributes.position.needsUpdate = true;
