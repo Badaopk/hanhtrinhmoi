@@ -980,6 +980,13 @@
         if(hits.length > 0) {
             if(type === 'build') {
                 const id = hotbarSlots[selectedHotbarIndex]; if(!id) return;
+                const invIndex = houseState.inventory.indexOf(id);
+                if (invIndex === -1) {
+                    showNotification("❌ Bạn đã hết món đồ này rồi!");
+                    hotbarSlots[selectedHotbarIndex] = null; // Xóa khỏi thanh Hotbar
+                    renderHotbarUI();
+                    return; 
+                }
                 const item = shopItems.find(x => x.id === id); if(!item) return;
                 const pos = hits[0].point.clone().add(hits[0].face.normal.multiplyScalar(BLOCK_SIZE/2));
                 
@@ -1004,8 +1011,7 @@
                 const uid = 'item_'+Date.now();
                 spawnItem(item, pos.x, pos.y, pos.z, uid);
                 socket.emit('build3DBlock', { itemInfo: item, x:pos.x, y:pos.y, z:pos.z, uniqueId:uid });
-                houseState.inventory.splice(houseState.inventory.indexOf(id), 1);
-                
+                houseState.inventory.splice(invIndex, 1);                
                 renderHotbarUI(); updateUI(); playSFX('build');
             } else {
                 const target = hits[0].object.userData.parentGroup || hits[0].object;
@@ -1169,14 +1175,23 @@ function setupMultiplayer() {
 
     // FIX LỖI #5: GỬI KÈM USERNAME CHO LỆNH BUY (PHÒNG HỜ MẤT SESSION)
     async function buyItem(id) {
+        const item = shopItems.find(x => x.id === id);
         const res = await fetch('/api/house/buy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: myUsername, itemId:id}) });
         const d = await res.json(); 
         if(res.ok) { 
-            houseState.score = d.newScore; houseState.inventory.push(id); updateUI(); 
-            showNotification("🛍️ Đã mua thành công!"); 
+            houseState.score = d.newScore; 
+            if (item && (item.category === 'paint' || item.category === 'floor')) {
+                for(let i = 0; i < 10; i++) {
+                    houseState.inventory.push(id);
+                }
+                showNotification(`🛍️ Đã mua 10 khối ${item.name}!`);
+            } else {
+                houseState.inventory.push(id);
+                showNotification("🛍️ Đã mua thành công!");
+            }
+            updateUI(); 
         } else {
-            const notif = document.createElement('div'); notif.className='notif error'; notif.innerText = "❌ " + d.message;
-            document.body.appendChild(notif); setTimeout(()=>notif.remove(), 2500);
+            showNotification("❌ " + d.message);
         }
     }
 
@@ -1222,7 +1237,24 @@ function setupMultiplayer() {
     
     function selectHotbar(i) { selectedHotbarIndex = i; renderHotbarUI(); }
     function equipToHotbar(id) { hotbarSlots[selectedHotbarIndex] = id; renderHotbarUI(); }
-    function renderHotbarUI() { const h = document.getElementById('hotbar'); h.innerHTML = ''; const counts={}; houseState.inventory.forEach(id=>counts[id]=(counts[id]||0)+1); hotbarSlots.forEach((id, i) => { const info = shopItems.find(x => x.id === id); h.innerHTML += `<div class="hotbar-slot ${i === selectedHotbarIndex ? 'active' : ''}" onclick="selectHotbar(${i})">${info ? info.icon : ''}</div>`; if(id && counts[id]<=0) hotbarSlots[i]=null; }); }
+    function renderHotbarUI() { 
+        const h = document.getElementById('hotbar'); 
+        h.innerHTML = ''; 
+        const counts={}; 
+        houseState.inventory.forEach(id=>counts[id]=(counts[id]||0)+1); 
+        hotbarSlots.forEach((id, i) => { 
+            if(id && (!counts[id] || counts[id] <= 0)) {
+                hotbarSlots[i] = null;
+                id = null;
+            }
+            const info = shopItems.find(x => x.id === id); 
+            h.innerHTML += `<div class="hotbar-slot ${i === selectedHotbarIndex ? 'active' : ''}" onclick="selectHotbar(${i})">
+                ${info ? info.icon : ''}
+                ${(info && counts[id] > 1) ? `<span style="position:absolute; bottom:2px; right:4px; font-size:0.8rem; color:#fff;">${counts[id]}</span>` : ''}
+            </div>`; 
+        }); 
+
+    }
     
     function switchTab(t) { 
         document.getElementById('grid-shop').style.display = t === 'shop' ? 'grid' : 'none'; 
@@ -1231,7 +1263,13 @@ function setupMultiplayer() {
         document.getElementById('tab-btn-inv').classList.toggle('active', t==='inv'); 
     }
     
-    function showNotification(m) { const n = document.createElement('div'); n.className='notif'; n.innerText=m; document.body.appendChild(n); setTimeout(()=>n.remove(), 2500); }
+    function showNotification(m, isError = false) { 
+        const n = document.createElement('div'); 
+        n.className = isError ? 'notif error' : 'notif'; 
+        n.innerText=m; 
+        document.body.appendChild(n); 
+        setTimeout(()=>n.remove(), 2500); 
+    }
     
     function openPanel(id) { 
         document.getElementById('instructions').style.display = 'none'; 
