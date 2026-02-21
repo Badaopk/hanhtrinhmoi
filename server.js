@@ -189,7 +189,7 @@ const HOME_FURNITURE = [
     { id: 'trophy_gold', name: 'Cúp Vô Địch', price: 900, type: 'd', category: 'decor', icon: '🏆' },
 
     // --- 5. THÚ CƯNG ĐI DẠO (pet) - TỰ ĐỘNG CHẠY NHẢY TRONG GAME ---
-    { id: 'pet_cat', name: 'Mèo Lười', price: 280, type: 'p', category: 'pet', icon: '🐱' },
+    { id: 'pet_cat', name: 'Mèo Lười', price: 500, type: 'p', category: 'pet', icon: '🐱' },
     { id: 'pet_dog', name: 'Cún Corgi', price: 260, type: 'p', category: 'pet', icon: '🐶' },
     { id: 'pet_hamster', name: 'Hamster Chạy Bộ', price: 100, type: 'p', category: 'pet', icon: '🐹' },
     { id: 'pet_parrot', name: 'Vẹt Nhại Tiếng', price: 350, type: 'p', category: 'pet', icon: '🦜' },
