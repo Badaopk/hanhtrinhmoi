@@ -666,15 +666,16 @@
                 let isColliding = false;
                 
                 const petBox = new THREE.Box3().setFromCenterAndSize(
-                    new THREE.Vector3(nextPosX, npc.position.y + 10, nextPosZ), 
-                    new THREE.Vector3(15, 20, 15)
+                    new THREE.Vector3(nextPosX, npc.position.y + 13, nextPosZ), 
+                    new THREE.Vector3(12, 15, 12)
                 );
+                
                 for(let obj of objects) {
                     if(obj.userData.bbox && !obj.userData.isWater) {
                         if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
                         
                         // CHỈ THÊM DÒNG NÀY: Bỏ qua mặt đất, chỉ chặn nếu vật cản cao hơn chân 5 pixel
-                        if(obj.userData.bbox.max.y > npc.position.y + 5) {
+                        if(obj.userData.bbox.max.y > npc.position.y + 10) {
                             if(petBox.intersectsBox(obj.userData.bbox)) {
                                 isColliding = true; break;
                             }
