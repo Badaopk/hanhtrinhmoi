@@ -538,7 +538,7 @@
     function checkCollision(pos) {
         const pr = 16; 
         const ph = 60; 
-        const sh = 26; 
+        const sh = 40; 
         
         const feet = pos.y - ph;
         const wallBox = new THREE.Box3(
@@ -552,7 +552,7 @@
             const box = obj.userData.bbox;
             if(!box) continue;
             if(obj.userData.id === 'build_door' && obj.userData.isOpen) continue;
-            
+            if(obj.userData.id && (obj.userData.id.includes('pet') || obj.userData.type === 'p')) continue;
             if (pos.x + pr > box.min.x && pos.x - pr < box.max.x &&
                 pos.z + pr > box.min.z && pos.z - pr < box.max.z) {
                 
@@ -613,10 +613,35 @@
         if((controls.isLocked || isGameRunning) && !isSitting) {
             if(isMobile) { moveF = joystickVector.y > 0.3; moveB = joystickVector.y < -0.3; moveL = joystickVector.x < -0.3; moveR = joystickVector.x > 0.3; }
             
-            const phys = checkCollision(controls.getObject().position);
+            const pos = controls.getObject().position;
+            const phys = checkCollision(pos);
             isSwimming = phys.water; 
+
+            // --- KIỂM TRA LEO THANG (LADDER) ---
+            let isClimbing = false;
+            // Tạo Hộp bao quanh người chơi để quét xem có chạm thang không
+            const pBox = new THREE.Box3(
+                new THREE.Vector3(pos.x - 16, pos.y - 60, pos.z - 16),
+                new THREE.Vector3(pos.x + 16, pos.y, pos.z + 16)
+            );
+
+            for (let obj of objects) {
+                if (obj.userData.isLadder && obj.userData.bbox && obj.userData.bbox.intersectsBox(pBox)) {
+                    isClimbing = true;
+                    break;
+                }
+            }
+
             const speed = (isSwimming ? 2000 : 5000);
             
+            // Nếu đang chạm thang VÀ bấm phím Đi tới (W) -> Bay lên trên
+            // CƠ CHẾ BÁM THANG SIÊU THỰC TẾ
+            if (isClimbing) {
+                if (moveF) velocity.y = 150; // Trèo lên (W)
+                else if (moveB) velocity.y = -150; // Tuột xuống (S)
+                else velocity.y = 0; // Buông tay thì bám lơ lửng trên thang
+                canJump = false;
+            }            
             velocity.x -= velocity.x * 10.0 * delta; 
             velocity.z -= velocity.z * 10.0 * delta;
 
@@ -627,7 +652,6 @@
             if (moveF || moveB) velocity.z -= direction.z * speed * delta;
             if (moveL || moveR) velocity.x -= direction.x * speed * delta;
             // --- HỆ THỐNG DI CHUYỂN & CHỐNG XUYÊN TƯỜNG TUYỆT ĐỐI ---
-            const pos = controls.getObject().position;
             const safePos = pos.clone(); // Lưu lại vị trí an toàn trước khi bước đi
 
             // 1. Thử bước trục X (Trượt ngang theo tường)
@@ -676,7 +700,7 @@
                 data.moveTimer -= delta;
                 const groundCheck = checkCollision(new THREE.Vector3(npc.position.x, npc.position.y + 30, npc.position.z));
                 if (groundCheck.groundY !== -2000) {
-                    data.baseY = groundCheck.groundY; // Cập nhật cao độ sàn mới
+                    data.baseY = groundCheck.groundY + 35; // Cập nhật cao độ sàn mới
                 }
                 // 1. NHẬN DIỆN LOẠI ĐỐI TƯỢNG
                 const isPet = data.id && (data.id.includes('pet') || data.type === 'p');
@@ -836,11 +860,23 @@
 
         // ==========================================
         // 1. NHÓM XÂY DỰNG CƠ BẢN
-        // ==========================================
-        if(id === 'build_door') { addP(5, 100, 45, '#8b4513', 0, 50, 0); addP(8, 15, 5, '#f1c40f', -2, 50, 15); g.userData.isOpen = false; }
+        if(id === 'build_door') { 
+            addP(5, 100, 45, '#8b4513', 0, 50, 22.5); // Cánh cửa (Lệch sang Z)
+            addP(8, 15, 5, '#f1c40f', -2, 50, 37.5);  // Tay nắm (Cũng lệch theo)
+            g.userData.isOpen = false; 
+            g.rotation.y = 0; // Đảm bảo lúc mới đặt ra luôn luôn là ĐÓNG (Góc xoay 0)
+        }
         else if(id === 'build_window') { addP(50, 50, 6, '#e67e22', 0, 25, 0); addP(40, 40, 8, 'rgba(129,236,236,0.3)', 0, 25, 0); }
-
-        else if(id === 'build_stair') { addP(50, 25, 50, '#95a5a6', 0, 12.5, 0); addP(50, 25, 25, '#95a5a6', 0, 37.5, -12.5); }
+        else if(id === 'build_stair') { 
+            // Tạo 2 thanh dọc (2 bên)
+            addP(4, 50, 4, '#e67e22', -15, 25, -20);
+            addP(4, 50, 4, '#e67e22', 15, 25, -20);
+            // Tạo 3 thanh ngang (bậc leo)
+            addP(30, 4, 4, '#e67e22', 0, 10, -20);
+            addP(30, 4, 4, '#e67e22', 0, 25, -20);
+            addP(30, 4, 4, '#e67e22', 0, 40, -20);
+            g.userData.isLadder = true; // Gắn thẻ đây là thang leo thẳng đứng
+        }
         else if(id === 'build_fence') { addP(10, 40, 10, '#8b4513', -20, 20, 0); addP(10, 40, 10, '#8b4513', 20, 20, 0); addP(50, 8, 8, '#8b4513', 0, 35, 0); addP(50, 8, 8, '#8b4513', 0, 15, 0); }
 
         // ==========================================
@@ -852,7 +888,16 @@
         else if(id.includes('speaker')) { addP(15, 40, 15, '#2c3e50', -15, 20, 0); addP(15, 40, 15, '#2c3e50', 15, 20, 0); addP(10, 10, 2, '#7f8c8d', -15, 30, 8); addP(10, 10, 2, '#7f8c8d', 15, 30, 8); }
         else if(id.includes('robot')) { addP(20, 5, 20, '#ecf0f1', 0, 5, 0); addP(4, 2, 4, '#e74c3c', 0, 8, 8); }
         else if(id.includes('camera')) { addP(8, 8, 15, '#fff', 0, 45, 0); addP(6, 6, 2, '#000', 0, 45, 8); addP(2, 10, 2, '#7f8c8d', 0, 35, -5); }
-        else if(id.includes('lamp')) { addP(10, 2, 10, '#7f8c8d', 0, 20, 0); addP(2, 20, 2, '#bdc3c7', 0, 30, 0); addP(15, 15, 15, 'rgba(241,196,15,0.8)', 0, 45, 0); }
+        else if(id.includes('lamp')) { 
+            addP(10, 2, 10, '#7f8c8d', 0, 20, 0); 
+            addP(2, 20, 2, '#bdc3c7', 0, 30, 0); 
+            const bulb = addP(15, 15, 15, 'rgba(241,196,15,0.8)', 0, 45, 0); 
+            
+            // THÊM ÁNH SÁNG THỰC TẾ
+            const light = new THREE.PointLight(0xf1c40f, 1, 300); // Ánh sáng vàng, cường độ 1, rọi xa 300 đơn vị
+            light.position.set(0, 45, 0);
+            g.add(light);
+        }
         else if(id.includes('ac_unit')) { addP(40, 12, 10, '#ecf0f1', 0, 40, -15); addP(30, 2, 11, '#bdc3c7', 0, 36, -15); }
         else if(id.includes('console')) { addP(15, 5, 20, '#fff', 0, 22, 0); addP(13, 6, 18, '#000', 0, 22, 0); addP(8, 2, 4, '#3498db', 10, 22, 15); } // PS5 + Tay cầm
         else if(id.includes('microwave')) { addP(25, 15, 15, '#ecf0f1', 0, 25, 0); addP(15, 10, 16, 'rgba(0,0,0,0.5)', -3, 25, 0); addP(4, 10, 2, '#bdc3c7', 9, 25, 8); }
@@ -998,10 +1043,10 @@
                 pos.x = Math.floor(pos.x/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
                 pos.y = Math.floor(pos.y/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
                 pos.z = Math.floor(pos.z/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
-                const pr = 12; const ph = 60; 
+                const pr = 8; const ph = 60; 
                 const playerPos = controls.getObject().position;
                 const playerBoxBounds = new THREE.Box3(
-                    new THREE.Vector3(playerPos.x - pr, playerPos.y - ph, playerPos.z - pr),
+                    new THREE.Vector3(playerPos.x - pr, playerPos.y - ph + 5, playerPos.z - pr),
                     new THREE.Vector3(playerPos.x + pr, playerPos.y, playerPos.z + pr)
                 );
                 const blockBoxBounds = new THREE.Box3().setFromCenterAndSize(
@@ -1009,9 +1054,13 @@
                     new THREE.Vector3(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
                 );
 
-                if (playerBoxBounds.intersectsBox(blockBoxBounds)) {
-                    showNotification("⛔ Vui lòng bước ra khỏi vị trí này để đặt gạch!");
-                    return; // Chặn đứng lệnh xây gạch
+                const strictPlayerBox = new THREE.Box3(
+                    new THREE.Vector3(playerPos.x - pr, playerPos.y - ph + 20, playerPos.z - pr),
+                    new THREE.Vector3(playerPos.x + pr, playerPos.y, playerPos.z + pr)
+                );
+                if (strictPlayerBox.intersectsBox(blockBoxBounds)) {
+                    showNotification("⛔ Bạn đang đứng trực tiếp lên vị trí này!");
+                    return; 
                 }
                 const uid = 'item_'+Date.now();
                 spawnItem(item, pos.x, pos.y, pos.z, uid);
