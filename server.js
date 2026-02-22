@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema({
     playtimeLimitMinutes: { type: Number, default: 0 },
     inventory: { type: Array, default: [] }, // Danh sách ID đồ đã mua: ['bed_1', 'table_2']
     houseData: { type: Array, default: [] },
+    chestsData: { type: Object, default: {} },
     colors: { type: Object, default: { wall: '#b2bec3', floor: '#f5f6fa' } },
     // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
     musicLevel: { type: Number, default: 1 }, // Thêm vào danh sách các cấp độ game
@@ -1160,9 +1161,11 @@ app.get('/api/house/info', async (req, res) => {
 
         res.json({ 
             // Bổ sung || để đảm bảo luôn có dữ liệu trả về, không bị undefined
+            username: user.username,
             score: user.score || 0,
             inventory: user.inventory || [],
             houseData: user.houseData || [],
+            chestsData: user.chestsData || {},
             shopItems: SHOP_ITEMS // Đảm bảo biến SHOP_ITEMS đã được khai báo ở trên
         });
     } catch (error) {

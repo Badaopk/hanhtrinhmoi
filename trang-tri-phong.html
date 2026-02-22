@@ -536,7 +536,7 @@
     }
 
     function checkCollision(pos) {
-        const pr = 12; 
+        const pr = 16; 
         const ph = 60; 
         const sh = 26; 
         
@@ -626,34 +626,29 @@
 
             if (moveF || moveB) velocity.z -= direction.z * speed * delta;
             if (moveL || moveR) velocity.x -= direction.x * speed * delta;
-
+            // --- HỆ THỐNG DI CHUYỂN & CHỐNG XUYÊN TƯỜNG TUYỆT ĐỐI ---
             const pos = controls.getObject().position;
+            const safePos = pos.clone(); // Lưu lại vị trí an toàn trước khi bước đi
 
-            const oldX = pos.x;
+            // 1. Thử bước trục X (Trượt ngang theo tường)
             controls.moveRight(-velocity.x * delta);
-            if(checkCollision(pos).blocked) { pos.x = oldX; velocity.x = 0; }
+            if(checkCollision(pos).blocked) { 
+                pos.x = safePos.x; // Nếu đập mặt vào tường, trả lại trục X
+                velocity.x = 0; 
+            }
 
-            const oldZ = pos.z;
+            // 2. Thử bước trục Z (Trượt ngang theo tường)
             controls.moveForward(-velocity.z * delta);
-            if(checkCollision(pos).blocked) { pos.z = oldZ; velocity.z = 0; }
+            if(checkCollision(pos).blocked) { 
+                pos.z = safePos.z; // Nếu đập mặt vào tường, trả lại trục Z
+                velocity.z = 0; 
+            }
 
-            // ANTI-STUCK MỚI: Đẩy trượt ngang ra khỏi tường (Không nảy lên trời nữa)
-            const finalStuckCheck = checkCollision(pos);
-            if (finalStuckCheck.blocked && finalStuckCheck.hitBox) {
-                const boxCenter = new THREE.Vector3();
-                finalStuckCheck.hitBox.getCenter(boxCenter);
-        
-        // Tính toán hướng đẩy từ tâm khối gạch chỉa ra người chơi
-                let pushX = pos.x - boxCenter.x;
-                let pushZ = pos.z - boxCenter.z;
-        
-        // Đề phòng trường hợp đứng ngay chính giữa tâm tuyệt đối
-                if (pushX === 0 && pushZ === 0) pushX = 1; 
-
-        // Chuẩn hóa vector và đẩy lùi ra ngoài một cách mượt mà
-                const dist = Math.sqrt(pushX * pushX + pushZ * pushZ);
-                pos.x += (pushX / dist) * 3; // Đẩy ngang trục X
-                pos.z += (pushZ / dist) * 3; // Đẩy ngang trục Z
+            // 3. BẢO HIỂM KÉP: Chống kẹt vào góc lag chữ V
+            if (checkCollision(pos).blocked) {
+                pos.copy(safePos); 
+                velocity.x = 0;
+                velocity.z = 0;
             }
             if (!isLoadingMap) {
                 velocity.y -= 9.8 * (isSwimming ? 50 : 150) * delta;
@@ -679,9 +674,9 @@
             animatedObjects.forEach(npc => {
                 const data = npc.userData; 
                 data.moveTimer -= delta;
-                const groundCheck = checkCollision(new THREE.Vector3(npc.position.x, npc.position.y + 70, npc.position.z));
+                const groundCheck = checkCollision(new THREE.Vector3(npc.position.x, npc.position.y + 30, npc.position.z));
                 if (groundCheck.groundY !== -2000) {
-                    data.baseY = groundCheck.groundY - 70; // Cập nhật cao độ sàn mới
+                    data.baseY = groundCheck.groundY; // Cập nhật cao độ sàn mới
                 }
                 // 1. NHẬN DIỆN LOẠI ĐỐI TƯỢNG
                 const isPet = data.id && (data.id.includes('pet') || data.type === 'p');
@@ -1213,11 +1208,42 @@ function setupMultiplayer() {
     }
 
     // LƯU Ý LỖI #5: GỬI KÈM USERNAME KHI SAVE THỦ CÔNG
+    // FIX LỖI #5: GỬI KÈM USERNAME KHI SAVE THỦ CÔNG (ĐÃ BỔ SUNG BẮT LỖI)
     async function saveHouse() {
-        await fetch('/api/house/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: myUsername, items: houseState.items, inventory: houseState.inventory, chestsData: chestsData}) });
-        showNotification("💾 Đã lưu Thế Giới thành công!");
+        try {
+            const res = await fetch('/api/house/save', { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({
+                    username: myUsername, 
+                    items: houseState.items, 
+                    inventory: houseState.inventory, 
+                    chestsData: chestsData
+                }) 
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                showNotification("💾 Đã lưu Thế Giới thành công!");
+            } else {
+                // Báo lỗi chính xác nếu Server từ chối (VD: do đứng nhà bạn bè)
+                showNotification("❌ " + data.message, true); 
+            }
+        } catch(e) {
+            showNotification("⚠️ Lỗi mạng! Chưa thể lưu.", true);
+        }
     }
 
+    // BỔ SUNG HÀM NÀY: Do hệ thống Multiplayer (Socket) gọi hàm này mỗi khi có người xây/đập gạch
+    // Nhưng bản cũ bạn quên định nghĩa nó, gây lỗi sập tiến trình ngầm.
+    let autoSaveTimer = null;
+    function triggerAutoSave() {
+        clearTimeout(autoSaveTimer);
+        // Lưu tự động sau 2 giây kể từ khi đặt gạch để tránh spam Server
+        autoSaveTimer = setTimeout(() => {
+            saveHouse();
+        }, 2000);
+    }
     // FIX LỖI #1: TRẢ LẠI HÀM VISIT FRIEND
     async function visitFriend() {
         const f = prompt("Nhập tên bạn bè muốn thăm:"); if(!f) return;
