@@ -861,29 +861,30 @@
         // ==========================================
         // 1. NHÓM XÂY DỰNG CƠ BẢN
         if(id === 'build_door') { 
-            // 1. Xây dựng cánh cửa có viền và họa tiết gỗ nổi cho chân thực
-            addP(48, 50, 4, '#5c2c16', 0, 25, 0); // Viền cửa sẫm màu
-            addP(38, 20, 6, '#8b4513', 0, 36, 0); // Panel gỗ nổi phía trên
-            addP(38, 20, 6, '#8b4513', 0, 14, 0); // Panel gỗ nổi phía dưới
-            addP(5, 8, 8, '#f1c40f', -16, 25, 0); // Tay nắm cửa bằng vàng
-            
-            // 2. Cực kỳ quan trọng: Dời các khối hình sang 1 bên để tạo "Bản lề"
-            // Việc này giúp cửa khi mở (xoay) sẽ xoay quanh cạnh thay vì xoay quanh tâm
-            g.children.forEach(c => c.position.x += 24);
-            
+           // 1. Tạo các mảnh cửa (Thân cửa rộng 48, cao 100)
+           const frame = addP(5, 100, 48, '#5c2c16', 0, 50, 0); 
+           addP(6, 20, 38, '#8b4513', 0, 75, 0); 
+           addP(6, 20, 38, '#8b4513', 0, 25, 0); 
+           addP(8, 15, 5, '#f1c40f', 0, 50, -18); // Tay nắm cửa
+
+    // 2. Dời toàn bộ các con của Group sang trục Z một khoảng bằng nửa chiều rộng (24)
+    // Để gốc tọa độ (0,0,0) nằm đúng ở mép cửa (Bản lề)
+           g.children.forEach(c => {
+             c.position.z += 24; 
+           });
+
             g.userData.isOpen = false; 
             g.rotation.y = 0; 
         }
         else if(id === 'build_window') { addP(50, 50, 6, '#e67e22', 0, 25, 0); addP(40, 40, 8, 'rgba(129,236,236,0.3)', 0, 25, 0); }
         else if(id === 'build_stair') { 
-            // Tạo 2 thanh dọc (2 bên)
-            addP(4, 50, 4, '#e67e22', -15, 25, -20);
-            addP(4, 50, 4, '#e67e22', 15, 25, -20);
-            // Tạo 3 thanh ngang (bậc leo)
-            addP(30, 4, 4, '#e67e22', 0, 10, -20);
-            addP(30, 4, 4, '#e67e22', 0, 25, -20);
-            addP(30, 4, 4, '#e67e22', 0, 40, -20);
-            g.userData.isLadder = true; // Gắn thẻ đây là thang leo thẳng đứng
+    // Vẽ thang leo kiểu Ladder để không bao giờ bị nhầm với khối vuông
+        addP(4, 100, 4, '#e67e22', 0, 50, -15); // Thanh dọc 1
+        addP(4, 100, 4, '#e67e22', 0, 50, 15);  // Thanh dọc 2
+        for(let h = 20; h <= 80; h += 20) {
+            addP(4, 4, 30, '#e67e22', 0, h, 0); // Các bậc ngang
+        }
+        g.userData.isLadder = true;
         }
         else if(id === 'build_fence') { addP(10, 40, 10, '#8b4513', -20, 20, 0); addP(10, 40, 10, '#8b4513', 20, 20, 0); addP(50, 8, 8, '#8b4513', 0, 35, 0); addP(50, 8, 8, '#8b4513', 0, 15, 0); }
 
