@@ -9,7 +9,7 @@
     <style>
         .auth-container { max-width: 450px; margin: 40px auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .auth-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
-        .tab-btn { padding: 10px 20px; border: none; background: none; font-family: 'Baloo 2', cursive; font-size: 1.2rem; cursor: pointer; color: #888; }
+        .tab-btn { padding: 10px 20px; border: none; background: none; font-family: 'Baloo 2', cursive; font-size: 1.2rem; cursor: pointer; color: #888; width: 50%; }
         .tab-btn.active { border-bottom: 3px solid #ff6347; font-weight: bold; color: #333; }
         .form-content { display: none; }
         .form-content.active { display: block; }
@@ -27,8 +27,7 @@
     <div class="auth-container">
         <div class="auth-tabs">
             <button class="tab-btn active" onclick="showForm(event, 'login')">Đăng Nhập</button>
-            <button class="tab-btn" onclick="showForm(event, 'child-register')">Đăng Ký (Cho Bé)</button>
-            <button class="tab-btn" onclick="showForm(event, 'parent-register')">Đăng Ký (Phụ Huynh)</button>
+            <button class="tab-btn" onclick="showForm(event, 'register')">Đăng Ký</button>
         </div>
 
         <div id="login" class="form-content active">
@@ -40,24 +39,15 @@
             </form>
         </div>
 
-        <div id="child-register" class="form-content">
-            <h2>Đăng Ký cho Bé</h2>
-            <form id="child-register-form">
-                <div class="input-group"><label for="child-username">Tên đăng nhập của bé</label><input type="text" id="child-username" name="username" required minlength="3"></div>
-                <div class="input-group"><label for="child-password">Mật khẩu</label><input type="password" id="child-password" name="password" required minlength="3"></div>
-                <div class="input-group"><label for="parent-code">Mã kết nối của Phụ huynh</label><input type="text" id="parent-code" name="parentCode" required placeholder="Ví dụ: PH16..."></div>
+        <div id="register" class="form-content">
+            <h2>Đăng Ký</h2>
+            <form id="register-form">
+                <div class="input-group"><label for="reg-username">Tên đăng nhập</label><input type="text" id="reg-username" name="username" required minlength="3"></div>
+                <div class="input-group"><label for="reg-password">Mật khẩu</label><input type="password" id="reg-password" name="password" required minlength="3"></div>
                 <button type="submit" class="submit-btn">Tạo Tài Khoản</button>
             </form>
         </div>
 
-        <div id="parent-register" class="form-content">
-            <h2>Đăng Ký cho Phụ Huynh</h2>
-            <form id="parent-register-form">
-                <div class="input-group"><label for="parent-username">Tên đăng nhập</label><input type="text" id="parent-username" name="username" required minlength="3"></div>
-                <div class="input-group"><label for="parent-password">Mật khẩu</label><input type="password" id="parent-password" name="password" required minlength="3"></div>
-                <button type="submit" class="submit-btn">Tạo Tài Khoản</button>
-            </form>
-        </div>
         <div id="message"></div>
     </div>
     <a href="index.html" class="back-button">Về Trang Chủ</a>
@@ -77,7 +67,7 @@
         
         // Hiển thị thông báo
         function showMessage(text, isError = false) {
-            messageEl.innerHTML = text; // Dùng innerHTML để hiển thị mã HTML (vd: <strong>)
+            messageEl.innerHTML = text; 
             messageEl.className = isError ? 'error' : 'success';
         }
 
@@ -99,66 +89,39 @@
                 });
                 const data = await res.json();
                 
-                // --- ĐOẠN CODE MỚI THAY THẾ TRONG handleFormSubmit ---
-
                 if (!res.ok) {
                     throw new Error(data.message);
                 }
 
-                // SỬA Ở ĐÂY: Kiểm tra nếu có mã phụ huynh thì hiện ra
-                if (data.user && data.user.parentCode) {
-                    showMessage(`
-                        ✅ Đăng ký thành công!<br>
-                        <strong>Mã kết nối của bạn là: <span style="color:red; font-size:1.5rem">${data.user.parentCode}</span></strong><br>
-                        (Hãy ghi lại mã này để nhập khi đăng ký tài khoản cho Bé)
-                    `);
-                } else {
-                    showMessage(data.message);
-                }
+                // Vì không còn phụ huynh, ta chỉ in ra thông báo mặc định
+                showMessage(data.message || 'Thành công!');
                 
                 if (url.includes('register')) {
                     form.reset();
+                    // Có thể tự động chuyển sang tab đăng nhập sau khi đăng ký thành công
+                    setTimeout(() => document.querySelector('.auth-tabs button:first-child').click(), 1500);
                 }
 
-                // SỬA Ở ĐÂY: Lưu thêm danh sách con và role khi đăng nhập
                 if (url === '/api/login') {
                     localStorage.setItem('currentUser', data.user.username);
-                    localStorage.setItem('role', data.user.role);
+                    localStorage.setItem('role', data.user.role || 'child');
                     
-                    // Lưu danh sách các bé (nếu là phụ huynh)
-                    if (data.user.children && data.user.children.length > 0) {
-                        localStorage.setItem('children', JSON.stringify(data.user.children));
-                    } else {
-                        localStorage.removeItem('children'); // Xóa nếu không có
-                    }
-
                     showMessage('Đăng nhập thành công! Đang chuyển về trang chủ...');
-                    setTimeout(() => window.location.href = 'index.html', 1500); // Đảm bảo chuyển đúng trang
-                }
-// --- HẾT ĐOẠN CODE MỚI ---                
-                if (url.includes('register')) {
-                    form.reset();
-                }
-
-                if (url === '/api/login') {
-                    localStorage.setItem('currentUser', data.user.username);
-                    showMessage('Đăng nhập thành công! Đang chuyển về trang chủ...');
-                    setTimeout(() => window.location.href = '/', 1500);
+                    setTimeout(() => window.location.href = 'index.html', 1500); 
                 }
 
             } catch (err) {
                 showMessage(err.message, true);
             } finally {
                  submitButton.disabled = false;
-                 // Cập nhật lại text cho nút
                  if(url === '/api/login') submitButton.textContent = 'Vào Hành Tinh!';
                  else submitButton.textContent = 'Tạo Tài Khoản';
             }
         }
 
         document.getElementById('login-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/login'));
-        document.getElementById('child-register-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/register/child'));
-        document.getElementById('parent-register-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/register/parent'));
+        // Lưu ý: Đảm bảo endpoint API '/api/register' ở phía Backend không yêu cầu parentCode
+        document.getElementById('register-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/register'));
     </script>
 </body>
 </html>
