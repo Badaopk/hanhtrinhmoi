@@ -422,46 +422,37 @@ app.get('/api/leaderboard', async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi tải bảng xếp hạng' });
     }
 });
-app.post('/api/register/:role', async (req, res) => {
-    const { username, password, parentCode } = req.body;
-    const role = req.params.role;
+// --- API ĐĂNG KÝ (RÚT GỌN CHỈ DÀNH CHO BÉ) ---
+app.post('/api/register', async (req, res) => {
+    const { username, password } = req.body;
 
     try {
+        // 1. Kiểm tra trùng lặp
         const existingUser = await User.findOne({ username });
         if (existingUser) return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại!' });
 
-        let linkedParent = null;
-        if (role === 'child') {
-            linkedParent = await User.findOne({ role: 'parent', parentCode: parentCode });
-            if (!linkedParent && parentCode) {
-                return res.status(400).json({ message: 'Mã phụ huynh không tồn tại!' });
-            }
-        }
-
+        // 2. Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        // 3. Tạo tài khoản mặc định với quyền 'child' (trừ khi tên là Admin)
         const newUser = new User({
             username,
             password: hashedPassword,
-            role: username === 'Admin' ? 'admin' : role,
-            parentCode: role === 'parent' ? Math.random().toString(36).substring(7).toUpperCase() : null,
+            role: username === 'Admin' ? 'admin' : 'child',
+            parentCode: null
         });
 
+        // 4. Lưu vào cơ sở dữ liệu
         await newUser.save();
 
-        if (role === 'child' && linkedParent) {
-            linkedParent.children.push(username);
-            await linkedParent.save();
-        }
-
-       // Thay đoạn cũ bằng đoạn này:
-res.json({ 
-    message: 'Đăng ký thành công!', 
-    user: { 
-        username, 
-        role: newUser.role, 
-        parentCode: newUser.parentCode // Thêm dòng này để hiện mã cho phụ huynh
-    } 
-});
+        // 5. Trả về kết quả
+        res.json({ 
+            message: 'Đăng ký thành công! Hãy đăng nhập để chơi nhé.', 
+            user: { 
+                username, 
+                role: newUser.role
+            } 
+        });
     } catch (e) {
         res.status(500).json({ message: 'Lỗi server: ' + e.message });
     }
