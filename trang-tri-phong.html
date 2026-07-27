@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hành Tinh Mơ Ước - Thế Giới 3.0</title>
+    <title>Hành Tinh Mơ Ước - Thế Giới 4.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -103,7 +103,7 @@
         #visit-badge { top: 80px !important; }
 
 
-        /* ===== THẾ GIỚI 3.0 ===== */
+        /* ===== THẾ GIỚI 4.0 ===== */
         #world-status {
             position: absolute; top: 20px; left: 185px; z-index: 101;
             display: flex; gap: 8px; flex-wrap: wrap; pointer-events: none;
@@ -196,6 +196,7 @@
         }
 
     </style>
+    <link rel="stylesheet" href="modern-ui.css">
 </head>
 <body>
     <a href="index.html" id="home-btn">🏠 TRANG CHỦ</a>
@@ -234,7 +235,7 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 3.0</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC 4.0</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
                 <p>⌨️ <b>W, A, S, D</b>: Di chuyển | 🚀 <b>Space</b>: Nhảy</p>
                 <p>🛒 <b>B</b>: Mở Shop | 🗺️ <b>M</b>: Bản đồ | 🔄 <b>R</b>: Giải cứu</p>
@@ -1736,7 +1737,7 @@ function setupMultiplayer() {
     }
 
     // ============================================================
-    // THẾ GIỚI 3.0 + BẢN ĐỒ + ĐỔI THƯỞNG ROBUX
+    // THẾ GIỚI 4.0 + BẢN ĐỒ + ĐỔI THƯỞNG ROBUX
     // ============================================================
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -2295,5 +2296,6 @@ function setupMultiplayer() {
     }
 
 </script>
+    <script src="modern-ui.js"></script>
 </body>
 </html>

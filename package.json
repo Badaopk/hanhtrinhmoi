@@ -1,7 +1,7 @@
 {
   "name": "hanh-tinh-mo-uoc",
-  "version": "3.0.0",
-  "description": "Hành Tinh Mơ Ước 3.0 - thế giới 3D, game học tập và đổi thưởng có kiểm duyệt",
+  "version": "4.0.0",
+  "description": "Hành Tinh Mơ Ước 4.0 - giao diện hiện đại toàn hệ thống, ngân hàng 21.600 câu hỏi và Admin tự đồng bộ Environment",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

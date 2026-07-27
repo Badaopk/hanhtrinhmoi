@@ -39,7 +39,10 @@ if (!MONGO_URI) {
 }
 
 // --- 1. IMPORT DỮ LIỆU & LOGIC ---
-const { tests, maths } = require('./question-data.js'); 
+const { tests, maths } = require('./question-data.js');
+const { ensureCompleteQuestionBank } = require('./question-bank-complete.js');
+const questionBankSummary = ensureCompleteQuestionBank(tests, { minQuestions: 100 });
+console.log(`📚 Ngân hàng đề thi: ${questionBankSummary.totalQuestions.toLocaleString('vi-VN')} câu, đủ 6 môn × 12 lớp × 3 mức độ.`);
 const { boardData } = require('./monopoly-data.js');
 const MonopolyGame = require('./monopoly-logic.js');
 
@@ -346,39 +349,58 @@ const RobuxRedemption = mongoose.model('RobuxRedemption', robuxRedemptionSchema)
 // --- DANH SÁCH VẬT PHẨM NÂNG CẤP (FULL OPTION) ---
 const Tournament = mongoose.model('Tournament', tournamentSchema);
 const User = mongoose.model('User', userSchema);
+async function syncAdminFromEnvironment() {
+    const configuredPassword = process.env.ADMIN_PASSWORD || (!IS_PRODUCTION ? 'AdminDev123!' : '');
+    if (!configuredPassword || configuredPassword.length < 10 || configuredPassword.length > 72) {
+        throw new Error('ADMIN_PASSWORD phải dài từ 10 đến 72 ký tự.');
+    }
+
+    let admin = await User.findOne({ username: 'Admin' });
+    if (!admin) {
+        admin = new User({
+            username: 'Admin',
+            password: await bcrypt.hash(configuredPassword, 10),
+            role: 'admin',
+            chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
+            detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
+            shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
+            vietSpeechLevel: 100, englishSpeechLevel: 100,
+            score: 9999
+        });
+        await admin.save();
+        console.log('🚀 Đã tạo tài khoản Admin từ ADMIN_PASSWORD.');
+        return;
+    }
+
+    const passwordMatches = await bcrypt.compare(configuredPassword, admin.password);
+    let changed = false;
+    if (!passwordMatches) {
+        admin.password = await bcrypt.hash(configuredPassword, 10);
+        changed = true;
+    }
+    if (admin.role !== 'admin') {
+        admin.role = 'admin';
+        changed = true;
+    }
+    if (changed) {
+        await admin.save();
+        console.log('🔐 Đã đồng bộ mật khẩu/quyền Admin theo Environment.');
+    } else {
+        console.log('✅ Mật khẩu Admin đã khớp với Environment.');
+    }
+}
+
 mongoose.connect(MONGO_URI)
     .then(async () => {
-        console.log("✅ Đã kết nối MongoDB thành công!");
-
-        // --- TỰ ĐỘNG KHỞI TẠO ADMIN NẾU CHƯA CÓ ---
+        console.log('✅ Đã kết nối MongoDB thành công!');
         try {
-            const adminExists = await User.findOne({ username: 'Admin' });
-            if (!adminExists) {
-                const adminPass = process.env.ADMIN_PASSWORD || (!IS_PRODUCTION ? 'AdminDev123!' : null);
-                if (!adminPass || adminPass.length < 10) {
-                    throw new Error('Thiếu ADMIN_PASSWORD hoặc mật khẩu Admin ngắn hơn 10 ký tự.');
-                }
-                const hashedPassword = await bcrypt.hash(adminPass, 10);
-                
-                const admin = new User({
-                    username: 'Admin',
-                    password: hashedPassword,
-                    role: 'admin',
-                    // Cấp ngay 100 cấp độ cho Admin để test toàn bộ tính năng
-                    chessLevel: 100, caroLevel: 100, memoryLevel: 100, crosswordLevel: 100,
-                    detectiveLevel: 100, goLevel: 100, othelloLevel: 100, storyLevel: 100,
-                    shapeLevel: 100, buildLevel: 100, paintingLevel: 100, monopolyLevel: 100,
-                    vietSpeechLevel: 100, englishSpeechLevel: 100,
-                    score: 9999
-                });
-                await admin.save();
-                console.log("🚀 Đã tự động tạo tài khoản Admin từ cấu hình bảo mật.");
-            }
+            await syncAdminFromEnvironment();
         } catch (error) {
-            console.error("❌ Lỗi khi kiểm tra/tạo Admin:", error);
+            console.error('❌ Không thể đồng bộ tài khoản Admin:', error.message);
+            if (IS_PRODUCTION) process.exit(1);
         }
     })
-    .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
+    .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 // --- 3. CẤU HÌNH MIDDLEWARE ---
 const sessionSecret = process.env.SESSION_SECRET;
 if (IS_PRODUCTION && (!sessionSecret || sessionSecret.length < 32)) {
@@ -522,7 +544,7 @@ app.get('/api/health', (req, res) => {
         status: mongoReady ? 'ok' : 'degraded',
         database: mongoReady ? 'connected' : 'disconnected',
         uptimeSeconds: Math.floor(process.uptime()),
-        version: '2.0.0'
+        version: '4.0.0'
     });
 });
 
@@ -682,6 +704,10 @@ app.post('/api/login', authRateLimit, async (req, res) => {
     }
 
     try {
+        // Bảo đảm mật khẩu Admin luôn khớp với Environment ngay cả khi
+        // người dùng đăng nhập trong lúc dịch vụ vừa khởi động lại.
+        if (username.toLowerCase() === 'admin') await syncAdminFromEnvironment();
+
         const user = await User.findOne({
             username: { $regex: new RegExp(`^${escapeRegExp(username)}$`, 'i') }
         });
@@ -1195,11 +1221,24 @@ app.post('/api/admin/toggle-suspend', async (req, res) => {
     } else res.status(404).json({ message: 'User không tồn tại' });
 });
 
-// Reset mật khẩu
+// Reset mật khẩu người dùng. Mật khẩu Admin chỉ được đồng bộ từ ADMIN_PASSWORD.
 app.post('/api/admin/reset-password', async (req, res) => {
-    const hashedPassword = await bcrypt.hash("123456", 10);
-    await User.updateOne({ username: req.body.username }, { password: hashedPassword });
-    res.json({ message: 'Đã reset mật khẩu về 123456' });
+    const username = normalizeUsername(req.body.username);
+    if (!username) return res.status(400).json({ message: 'Thiếu tên tài khoản.' });
+    if (username.toLowerCase() === 'admin') {
+        return res.status(400).json({
+            message: 'Mật khẩu Admin được quản lý bằng ADMIN_PASSWORD trong Environment. Hãy đổi biến và redeploy.'
+        });
+    }
+    const temporaryPassword = String(req.body.temporaryPassword || '123456').trim();
+    if (temporaryPassword.length < 6 || temporaryPassword.length > 72) {
+        return res.status(400).json({ message: 'Mật khẩu tạm phải dài từ 6 đến 72 ký tự.' });
+    }
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    user.password = await bcrypt.hash(temporaryPassword, 10);
+    await user.save();
+    res.json({ message: `Đã đặt mật khẩu tạm cho ${username}.` });
 });
 
 // Broadcast thông báo
@@ -1524,129 +1563,153 @@ app.post('/api/game/shape-win', (req, res) => handleGameWin(req, res, 'shapeLeve
 app.post('/api/game/build-win', (req, res) => handleGameWin(req, res, 'buildLevel', 30, 'Xây Dựng'));
 app.post('/api/game/memory-win', (req, res) => handleGameWin(req, res, 'memoryLevel', 15, 'Trí Nhớ'));
 app.post('/api/game/crossword-win', (req, res) => handleGameWin(req, res, 'crosswordLevel', 15, 'Ô Chữ'));
-//--- API MỚI: LẤY ĐỀ THI TRẮC NGHIỆM ---
-// --- 1. API LẤY ĐỀ THI (Lấy 10 câu ngẫu nhiên & Lưu đáp án vào Session) ---
-app.get('/api/test', (req, res) => {
-    const { subject, grade, difficulty } = req.query;
+// --- HỆ THỐNG BÀI KIỂM TRA TỔNG HỢP ---
+const TEST_SUBJECT_LABELS = {
+    toan: 'Toán học',
+    'tieng-viet': 'Tiếng Việt',
+    'tieng-anh': 'Tiếng Anh',
+    'khoa-hoc': 'Khoa học',
+    'lich-su': 'Lịch sử',
+    'dia-ly': 'Địa lý'
+};
 
-    // Kiểm tra dữ liệu
-    if (!tests[subject]) return res.status(404).json({ message: "Chưa có môn này." });
-    const gradeKey = 'grade' + grade;
-    if (!tests[subject][gradeKey]) return res.status(404).json({ message: `Chưa có lớp ${grade} cho môn này.` });
-    
-    // Lấy ngân hàng câu hỏi gốc
-    const allQuestions = tests[subject][gradeKey][difficulty];
-    if (!allQuestions || allQuestions.length === 0) {
-        return res.status(404).json({ message: "Chưa có câu hỏi ở mức độ này." });
+function shuffleQuestions(items) {
+    const copy = [...items];
+    for (let index = copy.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
     }
+    return copy;
+}
 
-    // TRỘN NGẪU NHIÊN VÀ LẤY 10 CÂU
-    const shuffled = [...allQuestions].sort(() => 0.5 - Math.random()).slice(0, 10);
-
-    // --- QUAN TRỌNG: Lưu đáp án đúng vào Session của người dùng ---
-    // Để lát nữa chấm điểm mà không cần gửi đáp án về máy khách (chống gian lận)
-    const answerKey = {};
-    shuffled.forEach(q => {
-        answerKey[q.id] = q.correct;
-    });
-    req.session.currentTestAnswers = answerKey;
-    req.session.testStartTime = Date.now();
-    req.session.save(); // Lưu session ngay lập tức
-
-    // Gửi câu hỏi về cho người dùng (Ẩn đáp án đúng đi)
-    const questionsForClient = shuffled.map(q => ({
-        id: q.id,
-        q: q.q,
-        a: q.a
+app.get('/api/test/catalog', (req, res) => {
+    const catalog = Object.entries(TEST_SUBJECT_LABELS).map(([subject, label]) => ({
+        subject,
+        label,
+        grades: Array.from({ length: 12 }, (_, index) => {
+            const grade = index + 1;
+            const gradeKey = `grade${grade}`;
+            return {
+                grade,
+                difficulties: {
+                    easy: tests[subject]?.[gradeKey]?.easy?.length || 0,
+                    medium: tests[subject]?.[gradeKey]?.medium?.length || 0,
+                    hard: tests[subject]?.[gradeKey]?.hard?.length || 0
+                }
+            };
+        })
     }));
-
-    res.json(questionsForClient);
+    res.json({
+        catalog,
+        maxQuestionsPerTest: 30,
+        totalQuestions: questionBankSummary.totalQuestions,
+        updatedVersion: '4.0.0'
+    });
 });
 
-// --- 2. API CHẤM ĐIỂM (So sánh với Session & Trả về kết quả chi tiết) ---
+// Lấy đề ngẫu nhiên và chỉ lưu đáp án ở phía máy chủ.
+app.get('/api/test', (req, res) => {
+    const subject = String(req.query.subject || '');
+    const grade = Number.parseInt(req.query.grade, 10);
+    const difficulty = String(req.query.difficulty || 'easy');
+    const limit = Math.min(30, Math.max(10, Number.parseInt(req.query.limit, 10) || 10));
+
+    if (!TEST_SUBJECT_LABELS[subject]) return res.status(404).json({ message: 'Môn học không hợp lệ.' });
+    if (!Number.isInteger(grade) || grade < 1 || grade > 12) return res.status(400).json({ message: 'Lớp học phải từ 1 đến 12.' });
+    if (!['easy', 'medium', 'hard'].includes(difficulty)) return res.status(400).json({ message: 'Mức độ không hợp lệ.' });
+
+    const gradeKey = `grade${grade}`;
+    const allQuestions = tests[subject]?.[gradeKey]?.[difficulty] || [];
+    if (allQuestions.length < limit) {
+        return res.status(404).json({ message: 'Ngân hàng câu hỏi chưa đủ cho lựa chọn này.' });
+    }
+
+    const selected = shuffleQuestions(allQuestions).slice(0, limit);
+    const answerKey = {};
+    selected.forEach(question => {
+        answerKey[question.id] = {
+            answer: question.correct,
+            explanation: question.explanation || `Đáp án đúng là ${question.correct}.`
+        };
+    });
+
+    req.session.currentTestAnswers = answerKey;
+    req.session.currentTestMeta = { subject, grade, difficulty, limit };
+    req.session.testStartTime = Date.now();
+    req.session.save(error => {
+        if (error) return res.status(500).json({ message: 'Không thể tạo phiên bài kiểm tra.' });
+        res.json(selected.map(question => ({ id: question.id, q: question.q, a: question.a })));
+    });
+});
+
 app.post('/api/submit-test', async (req, res) => {
     const startTime = req.session.testStartTime;
     const now = Date.now();
-    
-    // Kiểm tra thời gian (cho phép tối đa 16 phút để trừ hao lag mạng nếu bé làm bài 15 phút)
-    if (!startTime || (now - startTime) > 16 * 60 * 1000) { 
-        return res.status(400).json({ 
-            score: 0, 
-            message: "Bài thi không hợp lệ do quá thời gian quy định!" 
-        });
+    const answerKey = req.session.currentTestAnswers;
+    const meta = req.session.currentTestMeta || {};
+
+    if (!startTime || !answerKey) {
+        return res.status(400).json({ score: 0, total: 0, message: 'Phiên làm bài đã hết hạn. Hãy tạo đề mới.' });
     }
 
-    const { answers } = req.body; 
-    const correctKeys = req.session.currentTestAnswers; 
-
-    if (!correctKeys) {
-        return res.status(400).json({ score: 0, total: 0, message: "Lỗi phiên làm việc. Hãy tải lại trang!" });
+    const maxDurationMs = Math.max(20, (meta.limit || 10) * 2) * 60 * 1000;
+    if ((now - startTime) > maxDurationMs) {
+        delete req.session.testStartTime;
+        delete req.session.currentTestAnswers;
+        delete req.session.currentTestMeta;
+        req.session.save();
+        return res.status(400).json({ score: 0, total: Object.keys(answerKey).length, message: 'Bài thi đã quá thời gian quy định.' });
     }
 
+    const answers = req.body?.answers && typeof req.body.answers === 'object' ? req.body.answers : {};
     let score = 0;
-    let total = Object.keys(correctKeys).length;
-    let details = {}; 
+    const details = {};
 
-    // 1. Duyệt chấm điểm từng câu
-    for (let [questionId, correctAnswer] of Object.entries(correctKeys)) {
-        const userAnswer = answers[questionId];
+    for (const [questionId, key] of Object.entries(answerKey)) {
+        const userAnswer = String(answers[questionId] ?? '');
+        const correctAnswer = typeof key === 'string' ? key : key.answer;
         const isCorrect = userAnswer === correctAnswer;
         if (isCorrect) score += 1;
-        
         details[questionId] = {
             correct: correctAnswer,
-            userChosen: userAnswer,
-            isCorrect: isCorrect
+            userChosen: userAnswer || null,
+            isCorrect,
+            explanation: typeof key === 'string' ? `Đáp án đúng là ${correctAnswer}.` : key.explanation
         };
     }
 
-    // 2. Xử lý cộng điểm và Cập nhật Nhiệm vụ (Nếu đã đăng nhập)
+    const total = Object.keys(answerKey).length;
+    const timeTaken = Math.max(1, Math.floor((now - startTime) / 1000));
     if (req.session.user) {
         try {
             const user = await User.findOne({ username: req.session.user.username });
-            if(user) {
-                // Tính thời gian làm bài thực tế (đổi ra giây)
-                const timeTaken = Math.floor((now - startTime) / 1000);
-
-                // Cộng điểm bài thi gốc (Mỗi câu đúng 10 điểm)
-                user.score += score * 10; 
-
-                // --- CẬP NHẬT NHIỆM VỤ "Kiểm Tra" ---
-                // Điều kiện tính là hoàn thành 1 lần: Đúng từ 5 câu trở lên (>= 50%)
-                const isPassed = score >= (total / 2); 
-                
-                // Gọi hàm cập nhật nhiệm vụ (Tự động cộng thưởng hoặc phạt nếu quá giờ)
-                updateQuestProgress(user, 'Kiểm Tra', { timeTaken: timeTaken, isWin: isPassed });
-
-                // Lưu lịch sử
-                user.history.push({ 
-                    activity: `Thi trắc nghiệm: ${score}/${total} câu đúng (${timeTaken}s)`, 
-                    timestamp: new Date() 
+            if (user) {
+                user.score += score * 10;
+                updateQuestProgress(user, 'Kiểm Tra', { timeTaken, isWin: score >= total / 2 });
+                user.history.push({
+                    activity: `Thi ${TEST_SUBJECT_LABELS[meta.subject] || 'tổng hợp'} lớp ${meta.grade || '?'}: ${score}/${total} (${timeTaken}s)`,
+                    timestamp: new Date()
                 });
-
-                // Quan trọng: Đánh dấu mảng quests đã thay đổi để MongoDB lưu được
-                user.markModified('quests'); 
+                user.markModified('quests');
                 await user.save();
             }
         } catch (dbError) {
-            console.error("Lỗi cập nhật nhiệm vụ khi thi:", dbError);
+            console.error('Lỗi cập nhật kết quả bài thi:', dbError);
         }
     }
 
-    // 3. Phản hồi kết quả về máy bé
-    let msg = score === total ? "Xuất sắc! 🌟" : (score >= total/2 ? "Làm tốt lắm! 👍" : "Cố gắng lần sau nhé! 💪");
-    
-    // Dọn dẹp session bài thi
     delete req.session.testStartTime;
     delete req.session.currentTestAnswers;
+    delete req.session.currentTestMeta;
     req.session.save();
 
-    res.json({ 
-        score: score, 
-        total: total, 
-        message: msg,
-        details: details 
-    });
+    const percent = total ? Math.round(score / total * 100) : 0;
+    const message = percent === 100 ? 'Xuất sắc! Bạn đã trả lời đúng toàn bộ.'
+        : percent >= 80 ? 'Rất tốt! Bạn nắm kiến thức khá chắc.'
+        : percent >= 50 ? 'Đã hoàn thành. Hãy xem kỹ phần giải thích để tiến bộ.'
+        : 'Hãy ôn lại phần giải thích và thử một đề mới nhé.';
+
+    res.json({ score, total, percent, timeTaken, message, details });
 });
 // --- API MỚI: RESET TOÀN BỘ LEVEL ---
 app.post('/api/admin/reset-all-levels', async (req, res) => {

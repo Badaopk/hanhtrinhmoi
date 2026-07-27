@@ -1,9 +1,13 @@
-# Hành Tinh Mơ Ước 3.0
+# Hành Tinh Mơ Ước 4.0
 
 Game web học tập, sáng tạo và thi đấu trực tuyến dành cho trẻ em. Backend dùng Node.js, Express, Socket.IO và MongoDB.
 
-## Nâng cấp chính trong bản 3.0
+## Nâng cấp chính trong bản 4.0
 
+- Đồng bộ giao diện hiện đại trên toàn bộ 38 trang, có dark mode, thanh điều hướng nhanh và responsive tốt hơn.
+- Thiết kế lại Phòng Kiểm Tra, hỗ trợ 10/20/30 câu, tiến độ, điều hướng câu, chấm và giải thích từng đáp án.
+- Chuẩn hóa ngân hàng 21.600 câu: 6 môn × 12 lớp × 3 mức độ × tối thiểu 100 câu.
+- Mật khẩu Admin tự đồng bộ theo `ADMIN_PASSWORD` mỗi lần Render khởi động lại và trước khi Admin đăng nhập.
 - Trang chủ mới, responsive cho máy tính và điện thoại, có tìm kiếm và lọc hoạt động.
 - Hiển thị điểm, cấp trung bình, nhiệm vụ, chuỗi đăng nhập, giải đấu và bảng vàng.
 - Sửa các API bị thiếu của Admin, phụ huynh và theo dõi thời gian chơi.
@@ -34,7 +38,7 @@ Mở `http://localhost:3000`.
 
 - `MONGO_URI` hoặc `MONGODB_URI`: chuỗi kết nối MongoDB Atlas.
 - `SESSION_SECRET`: chuỗi ngẫu nhiên tối thiểu 32 ký tự.
-- `ADMIN_PASSWORD`: mật khẩu Admin tối thiểu 10 ký tự.
+- `ADMIN_PASSWORD`: mật khẩu Admin từ 10 đến 72 ký tự. Mỗi lần đổi biến và redeploy, tài khoản `Admin` tự dùng mật khẩu mới.
 - `NODE_ENV=production`.
 
 ### Biến môi trường đổi thưởng Robux
