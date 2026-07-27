@@ -15,8 +15,14 @@ const monopolyGames = {};
 const MongoStore = require('connect-mongo');
 
 // 2. LẤY CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG (KHÔNG CÒN LỘ MẬT KHẨU)
-const MONGO_URI = process.env.MONGO_URI; 
-const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+const PORT = Number(process.env.PORT) || 3000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+if (!MONGO_URI) {
+    console.error('❌ Thiếu biến môi trường MONGO_URI hoặc MONGODB_URI.');
+    process.exit(1);
+}
 
 // --- 1. IMPORT DỮ LIỆU & LOGIC ---
 const { tests, maths } = require('./question-data.js'); 
@@ -24,8 +30,16 @@ const { boardData } = require('./monopoly-data.js');
 const MonopolyGame = require('./monopoly-logic.js');
 
 const app = express();
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: IS_PRODUCTION ? false : true,
+        credentials: true
+    },
+    maxHttpBufferSize: 1e6
+});
 // --- 2. KẾT NỐI MONGODB ---
 // Schema User (Đầy đủ trường dữ liệu cũ)
 const userSchema = new mongoose.Schema({
@@ -39,6 +53,12 @@ const userSchema = new mongoose.Schema({
     history: [{ activity: String, timestamp: { type: Date, default: Date.now } }], 
     quests: { type: Array, default: [] }, 
     playtimeLimitMinutes: { type: Number, default: 0 },
+    playtimeUsedToday: { type: Number, default: 0 },
+    playtimeDate: { type: String, default: '' },
+    lastHeartbeatAt: { type: Date, default: null },
+    lastActiveAt: { type: Date, default: Date.now },
+    loginStreak: { type: Number, default: 0 },
+    lastLoginDate: { type: String, default: '' },
     inventory: { type: Array, default: [] }, // Danh sách ID đồ đã mua: ['bed_1', 'table_2']
     houseData: { type: Array, default: [] },
     chestsData: { type: Object, default: {} },
@@ -260,10 +280,11 @@ const MATERIALS = [
 ];
 const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
 const notificationSchema = new mongoose.Schema({
-    title: String,
-    content: String,
-    type: { type: String, default: 'info' }, // 'info' (xanh), 'event' (vàng), 'warning' (đỏ)
-    date: { type: Date, default: Date.now }
+    title: { type: String, required: true, maxlength: 120 },
+    content: { type: String, required: true, maxlength: 2000 },
+    type: { type: String, enum: ['info', 'event', 'warning'], default: 'info' },
+    targetUsername: { type: String, default: null, index: true },
+    date: { type: Date, default: Date.now, index: true }
 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
@@ -279,9 +300,10 @@ mongoose.connect(MONGO_URI)
         try {
             const adminExists = await User.findOne({ username: 'Admin' });
             if (!adminExists) {
-                // Lấy mật khẩu từ file .env cho an toàn
-                // Nếu chưa cấu hình .env thì mới dùng mật khẩu dự phòng bên phải
-                const adminPass = process.env.ADMIN_PASSWORD || 'MatKhauDuPhongAnToan123';                
+                const adminPass = process.env.ADMIN_PASSWORD || (!IS_PRODUCTION ? 'AdminDev123!' : null);
+                if (!adminPass || adminPass.length < 10) {
+                    throw new Error('Thiếu ADMIN_PASSWORD hoặc mật khẩu Admin ngắn hơn 10 ký tự.');
+                }
                 const hashedPassword = await bcrypt.hash(adminPass, 10);
                 
                 const admin = new User({
@@ -304,27 +326,154 @@ mongoose.connect(MONGO_URI)
     })
     .catch(err => console.error("❌ Lỗi kết nối MongoDB:", err));
 // --- 3. CẤU HÌNH MIDDLEWARE ---
+const sessionSecret = process.env.SESSION_SECRET;
+if (IS_PRODUCTION && (!sessionSecret || sessionSecret.length < 32)) {
+    console.error('❌ SESSION_SECRET phải được cấu hình và dài tối thiểu 32 ký tự trên production.');
+    process.exit(1);
+}
+
 const sessionMiddleware = session({
-    // Lấy secret từ file .env, nếu không có thì dùng chuỗi dự phòng
-    secret: process.env.SESSION_SECRET || 'hanh-tinh-mo-uoc-vinh-cuu-merged-2026',
+    name: 'hanhtrinh.sid',
+    secret: sessionSecret || 'dev-only-session-secret-change-before-production',
     resave: false,
-    saveUninitialized: false, 
-    store: MongoStore.create({ mongoUrl: MONGO_URI }), 
-    cookie: { 
-        secure: false, 
-        maxAge: 24 * 60 * 60 * 1000 
-    } 
+    saveUninitialized: false,
+    rolling: true,
+    store: MongoStore.create({
+        mongoUrl: MONGO_URI,
+        ttl: 24 * 60 * 60,
+        autoRemove: 'native'
+    }),
+    cookie: {
+        httpOnly: true,
+        secure: IS_PRODUCTION,
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+    }
 });
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
-app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), payment=()');
+    next();
+});
+app.use((req, res, next) => {
+    if (req.path === '/admin-panel.html' && req.session?.user?.role !== 'admin') {
+        return res.redirect('/login.html');
+    }
+    if (req.path === '/phu-huynh.html' && req.session?.user?.role !== 'parent') {
+        return res.redirect('/login.html');
+    }
+    next();
+});
+app.use(express.static(__dirname, {
+    etag: true,
+    maxAge: IS_PRODUCTION ? '1h' : 0
+}));
 
 // --- 4. TRẠNG THÁI SERVER (IN-MEMORY) ---
-const gameRooms = {};       
-const waitingPlayers = {};  
-const monopolyQueue = [];   
-let maintenanceMode = false; // Đã khôi phục biến bảo trì
+const gameRooms = {};
+const waitingPlayers = {};
+const monopolyQueue = [];
+let maintenanceMode = false;
+
+function requireAuth(req, res, next) {
+    if (!req.session?.user) {
+        return res.status(401).json({ message: 'Vui lòng đăng nhập để tiếp tục.' });
+    }
+    next();
+}
+
+function requireAdmin(req, res, next) {
+    if (!req.session?.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Bạn không có quyền quản trị.' });
+    }
+    next();
+}
+
+function requireParent(req, res, next) {
+    if (!req.session?.user || req.session.user.role !== 'parent') {
+        return res.status(403).json({ message: 'Chỉ tài khoản phụ huynh mới được truy cập.' });
+    }
+    next();
+}
+
+function clampInteger(value, min, max, fallback = min) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
+function normalizeUsername(value) {
+    return String(value || '').trim();
+}
+
+function getVietnamDateKey(date = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(date);
+}
+
+function isPreviousDate(previousKey, currentKey) {
+    if (!previousKey) return false;
+    const previous = new Date(`${previousKey}T00:00:00+07:00`);
+    const current = new Date(`${currentKey}T00:00:00+07:00`);
+    return current - previous === 24 * 60 * 60 * 1000;
+}
+
+function isValidUsername(username) {
+    return /^[A-Za-z0-9_À-ỹ]{3,24}$/u.test(username);
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function createRateLimiter({ windowMs, max, message }) {
+    const buckets = new Map();
+    return (req, res, next) => {
+        const now = Date.now();
+        const key = req.ip || req.socket.remoteAddress || 'unknown';
+        const entry = buckets.get(key);
+        if (!entry || now >= entry.resetAt) {
+            buckets.set(key, { count: 1, resetAt: now + windowMs });
+            return next();
+        }
+        entry.count += 1;
+        if (entry.count > max) {
+            const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+            res.setHeader('Retry-After', String(retryAfter));
+            return res.status(429).json({ message });
+        }
+        next();
+    };
+}
+
+const authRateLimit = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    message: 'Bạn thao tác đăng nhập quá nhiều lần. Vui lòng thử lại sau.'
+});
+
+app.get('/api/health', (req, res) => {
+    const mongoReady = mongoose.connection.readyState === 1;
+    res.status(mongoReady ? 200 : 503).json({
+        status: mongoReady ? 'ok' : 'degraded',
+        database: mongoReady ? 'connected' : 'disconnected',
+        uptimeSeconds: Math.floor(process.uptime()),
+        version: '2.0.0'
+    });
+});
+
+// Bảo vệ toàn bộ API quản trị, tránh người chơi gọi trực tiếp từ trình duyệt.
+app.use('/api/admin', requireAdmin);
 
 // --- 5. API HỆ THỐNG (AUTH) ---
 app.post('/api/house/save-drawing', async (req, res) => {
@@ -422,102 +571,267 @@ app.get('/api/leaderboard', async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi tải bảng xếp hạng' });
     }
 });
-// --- API ĐĂNG KÝ (RÚT GỌN CHỈ DÀNH CHO BÉ) ---
-app.post('/api/register', async (req, res) => {
-    const { username, password } = req.body;
+// --- API ĐĂNG KÝ / ĐĂNG NHẬP ---
+app.post('/api/register', authRateLimit, async (req, res) => {
+    const username = normalizeUsername(req.body.username);
+    const password = String(req.body.password || '');
+
+    if (!isValidUsername(username)) {
+        return res.status(400).json({
+            message: 'Tên đăng nhập phải dài 3–24 ký tự và chỉ gồm chữ, số hoặc dấu gạch dưới.'
+        });
+    }
+    if (username.toLowerCase() === 'admin') {
+        return res.status(400).json({ message: 'Tên đăng nhập này đã được dành riêng.' });
+    }
+    if (password.length < 6 || password.length > 72) {
+        return res.status(400).json({ message: 'Mật khẩu phải dài từ 6 đến 72 ký tự.' });
+    }
 
     try {
-        // 1. Kiểm tra trùng lặp
-        const existingUser = await User.findOne({ username });
-        if (existingUser) return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại!' });
+        const existingUser = await User.findOne({
+            username: { $regex: new RegExp(`^${escapeRegExp(username)}$`, 'i') }
+        }).lean();
 
-        // 2. Mã hóa mật khẩu
+        if (existingUser) {
+            return res.status(409).json({ message: 'Tên đăng nhập đã tồn tại!' });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // 3. Tạo tài khoản mặc định với quyền 'child' (trừ khi tên là Admin)
-        const newUser = new User({
+        const newUser = await User.create({
             username,
             password: hashedPassword,
-            role: username === 'Admin' ? 'admin' : 'child',
-            parentCode: null
+            role: 'child',
+            parentCode: null,
+            lastActiveAt: new Date()
         });
 
-        // 4. Lưu vào cơ sở dữ liệu
-        await newUser.save();
-
-        // 5. Trả về kết quả
-        res.json({ 
-            message: 'Đăng ký thành công! Hãy đăng nhập để chơi nhé.', 
-            user: { 
-                username, 
-                role: newUser.role
-            } 
+        res.status(201).json({
+            message: 'Đăng ký thành công! Hãy đăng nhập để chơi nhé.',
+            user: { username: newUser.username, role: newUser.role }
         });
-    } catch (e) {
-        res.status(500).json({ message: 'Lỗi server: ' + e.message });
+    } catch (error) {
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: 'Tên đăng nhập đã tồn tại!' });
+        }
+        console.error('Lỗi đăng ký:', error);
+        res.status(500).json({ message: 'Không thể đăng ký lúc này. Vui lòng thử lại.' });
     }
 });
 
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
+app.post('/api/login', authRateLimit, async (req, res) => {
+    const username = normalizeUsername(req.body.username);
+    const password = String(req.body.password || '');
+
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.' });
+    }
+
     try {
-        const user = await User.findOne({ username });
+        const user = await User.findOne({
+            username: { $regex: new RegExp(`^${escapeRegExp(username)}$`, 'i') }
+        });
+
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(400).json({ message: 'Sai tên đăng nhập hoặc mật khẩu!' });
         }
-        if (user.isSuspended) return res.status(403).json({ message: 'Tài khoản đã bị khóa!' });
+        if (user.isSuspended) {
+            return res.status(403).json({ message: 'Tài khoản đã bị khóa!' });
+        }
+        if (maintenanceMode && user.role !== 'admin') {
+            return res.status(503).json({ message: 'Hệ thống đang bảo trì. Vui lòng quay lại sau.' });
+        }
 
-        req.session.user = { username: user.username, role: user.role };
-        req.session.save();
+        const today = getVietnamDateKey();
+        if (user.lastLoginDate !== today) {
+            user.loginStreak = isPreviousDate(user.lastLoginDate, today)
+                ? Math.max(1, user.loginStreak || 0) + 1
+                : 1;
+            user.lastLoginDate = today;
+        }
+        user.lastActiveAt = new Date();
+        await user.save();
 
-        res.json({ 
-    message: 'Đăng nhập thành công!', 
-    user: { 
-        username: user.username, 
-        role: user.role, 
-        parentCode: user.parentCode,
-        children: user.children // Thêm dòng này để hiện danh sách các bé
-    } 
-});       
-    } catch (e) {
-        res.status(500).json({ message: 'Lỗi đăng nhập' });
+        await new Promise((resolve, reject) => {
+            req.session.regenerate(error => {
+                if (error) return reject(error);
+                req.session.user = { username: user.username, role: user.role };
+                req.session.save(saveError => saveError ? reject(saveError) : resolve());
+            });
+        });
+
+        res.json({
+            message: 'Đăng nhập thành công!',
+            user: {
+                username: user.username,
+                role: user.role,
+                parentCode: user.parentCode,
+                children: user.children,
+                loginStreak: user.loginStreak
+            }
+        });
+    } catch (error) {
+        console.error('Lỗi đăng nhập:', error);
+        res.status(500).json({ message: 'Lỗi đăng nhập. Vui lòng thử lại.' });
     }
 });
 
 app.post('/api/logout', (req, res) => {
-    req.session.destroy();
-    res.json({ message: 'Đăng xuất thành công' });
+    if (!req.session) return res.json({ message: 'Đăng xuất thành công' });
+    req.session.destroy(error => {
+        res.clearCookie('hanhtrinh.sid');
+        if (error) {
+            return res.status(500).json({ message: 'Không thể đăng xuất. Vui lòng thử lại.' });
+        }
+        res.json({ message: 'Đăng xuất thành công' });
+    });
 });
 
-app.get('/api/user/progress', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const user = await User.findOne({ username: req.session.user.username }).select('-password');
-    if (!user) return res.status(404).json({ message: 'Không tìm thấy user' });
-    if (user.role === 'admin') {
-        const levels = ['chessLevel', 'caroLevel', 'memoryLevel', 'crosswordLevel', 'detectiveLevel', 'goLevel', 'othelloLevel', 'storyLevel', 'shapeLevel', 'buildLevel', 'paintingLevel', 'monopolyLevel', 'vietSpeechLevel', 'englishSpeechLevel'];
-        levels.forEach(l => user[l] = 100); // Ép hiển thị 100 cấp độ trên giao diện
+app.get('/api/user/progress', requireAuth, async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.session.user.username }).select('-password');
+        if (!user) return res.status(404).json({ message: 'Không tìm thấy user' });
+        if (user.role === 'admin') {
+            const levels = ['chessLevel', 'caroLevel', 'memoryLevel', 'crosswordLevel', 'detectiveLevel', 'goLevel', 'othelloLevel', 'storyLevel', 'shapeLevel', 'buildLevel', 'paintingLevel', 'monopolyLevel', 'vietSpeechLevel', 'englishSpeechLevel'];
+            levels.forEach(levelKey => {
+                if ((user[levelKey] || 1) < 100) user[levelKey] = 100;
+            });
+        }
+        user.lastActiveAt = new Date();
+        await refreshDailyQuests(user);
+        res.setHeader('Cache-Control', 'no-store');
+        res.json(user);
+    } catch (error) {
+        console.error('Lỗi tải tiến trình:', error);
+        res.status(500).json({ message: 'Không thể tải tiến trình người chơi.' });
     }
-    await refreshDailyQuests(user);
-    res.json(user);
+});
+
+app.post('/api/user/heartbeat', requireAuth, async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.session.user.username });
+        if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+        if (user.isSuspended) {
+            return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: 'Tài khoản đã bị khóa.' });
+        }
+        if (maintenanceMode && user.role !== 'admin') {
+            return res.status(503).json({ code: 'MAINTENANCE', message: 'Hệ thống đang bảo trì.' });
+        }
+
+        const now = new Date();
+        const today = getVietnamDateKey(now);
+        if (user.playtimeDate !== today) {
+            user.playtimeDate = today;
+            user.playtimeUsedToday = 0;
+            user.lastHeartbeatAt = now;
+        } else if (user.lastHeartbeatAt) {
+            const elapsedMinutes = Math.max(
+                0,
+                Math.min(2, (now.getTime() - new Date(user.lastHeartbeatAt).getTime()) / 60000)
+            );
+            user.playtimeUsedToday = Number((Number(user.playtimeUsedToday || 0) + elapsedMinutes).toFixed(2));
+            user.lastHeartbeatAt = now;
+        } else {
+            user.lastHeartbeatAt = now;
+        }
+
+        user.lastActiveAt = now;
+        const limit = Math.max(0, user.playtimeLimitMinutes || 0);
+        if (user.role !== 'admin' && limit > 0 && user.playtimeUsedToday >= limit) {
+            await user.save();
+            const socketId = onlineUsers[user.username];
+            if (socketId) io.to(socketId).emit('playtimeLimitExceeded');
+            return res.status(403).json({
+                code: 'PLAYTIME_LIMIT_EXCEEDED',
+                status: 'limit_exceeded',
+                usedMinutes: Math.ceil(user.playtimeUsedToday),
+                limitMinutes: limit
+            });
+        }
+
+        await user.save();
+        res.json({
+            status: 'ok',
+            usedMinutes: Math.ceil(user.playtimeUsedToday),
+            limitMinutes: limit,
+            remainingMinutes: limit > 0 ? Math.max(0, Math.ceil(limit - user.playtimeUsedToday)) : null
+        });
+    } catch (error) {
+        console.error('Heartbeat error:', error);
+        res.status(500).json({ message: 'Không thể cập nhật thời gian chơi.' });
+    }
+});
+
+app.get('/api/parent/dashboard', requireParent, async (req, res) => {
+    try {
+        const parent = await User.findOne({ username: req.session.user.username }).select('-password');
+        if (!parent) return res.status(404).json({ message: 'Không tìm thấy tài khoản phụ huynh.' });
+
+        const childQuery = {
+            role: 'child',
+            $or: [
+                { username: { $in: parent.children || [] } },
+                ...(parent.parentCode ? [{ parentCode: parent.parentCode }] : [])
+            ]
+        };
+        const children = await User.find(childQuery)
+            .select('username score history playtimeLimitMinutes playtimeUsedToday lastActiveAt')
+            .lean();
+
+        const safeChildren = children.map(child => ({
+            ...child,
+            history: (child.history || []).slice(-30).reverse()
+        }));
+
+        res.json({
+            parentCode: parent.parentCode,
+            children: safeChildren
+        });
+    } catch (error) {
+        console.error('Lỗi dashboard phụ huynh:', error);
+        res.status(500).json({ message: 'Không thể tải bảng điều khiển phụ huynh.' });
+    }
 });
 
 // --- 6. API ADMIN (ĐÃ KHÔI PHỤC ĐẦY ĐỦ) ---
 // 1. Admin gửi thông báo chính thức (Lưu vào DB)
 app.post('/api/admin/post-notification', async (req, res) => {
-    const { title, content, type } = req.body;
-    const newNotify = new Notification({ title, content, type });
-    await newNotify.save();
+    try {
+        const title = String(req.body.title || '').trim();
+        const content = String(req.body.content || '').trim();
+        const type = ['info', 'event', 'warning'].includes(req.body.type) ? req.body.type : 'info';
 
-    // Vừa lưu vào DB, vừa gửi thông báo trực tiếp (real-time) cho những bé đang online
-    io.emit('adminNotification', { title, message: content });
-    res.json({ message: "Đã đăng thông báo thành công!" });
+        if (!title || !content) {
+            return res.status(400).json({ message: 'Vui lòng nhập đầy đủ tiêu đề và nội dung.' });
+        }
+
+        const newNotify = await Notification.create({ title, content, type });
+        io.emit('adminNotification', { title: newNotify.title, message: newNotify.content, type });
+        res.status(201).json({ message: 'Đã đăng thông báo thành công!' });
+    } catch (error) {
+        console.error('Lỗi đăng thông báo:', error);
+        res.status(500).json({ message: 'Không thể đăng thông báo.' });
+    }
 });
 
-// 2. Bé lấy danh sách thông báo để xem
 app.get('/api/notifications', async (req, res) => {
-    // Lấy 20 thông báo mới nhất
-    const list = await Notification.find().sort({ date: -1 }).limit(20);
-    res.json(list);
+    try {
+        const username = req.session?.user?.username || null;
+        const query = username
+            ? { $or: [{ targetUsername: null }, { targetUsername: username }] }
+            : { targetUsername: null };
+
+        const list = await Notification.find(query)
+            .sort({ date: -1 })
+            .limit(20)
+            .lean();
+
+        res.setHeader('Cache-Control', 'no-store');
+        res.json(list);
+    } catch (error) {
+        console.error('Lỗi tải thông báo:', error);
+        res.status(500).json({ message: 'Không thể tải thông báo.' });
+    }
 });
 app.post('/api/admin/create-tournament', async (req, res) => {
     const { gameType, matchDuration, regDays, dailyStart, dailyEnd, tourDays } = req.body;
@@ -711,21 +1025,31 @@ app.post('/api/admin/advance-to-knockout', async (req, res) => {
     res.json({ message: "Đã tiến vào vòng Loại trực tiếp!" });
 });
 app.post('/api/admin/update-user', async (req, res) => {
-    if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ message: 'Không có quyền' });
-    
-    const { username, ...updateData } = req.body; 
-    
-    try {
-        // Chuyển đổi các giá trị sang số để đảm bảo tính toán đúng
-        for (let key in updateData) {
-            if (key !== 'username' && !Array.isArray(updateData[key])) {
-               updateData[key] = parseInt(updateData[key]);
-            }
+    const username = normalizeUsername(req.body.username);
+    const editableFields = [
+        'score', 'chessLevel', 'caroLevel', 'memoryLevel', 'crosswordLevel',
+        'englishSpeechLevel', 'detectiveLevel', 'goLevel', 'othelloLevel',
+        'storyLevel', 'shapeLevel', 'buildLevel', 'paintingLevel',
+        'monopolyLevel', 'vietSpeechLevel', 'musicLevel', 'playtimeLimitMinutes'
+    ];
+
+    const updateData = {};
+    for (const key of editableFields) {
+        if (req.body[key] !== undefined) {
+            const max = key === 'score' ? 1_000_000_000 : key === 'playtimeLimitMinutes' ? 1440 : 1000;
+            updateData[key] = clampInteger(req.body[key], 0, max, 0);
         }
-        await User.updateOne({ username }, { $set: updateData });
-        res.json({ message: 'Đã cập nhật đầy đủ 11 cấp độ cho ' + username });
-    } catch(e) {
-        res.status(500).json({ message: 'Lỗi khi cập nhật dữ liệu' });
+    }
+
+    try {
+        const result = await User.updateOne({ username }, { $set: updateData });
+        if (!result.matchedCount) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+        }
+        res.json({ message: `Đã cập nhật dữ liệu cho ${username}.` });
+    } catch (error) {
+        console.error('Lỗi cập nhật user:', error);
+        res.status(500).json({ message: 'Lỗi khi cập nhật dữ liệu.' });
     }
 });
 // Lấy danh sách user
@@ -735,22 +1059,68 @@ app.get('/api/admin/all-users', async (req, res) => {
 });
 // Tạo user nhanh
 app.post('/api/admin/create-user', async (req, res) => {
-    const { username, password, role } = req.body;
+    const username = normalizeUsername(req.body.username);
+    const password = String(req.body.password || '');
+    const role = ['parent', 'child'].includes(req.body.role) ? req.body.role : 'child';
+    const requestedParentCode = String(req.body.parentCode || '').trim();
+
+    if (!isValidUsername(username) || username.toLowerCase() === 'admin') {
+        return res.status(400).json({ message: 'Tên tài khoản không hợp lệ hoặc đã được dành riêng.' });
+    }
+    if (password.length < 6 || password.length > 72) {
+        return res.status(400).json({ message: 'Mật khẩu phải dài từ 6 đến 72 ký tự.' });
+    }
+
     try {
+        const exists = await User.findOne({
+            username: { $regex: new RegExp(`^${escapeRegExp(username)}$`, 'i') }
+        }).lean();
+        if (exists) return res.status(409).json({ message: 'Tên tài khoản đã tồn tại.' });
+
+        let parent = null;
+        let parentCode = null;
+        if (role === 'parent') {
+            parentCode = `P-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+        } else if (requestedParentCode) {
+            parent = await User.findOne({ role: 'parent', parentCode: requestedParentCode });
+            if (!parent) return res.status(400).json({ message: 'Mã phụ huynh không tồn tại.' });
+            parentCode = parent.parentCode;
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({
-            username, password: hashedPassword, role,
-            parentCode: role === 'parent' ? 'P-' + Date.now() : null
+        const newUser = await User.create({ username, password: hashedPassword, role, parentCode });
+
+        if (parent) {
+            await User.updateOne({ _id: parent._id }, { $addToSet: { children: newUser.username } });
+        }
+
+        res.status(201).json({
+            message: role === 'parent'
+                ? `Tạo phụ huynh thành công. Mã liên kết: ${parentCode}`
+                : 'Tạo tài khoản trẻ em thành công.'
         });
-        await newUser.save();
-        res.json({ message: 'Tạo thành công' });
-    } catch(e) { res.status(400).json({ message: 'Lỗi tạo user' }); }
+    } catch (error) {
+        console.error('Lỗi tạo user:', error);
+        res.status(error?.code === 11000 ? 409 : 500).json({ message: 'Không thể tạo tài khoản.' });
+    }
 });
 
 // Xóa user
 app.post('/api/admin/delete-user', async (req, res) => {
-    await User.deleteOne({ username: req.body.username });
-    res.json({ message: 'Đã xóa user' });
+    const username = normalizeUsername(req.body.username);
+    if (!username || username.toLowerCase() === 'admin' || username === req.session.user.username) {
+        return res.status(400).json({ message: 'Không thể xóa tài khoản quản trị đang dùng.' });
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ message: 'Người dùng không tồn tại.' });
+
+    if (user.role === 'parent' && user.parentCode) {
+        await User.updateMany({ parentCode: user.parentCode }, { $set: { parentCode: null } });
+    }
+    await User.updateMany({ children: username }, { $pull: { children: username } });
+    await User.deleteOne({ _id: user._id });
+    res.json({ message: 'Đã xóa user.' });
 });
 
 // Khóa/Mở khóa
@@ -779,9 +1149,113 @@ app.post('/api/admin/reset-password', async (req, res) => {
 });
 
 // Broadcast thông báo
-app.post('/api/admin/broadcast', (req, res) => {
-    io.emit('adminNotification', { title: 'Thông Báo Từ Admin', message: req.body.message });
-    res.json({ message: 'Đã gửi broadcast' });
+app.post('/api/admin/broadcast', async (req, res) => {
+    const message = String(req.body.message || '').trim();
+    if (!message) return res.status(400).json({ message: 'Nội dung thông báo không được để trống.' });
+
+    const notification = await Notification.create({
+        title: 'Thông Báo Từ Admin',
+        content: message,
+        type: 'info'
+    });
+    io.emit('adminNotification', { title: notification.title, message: notification.content, type: notification.type });
+    res.json({ message: 'Đã gửi broadcast.' });
+});
+
+app.post('/api/admin/send-notification', async (req, res) => {
+    const username = normalizeUsername(req.body.username);
+    const message = String(req.body.message || '').trim();
+    if (!username || !message) {
+        return res.status(400).json({ message: 'Thiếu người nhận hoặc nội dung.' });
+    }
+
+    const user = await User.findOne({ username }).lean();
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người nhận.' });
+
+    const notification = await Notification.create({
+        title: 'Thông báo riêng từ Admin',
+        content: message,
+        type: 'info',
+        targetUsername: username
+    });
+
+    const socketId = onlineUsers[username];
+    if (socketId) {
+        io.to(socketId).emit('adminNotification', {
+            title: notification.title,
+            message: notification.content,
+            type: notification.type
+        });
+    }
+    res.json({ message: socketId ? 'Đã gửi thông báo trực tiếp.' : 'Đã lưu thông báo; người chơi sẽ thấy khi đăng nhập.' });
+});
+
+app.post('/api/admin/create-random-batch', async (req, res) => {
+    const count = clampInteger(req.body.count, 1, 100, 1);
+    const password = 'BotPassword123';
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const stamp = Date.now().toString(36).toUpperCase();
+    const created = [];
+
+    try {
+        for (let index = 1; index <= count; index += 1) {
+            const suffix = `${stamp}${String(index).padStart(3, '0')}`;
+            const parentUsername = `ParentBot_${suffix}`;
+            const childUsername = `ChildBot_${suffix}`;
+            const parentCode = `P-${suffix}`;
+
+            await User.create({
+                username: parentUsername,
+                password: hashedPassword,
+                role: 'parent',
+                parentCode,
+                children: [childUsername]
+            });
+            await User.create({
+                username: childUsername,
+                password: hashedPassword,
+                role: 'child',
+                parentCode
+            });
+            created.push({ parentUsername, childUsername, parentCode });
+        }
+
+        res.status(201).json({
+            message: `Đã tạo ${created.length} cặp bot. Mật khẩu chung: ${password}`,
+            created
+        });
+    } catch (error) {
+        console.error('Lỗi tạo bot hàng loạt:', error);
+        res.status(500).json({
+            message: `Đã tạo ${created.length}/${count} cặp trước khi gặp lỗi.`
+        });
+    }
+});
+
+app.post('/api/admin/transfer-child', async (req, res) => {
+    const childUsername = normalizeUsername(req.body.childUsername);
+    const newParentCode = String(req.body.newParentCode || '').trim();
+
+    const [child, newParent] = await Promise.all([
+        User.findOne({ username: childUsername, role: 'child' }),
+        User.findOne({ parentCode: newParentCode, role: 'parent' })
+    ]);
+
+    if (!child) return res.status(404).json({ message: 'Không tìm thấy tài khoản trẻ em.' });
+    if (!newParent) return res.status(404).json({ message: 'Không tìm thấy phụ huynh mới.' });
+
+    if (child.parentCode) {
+        await User.updateMany(
+            { role: 'parent', parentCode: child.parentCode },
+            { $pull: { children: child.username } }
+        );
+    }
+
+    child.parentCode = newParent.parentCode;
+    await child.save();
+    await User.updateOne({ _id: newParent._id }, { $addToSet: { children: child.username } });
+
+    res.json({ message: `Đã chuyển ${child.username} sang phụ huynh mới.` });
 });
 
 // Giao nhiệm vụ (Quest) - Đã khôi phục logic lưu vào DB
@@ -899,42 +1373,58 @@ function updateQuestProgress(user, taskType, performance = { timeTaken: 0, isWin
     }
 }
 async function handleWin(req, res, gameKey, points = 10, taskName = '') {
-    if (!req.session.user) return res.status(401).json({ message: 'Chưa login' });
-    
+    if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập.' });
+
     try {
         const user = await User.findOne({ username: req.session.user.username });
-        
-        // 1. Lấy cấp độ bé vừa chơi xong (Gửi từ máy bé lên)
-        const finishedLevel = parseInt(req.body.level) || 1; 
-        // 2. Lấy cấp độ cao nhất bé đang có trong Database
-        const currentMaxLevel = user[gameKey] || 1;
+        if (!user) return res.status(404).json({ message: 'Không tìm thấy người chơi.' });
+        if (user.isSuspended) return res.status(403).json({ message: 'Tài khoản đã bị khóa.' });
+
+        const finishedLevel = clampInteger(req.body.level, 1, 1000, 1);
+        const currentMaxLevel = Math.max(1, user[gameKey] || 1);
+
+        if (finishedLevel > currentMaxLevel) {
+            return res.status(400).json({
+                message: `Tiến trình không hợp lệ. Hãy hoàn thành cấp ${currentMaxLevel} trước.`
+            });
+        }
 
         let addedScore = 0;
         let isNewLevel = false;
 
-        // 3. CHỈ TẶNG ĐIỂM NẾU BÉ VƯỢT QUA CẤP ĐỘ MỚI
-        if (finishedLevel >= currentMaxLevel) {
-            user.score += points;
-            user[gameKey] = finishedLevel + 1; // Tăng mốc level mới trong DB
+        if (finishedLevel === currentMaxLevel) {
+            user.score = Math.max(0, user.score || 0) + points;
+            user[gameKey] = currentMaxLevel + 1;
             addedScore = points;
             isNewLevel = true;
+            user.history.push({
+                activity: `🎮 Hoàn thành ${taskName || gameKey} cấp ${finishedLevel}: +${points}đ`,
+                timestamp: new Date()
+            });
         }
 
-        // Cập nhật nhiệm vụ (Nếu có)
-        updateQuestProgress(user, taskName, { timeTaken: req.body.timeTaken || 0, isWin: true });
+        updateQuestProgress(user, taskName, {
+            timeTaken: clampInteger(req.body.timeTaken, 0, 24 * 60 * 60, 0),
+            isWin: true
+        });
 
+        if (user.history.length > 300) {
+            user.history = user.history.slice(-300);
+        }
+
+        user.lastActiveAt = new Date();
         user.markModified('quests');
         await user.save();
 
-        res.json({ 
-            message: isNewLevel ? `Chúc mừng! +${points}💎` : 'Bé đã hoàn thành cấp này trước đó rồi!', 
-            newScore: user.score, 
-            addedPoints: addedScore, // Sẽ trả về 0 nếu chơi lại cấp cũ
+        res.json({
+            message: isNewLevel ? `Chúc mừng! +${points}💎` : 'Bạn đã hoàn thành cấp này trước đó rồi!',
+            newScore: user.score,
+            addedPoints: addedScore,
             newLevel: user[gameKey]
         });
-
-    } catch (e) { 
-        res.status(500).send("Lỗi: " + e.message); 
+    } catch (error) {
+        console.error(`Lỗi lưu chiến thắng ${gameKey}:`, error);
+        res.status(500).json({ message: 'Không thể lưu kết quả trận đấu.' });
     }
 }
 // --- HÀM TÍNH ĐIỂM THÔNG MINH (CÀNG KHÓ CÀNG NHIỀU QUÀ) ---
@@ -1300,135 +1790,236 @@ socket.on('findMatch', (gameType) => {
 // --- LOGIC ĐẤU TOÁN PVP ---
 const mathWaitingPlayers = {}; // Lưu danh sách chờ theo khối lớp { 1: socket, 2: socket }
 
-socket.on('findMathMatch', async (data) => {
-    const grade = data.grade;
-    const user = await User.findOne({ username: sessionUser.username });
-
-    // 1. Kiểm tra bé có đủ 100 điểm để cược không
-    if (!user || user.score < 100) {
-        return socket.emit('statusUpdate', { message: "❌ Bé không đủ 100 điểm để tham gia cược!" });
+socket.on('findMathMatch', async (data = {}) => {
+    if (!sessionUser) {
+        return socket.emit('statusUpdate', { message: '❌ Vui lòng đăng nhập trước khi tìm trận.' });
     }
 
-    if (mathWaitingPlayers[grade]) {
-        const opponent = mathWaitingPlayers[grade];
-        const roomId = `math-${opponent.id}-${socket.id}`;
-        delete mathWaitingPlayers[grade];
+    const grade = clampInteger(data.grade, 1, 12, 1);
+    const gradeKey = `grade${grade}`;
+    if (!tests.toan?.[gradeKey]?.easy?.length) {
+        return socket.emit('statusUpdate', { message: `❌ Chưa có bộ câu hỏi Toán lớp ${grade}.` });
+    }
 
-        socket.join(roomId);
-        opponent.join(roomId);
+    try {
+        const user = await User.findOne({ username: sessionUser.username }).select('score isSuspended');
+        if (!user || user.isSuspended) {
+            return socket.emit('statusUpdate', { message: '❌ Tài khoản không thể tham gia lúc này.' });
+        }
+        if (user.score < 100) {
+            return socket.emit('statusUpdate', { message: '❌ Bạn không đủ 100 điểm để tham gia cược!' });
+        }
 
-        // 2. Trừ 100 điểm cược của cả 2 bé ngay khi bắt đầu
-        await User.updateMany(
-            { username: { $in: [sessionUser.username, opponent.request.session.user.username] } },
-            { $inc: { score: -100 }, $push: { history: { activity: `Cược 100đ tham gia Đấu Toán lớp ${grade}` } } }
-        );
+        const queuedOpponent = mathWaitingPlayers[grade];
+        const opponentSession = queuedOpponent?.request?.session?.user;
+        if (queuedOpponent && queuedOpponent.connected && opponentSession && queuedOpponent.id !== socket.id) {
+            delete mathWaitingPlayers[grade];
 
-        gameRooms[roomId] = {
-            gameType: 'math',
-            players: {
-                [opponent.id]: { username: opponent.request.session.user.username, score: 0, answers: [] },
-                [socket.id]: { username: sessionUser.username, score: 0, answers: [] }
-            },
-            round: 1,
-            grade: grade
-        };
+            const opponentUser = await User.findOne({
+                username: opponentSession.username,
+                score: { $gte: 100 },
+                isSuspended: false
+            }).select('score');
 
-        io.to(roomId).emit('matchFound', { room: roomId, players: gameRooms[roomId].players });
-        sendNextQuestion(roomId);
+            if (!opponentUser) {
+                queuedOpponent.emit('statusUpdate', { message: '❌ Không còn đủ điểm để tham gia trận.' });
+                mathWaitingPlayers[grade] = socket;
+                return socket.emit('statusUpdate', { message: `🔍 Đang tìm đối thủ lớp ${grade}...` });
+            }
 
-    } else {
-        mathWaitingPlayers[grade] = socket;
-        socket.emit('statusUpdate', { message: `🔍 Đang tìm đối thủ lớp ${grade}...` });
+            const debitCurrent = await User.updateOne(
+                { username: sessionUser.username, score: { $gte: 100 } },
+                {
+                    $inc: { score: -100 },
+                    $push: { history: { activity: `Cược 100đ tham gia Đấu Toán lớp ${grade}`, timestamp: new Date() } }
+                }
+            );
+            if (!debitCurrent.modifiedCount) {
+                return socket.emit('statusUpdate', { message: '❌ Số điểm vừa thay đổi, vui lòng thử lại.' });
+            }
+
+            const debitOpponent = await User.updateOne(
+                { username: opponentSession.username, score: { $gte: 100 } },
+                {
+                    $inc: { score: -100 },
+                    $push: { history: { activity: `Cược 100đ tham gia Đấu Toán lớp ${grade}`, timestamp: new Date() } }
+                }
+            );
+            if (!debitOpponent.modifiedCount) {
+                await User.updateOne(
+                    { username: sessionUser.username },
+                    { $inc: { score: 100 }, $push: { history: { activity: 'Hoàn lại 100đ do đối thủ không đủ điều kiện', timestamp: new Date() } } }
+                );
+                mathWaitingPlayers[grade] = socket;
+                return socket.emit('statusUpdate', { message: `🔍 Đối thủ rời hàng chờ, đang tìm người khác...` });
+            }
+
+            const roomId = `math-${queuedOpponent.id}-${socket.id}`;
+            socket.join(roomId);
+            queuedOpponent.join(roomId);
+
+            gameRooms[roomId] = {
+                gameType: 'math',
+                players: {
+                    [queuedOpponent.id]: { username: opponentSession.username, score: 0, answers: [] },
+                    [socket.id]: { username: sessionUser.username, score: 0, answers: [] }
+                },
+                round: 1,
+                maxRounds: 10,
+                grade,
+                roundResolved: false
+            };
+
+            io.to(roomId).emit('matchFound', {
+                room: roomId,
+                players: gameRooms[roomId].players,
+                stake: 100
+            });
+            sendNextQuestion(roomId);
+        } else {
+            mathWaitingPlayers[grade] = socket;
+            socket.emit('statusUpdate', { message: `🔍 Đang tìm đối thủ lớp ${grade}...` });
+        }
+    } catch (error) {
+        console.error('Lỗi tìm trận Toán:', error);
+        socket.emit('statusUpdate', { message: '❌ Không thể tìm trận lúc này.' });
     }
 });
 
-// Hàm lấy câu hỏi ngẫu nhiên và gửi cho 2 bé
 function sendNextQuestion(roomId) {
     const room = gameRooms[roomId];
-    const gradeKey = 'grade' + room.grade;
-    const questions = tests['toan'][gradeKey]['easy']; // Lấy từ question-data.js
+    if (!room || room.gameType !== 'math') return;
+
+    const gradeKey = `grade${room.grade}`;
+    const questions = tests.toan?.[gradeKey]?.easy || [];
+    if (!questions.length) {
+        io.to(roomId).emit('gameError', { message: 'Không có câu hỏi phù hợp.' });
+        return handleMathGameOver(roomId, 'question_error');
+    }
+
     const qData = questions[Math.floor(Math.random() * questions.length)];
+    room.currentCorrectAnswer = qData.correct;
+    room.roundResolved = false;
 
     io.to(roomId).emit('newQuestion', {
         question: qData.q,
         options: qData.a,
-        round: room.round
+        round: room.round,
+        totalRounds: room.maxRounds
     });
-    room.currentCorrectAnswer = qData.correct;
 }
 
-socket.on('submitAnswer', async (data) => {
+socket.on('submitAnswer', async (data = {}) => {
     const room = gameRooms[data.room];
-    if (!room) return;
+    if (!room || room.gameType !== 'math' || room.roundResolved) return;
 
     const player = room.players[socket.id];
-    if (data.answer === room.currentCorrectAnswer) {
-        player.score += 10; // Cộng điểm tạm thời trong trận
-    }
+    if (!player) return;
 
-    // Kiểm tra xem cả 2 đã trả lời chưa
-    const allAnswered = Object.values(room.players).every(p => p.answers.length === room.round);
-    // (Lưu ý: Bạn cần thêm logic lưu câu trả lời vào mảng answers để kiểm tra)
+    const alreadyAnswered = player.answers.some(answer => answer.round === room.round);
+    if (alreadyAnswered) return;
 
-    if (room.round < 10) {
-        room.round++;
-        sendNextQuestion(data.room);
-    } else {
-        handleMathGameOver(data.room);
-    }
+    const isCorrect = data.answer === room.currentCorrectAnswer;
+    player.answers.push({ round: room.round, answer: data.answer, isCorrect });
+    if (isCorrect) player.score += 10;
+
+    const allAnswered = Object.values(room.players).every(p =>
+        p.answers.some(answer => answer.round === room.round)
+    );
+
+    io.to(data.room).emit('answerProgress', {
+        answered: Object.values(room.players).filter(p =>
+            p.answers.some(answer => answer.round === room.round)
+        ).length,
+        total: Object.keys(room.players).length
+    });
+
+    if (!allAnswered) return;
+
+    room.roundResolved = true;
+    io.to(data.room).emit('roundResult', {
+        round: room.round,
+        correctAnswer: room.currentCorrectAnswer,
+        players: room.players
+    });
+
+    setTimeout(() => {
+        const latestRoom = gameRooms[data.room];
+        if (!latestRoom) return;
+        if (latestRoom.round < latestRoom.maxRounds) {
+            latestRoom.round += 1;
+            sendNextQuestion(data.room);
+        } else {
+            handleMathGameOver(data.room);
+        }
+    }, 800);
 });
 
-async function handleMathGameOver(roomId) {
+async function handleMathGameOver(roomId, reason = 'completed') {
     const room = gameRooms[roomId];
-    const pIds = Object.keys(room.players);
-    const p1 = room.players[pIds[0]];
-    const p2 = room.players[pIds[1]];
+    if (!room || room.gameType !== 'math') return;
 
-    let resultMsg = "";
+    const playerIds = Object.keys(room.players);
+    if (playerIds.length < 2) {
+        for (const player of Object.values(room.players)) {
+            await User.updateOne(
+                { username: player.username },
+                { $inc: { score: 100 }, $push: { history: { activity: 'Hoàn lại 100đ do trận Toán bị hủy', timestamp: new Date() } } }
+            );
+        }
+        io.to(roomId).emit('gameOver', { players: room.players, reason });
+        delete gameRooms[roomId];
+        return;
+    }
 
-    // 3. TÍNH ĐIỂM THƯỞNG CUỐI TRẬN THEO YÊU CẦU
+    const p1 = room.players[playerIds[0]];
+    const p2 = room.players[playerIds[1]];
+
     if (p1.score > p2.score) {
-        // P1 Thắng: Nhận 200 (đã trừ 100 lúc đầu -> lãi 100)
-        await User.updateOne({ username: p1.username }, { $inc: { score: 200 } });
-        // P2 Thua: Không nhận gì (mất 100 đã cược)
+        await User.updateOne(
+            { username: p1.username },
+            { $inc: { score: 200 }, $push: { history: { activity: '🏆 Thắng Đấu Toán: nhận 200đ', timestamp: new Date() } } }
+        );
     } else if (p2.score > p1.score) {
-        await User.updateOne({ username: p2.username }, { $inc: { score: 200 } });
+        await User.updateOne(
+            { username: p2.username },
+            { $inc: { score: 200 }, $push: { history: { activity: '🏆 Thắng Đấu Toán: nhận 200đ', timestamp: new Date() } } }
+        );
     } else {
-        // Hòa: Mỗi bé nhận lại 50 (mất 50 so với lúc đầu)
         await User.updateMany(
             { username: { $in: [p1.username, p2.username] } },
-            { $inc: { score: 50 } }
+            { $inc: { score: 50 }, $push: { history: { activity: '🤝 Hòa Đấu Toán: nhận lại 50đ', timestamp: new Date() } } }
         );
     }
 
-    io.to(roomId).emit('gameOver', { players: room.players });
+    io.to(roomId).emit('gameOver', { players: room.players, reason });
     delete gameRooms[roomId];
 }
-    // Tìm đoạn socket.on('timeoutLoss'...) và sửa lại thứ tự như sau:
-socket.on('timeoutLoss', async ({ room, loserUsername, gameType }) => {
+socket.on('timeoutLoss', async ({ room, loserUsername }) => {
     const roomData = gameRooms[room];
-    if (roomData) {
-        const winnerId = roomData.players.find(id => id !== socket.id);
-        const winnerUsername = roomData.playerNames[winnerId];
+    if (!roomData || !Array.isArray(roomData.players)) return;
 
-        // 1. Cập nhật kết quả Giải đấu (Lấy winnerUsername đã định nghĩa ở trên)
-        if (room.startsWith('TOUR-')) {
-    await Tournament.updateOne(
-        { $or: [ { "brackets.matchId": room }, { "brackets.matches.matchId": room } ] },
-        { 
-            $set: { 
-                "brackets.$.winner": winnerUsername, // Dành cho Knockout
-                "brackets.$[].matches.$[m].winner": winnerUsername // Dành cho Vòng Bảng
-            } 
-        },
-        { arrayFilters: [{ "m.matchId": room }] }
-    );
-}
-        // 2. Thông báo và cộng điểm như cũ
-        io.to(room).emit('gameOver', { winner: winnerUsername, reason: 'timeout', loser: loserUsername });
-        await User.updateOne({ username: winnerUsername }, { $inc: { score: 20 } });
-        delete gameRooms[room];
+    const winnerId = roomData.players.find(id => id !== socket.id);
+    const winnerUsername = roomData.playerNames?.[winnerId];
+    if (!winnerUsername) return;
+
+    if (room.startsWith('TOUR-')) {
+        await recordTournamentWinner(room, winnerUsername);
     }
+
+    io.to(room).emit('gameOver', {
+        winner: winnerUsername,
+        reason: 'timeout',
+        loser: loserUsername
+    });
+    await User.updateOne(
+        { username: winnerUsername },
+        {
+            $inc: { score: 20 },
+            $push: { history: { activity: '🏆 Thắng do đối thủ hết giờ: +20đ', timestamp: new Date() } }
+        }
+    );
+    delete gameRooms[room];
 });
     // --- BỔ SUNG: LOGIC TẠO PHÒNG & VÀO PHÒNG CỜ VUA ---
     
@@ -1623,6 +2214,14 @@ const MONOPOLY_COLORS = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
 function addPlayerToMonopolyRoom(roomId, socket, username) {
     const room = monopolyGames[roomId];
     if (!room) return;
+    if (room.players.some(player => player.id === socket.id)) {
+        socket.emit('errorMsg', 'Bé đã ở trong phòng này rồi!');
+        return;
+    }
+    if (room.players.some(player => player.username.toLowerCase() === String(username).toLowerCase())) {
+        socket.emit('errorMsg', 'Tài khoản này đã tham gia phòng ở một thiết bị khác.');
+        return;
+    }
 
     // Lấy màu dựa trên số thứ tự người vào (0 đến 7)
     const colorIndex = room.players.length;
@@ -1663,7 +2262,8 @@ function addPlayerToMonopolyRoom(roomId, socket, username) {
     });
 
     // 2. Vào phòng bằng mã
-    socket.on('joinMonopolyRoom', (roomId) => {
+    socket.on('joinMonopolyRoom', (rawRoomId) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
         if (room && room.state === 'waiting') {
             if (room.players.length >= 8) {
@@ -1703,191 +2303,324 @@ function addPlayerToMonopolyRoom(roomId, socket, username) {
         }
     });
 
+    async function finishMonopolyGame(roomId, requestedWinnerId = null) {
+        const room = monopolyGames[roomId];
+        if (!room || room.finishing || room.state !== 'playing' || !room.gameLogic) return false;
+
+        const activePlayers = typeof room.gameLogic.getActivePlayers === 'function'
+            ? room.gameLogic.getActivePlayers()
+            : room.gameLogic.players.filter(player => !player.isBankrupt && player.money > 0);
+
+        if (activePlayers.length !== 1) return false;
+        const winner = activePlayers[0];
+        if (requestedWinnerId && winner.id !== requestedWinnerId) return false;
+
+        room.finishing = true;
+        room.state = 'finished';
+        if (room.auctionInterval) clearInterval(room.auctionInterval);
+
+        let newScore = null;
+        let newLevel = null;
+        try {
+            const user = await User.findOne({
+                username: { $regex: `^${escapeRegExp(winner.username)}$`, $options: 'i' }
+            });
+            if (user) {
+                user.score = Math.max(0, Number(user.score) || 0) + 200;
+                user.monopolyLevel = Math.max(1, Number(user.monopolyLevel) || 1) + 1;
+                user.history.push({
+                    activity: `Vô địch Cờ Tỷ Phú - Cấp ${user.monopolyLevel}`,
+                    timestamp: new Date()
+                });
+                if (user.history.length > 200) user.history = user.history.slice(-200);
+                await user.save();
+                newScore = user.score;
+                newLevel = user.monopolyLevel;
+            }
+        } catch (error) {
+            console.error('Không thể lưu thưởng Cờ Tỷ Phú:', error);
+        }
+
+        io.to(roomId).emit('monopolyGameOver', {
+            winner: winner.username,
+            reward: newScore === null ? 0 : 200,
+            newScore,
+            newLevel
+        });
+        delete monopolyGames[roomId];
+        return true;
+    }
+
     // 4. Chủ phòng BẮT ĐẦU GAME
     socket.on('startMonopoly', (roomId) => {
-        const room = monopolyGames[roomId];
-        if (room && room.hostId === socket.id) {
-            if (room.players.length < 2) {
-                socket.emit('errorMsg', 'Cần ít nhất 2 người để chơi!');
-                return;
-            }
-
-            room.state = 'playing';
-            // Khởi tạo Logic Game từ file monopoly-logic.js
-            // Lưu ý: Cần đảm bảo file monopoly-logic.js hỗ trợ nạp danh sách players
-            room.gameLogic = new MonopolyGame(roomId); 
-            room.gameLogic.players = room.players; // Gán danh sách người chơi từ sảnh vào game logic
-            
-            // Broadcast bắt đầu
-            io.to(roomId).emit('monopolyUpdate', {
-                gameState: 'playing',
-                players: room.players,
-                turnIndex: 0,
-                logs: ['🏁 Trận đấu bắt đầu!']
-            });
-            
-            io.to(roomId).emit('turnChanged', { turn: room.players[0].id });
+        const room = monopolyGames[String(roomId || '').trim().toUpperCase()];
+        if (!room || room.hostId !== socket.id || room.state !== 'waiting') return;
+        if (room.players.length < 2) {
+            socket.emit('errorMsg', 'Cần ít nhất 2 người để chơi!');
+            return;
         }
+
+        room.state = 'playing';
+        room.hasRolled = false;
+        room.awaitingDecision = null;
+        room.gameLogic = new MonopolyGame(room.id);
+        room.gameLogic.players = room.players.map(player => ({
+            ...player,
+            properties: Array.isArray(player.properties) ? player.properties : [],
+            isJailed: Boolean(player.isJailed || player.inJail),
+            jailTurns: Number(player.jailTurns) || 0,
+            isBankrupt: false
+        }));
+        room.players = room.gameLogic.players;
+        room.gameLogic.state = 'playing';
+
+        io.to(room.id).emit('monopolyUpdate', {
+            gameState: 'playing',
+            players: room.players,
+            turnIndex: 0,
+            propertyHouses: {},
+            logs: ['🏁 Trận đấu bắt đầu!']
+        });
+        io.to(room.id).emit('turnChanged', { turn: room.players[0].id });
     });
 
-    // 5. Xử lý tung xúc xắc (Đã nâng cấp)
-    socket.on('rollDice', (roomId) => {
+    // 5. Tung xúc xắc: máy chủ kiểm tra đúng lượt và chỉ cho tung một lần.
+    socket.on('rollDice', async (rawRoomId) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
-        if (room && room.state === 'playing') {
-            const game = room.gameLogic;
-            const player = game.players[game.turnIndex];
-            
-            if (player.id !== socket.id) return;
+        if (!room || room.state !== 'playing' || !room.gameLogic) return;
 
-            const d1 = Math.floor(Math.random() * 6) + 1;
-            const d2 = Math.floor(Math.random() * 6) + 1;
-            
-            io.to(roomId).emit('diceRolled', { d1, d2 });
-                                   
-            // Gửi cập nhật vị trí
-            const moveRes = game.movePlayer(d1 + d2); 
+        const game = room.gameLogic;
+        const player = game.getCurrentPlayer();
+        if (!player || player.id !== socket.id) {
+            socket.emit('errorMsg', 'Chưa đến lượt của bé!');
+            return;
+        }
+        if (player.isBankrupt) {
+            socket.emit('errorMsg', 'Bé đã phá sản trong ván này.');
+            return;
+        }
+        if (room.hasRolled || room.awaitingDecision || room.auction) {
+            socket.emit('errorMsg', 'Bé đã tung xúc xắc hoặc đang xử lý một hành động khác.');
+            return;
+        }
 
+        room.hasRolled = true;
+        const d1 = Math.floor(Math.random() * 6) + 1;
+        const d2 = Math.floor(Math.random() * 6) + 1;
+        io.to(roomId).emit('diceRolled', { d1, d2 });
+
+        const moveRes = game.movePlayer(d1 + d2);
+        room.players = game.players;
         io.to(roomId).emit('monopolyUpdate', {
             players: game.players,
             turnIndex: game.turnIndex,
             propertyHouses: game.propertyHouses,
-            logs: [moveRes.message] // Giờ đây message đã có dữ liệu
+            logs: [moveRes.message]
         });
 
+        if (await finishMonopolyGame(roomId)) return;
+
         if (moveRes.action === 'buy') {
-            socket.emit('askBuyProperty', moveRes.player.position); // Gửi vị trí ô đất
+            room.awaitingDecision = { type: 'buy', playerId: socket.id, tileId: moveRes.player.position };
+            socket.emit('askBuyProperty', moveRes.player.position);
         } else {
             io.to(roomId).emit('enableEndTurn');
-        }
         }
     });
 
     // 6. Xử lý mua đất
-    socket.on('buyProperty', ({ roomId, choice }) => {
+    socket.on('buyProperty', ({ roomId: rawRoomId, choice }) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
-        if (room && room.state === 'playing') {
-            const game = room.gameLogic;
-            if (choice) {
-                // Gọi hàm mua đất trong logic
-                const buyRes = game.buyProperty(game.players[game.turnIndex].position);
-                if (buyRes) {
-                    io.to(roomId).emit('monopolyUpdate', {
-                        players: game.players,
-                        logs: [`💰 ${game.getCurrentPlayer().username} đã mua đất!`]
-                    });
-                }
-            }
-            socket.emit('enableEndTurn');
+        if (!room || room.state !== 'playing' || !room.gameLogic) return;
+
+        const game = room.gameLogic;
+        const player = game.getCurrentPlayer();
+        const decision = room.awaitingDecision;
+        if (!player || player.id !== socket.id || !room.hasRolled || decision?.type !== 'buy' || decision.playerId !== socket.id) {
+            socket.emit('errorMsg', 'Yêu cầu mua đất không hợp lệ.');
+            return;
         }
+
+        if (choice === true) {
+            const bought = game.buyProperty(decision.tileId);
+            if (!bought) {
+                socket.emit('errorMsg', 'Không thể mua ô đất này.');
+            } else {
+                io.to(roomId).emit('monopolyUpdate', {
+                    players: game.players,
+                    propertyHouses: game.propertyHouses,
+                    logs: [`💰 ${player.username} đã mua ${boardData[decision.tileId].name}!`]
+                });
+            }
+        }
+        room.awaitingDecision = null;
+        socket.emit('enableEndTurn');
     });
 
     // 7. Kết thúc lượt
-    socket.on('endTurn', (roomId) => {
+    socket.on('endTurn', (rawRoomId) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
-        if (room && room.state === 'playing') {
-            const nextP = room.gameLogic.nextTurn();
-            io.to(roomId).emit('monopolyUpdate', {
-                turnIndex: room.gameLogic.turnIndex,
-                players: room.gameLogic.players,
-                gameState: 'playing',
-                logs: [`👉 Lượt của ${nextP.username}`]
-            });
-            io.to(roomId).emit('turnChanged', { turn: nextP.id });
+        if (!room || room.state !== 'playing' || !room.gameLogic) return;
+
+        const game = room.gameLogic;
+        const currentPlayer = game.getCurrentPlayer();
+        if (!currentPlayer || currentPlayer.id !== socket.id) {
+            socket.emit('errorMsg', 'Chưa đến lượt của bé!');
+            return;
+        }
+        if (!room.hasRolled || room.awaitingDecision || room.auction) {
+            socket.emit('errorMsg', 'Bé cần hoàn tất hành động hiện tại trước khi kết thúc lượt.');
+            return;
+        }
+
+        const nextPlayer = game.nextTurn();
+        if (!nextPlayer) return;
+        room.hasRolled = false;
+        room.awaitingDecision = null;
+        io.to(roomId).emit('monopolyUpdate', {
+            turnIndex: game.turnIndex,
+            players: game.players,
+            gameState: 'playing',
+            logs: [`👉 Lượt của ${nextPlayer.username}`]
+        });
+        io.to(roomId).emit('turnChanged', { turn: nextPlayer.id });
+    });
+
+    // 8. Client chỉ được yêu cầu xác nhận; máy chủ tự kiểm tra người thắng thật.
+    socket.on('monopolyWin', async ({ roomId: rawRoomId, winnerId }) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
+        if (winnerId !== socket.id || !(await finishMonopolyGame(roomId, socket.id))) {
+            socket.emit('errorMsg', 'Chưa đủ điều kiện kết thúc ván đấu.');
         }
     });
 
-    // 8. Xử lý thắng game
-    socket.on('monopolyWin', async ({ roomId, winnerId }) => {
+    socket.on('buildHouse', ({ roomId: rawRoomId, tileId }) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
-        if (room && socket.id === winnerId) {
-            try {
-                const user = await User.findOne({ username: socket.request.session.user.username });
-                if (user) {
-                    user.score += 200; // Thắng game lớn thưởng nhiều hơn
-                    user.monopolyLevel = (user.monopolyLevel || 1) + 1;
-                    user.history.push({ activity: `Vô địch Cờ Tỷ Phú - Cấp ${user.monopolyLevel}`, timestamp: new Date() });
-                    await user.save();
-                    
-                    io.to(roomId).emit('monopolyGameOver', { 
-                        winner: user.username, 
-                        newScore: user.score, 
-                        newLevel: user.monopolyLevel 
-                    });
-                }
-            } catch (e) { console.error(e); }
-            delete monopolyGames[roomId];
+        if (!room || room.state !== 'playing' || !room.gameLogic || room.auction) return;
+
+        const game = room.gameLogic;
+        const player = game.getCurrentPlayer();
+        const safeTileId = clampInteger(tileId, 0, boardData.length - 1, -1);
+        if (!player || player.id !== socket.id || safeTileId < 0) {
+            socket.emit('errorMsg', 'Yêu cầu xây nhà không hợp lệ.');
+            return;
+        }
+
+        if (game.buildHouse(safeTileId)) {
+            io.to(roomId).emit('monopolyUpdate', {
+                players: game.players,
+                propertyHouses: game.propertyHouses,
+                logs: [`🏗️ ${player.username} đã xây nhà tại ${boardData[safeTileId].name}`]
+            });
+            socket.emit('buildSuccess', 'Xây nhà thành công!');
+        } else {
+            socket.emit('errorMsg', 'Bé chưa đủ điều kiện xây nhà ở đây!');
         }
     });
-socket.on('buildHouse', ({ roomId, tileId }) => {
+
+    // --- BỘ MÁY ĐẤU GIÁ ---
+    socket.on('startAuction', ({ roomId: rawRoomId, tileId }) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
-        if (room && room.gameLogic) {
-            const game = room.gameLogic;
-            if (game.buildHouse(tileId)) {
-                io.to(roomId).emit('monopolyUpdate', { 
-                    players: game.players, 
-                    propertyHouses: game.propertyHouses,
-                    logs: [`🏗️ ${game.getCurrentPlayer().username} đã xây nhà tại ô ${tileId}`]
-                });
-                socket.emit('buildSuccess', "Xây nhà thành công!");
-            } else {
-                socket.emit('errorMsg', "Bé chưa đủ điều kiện xây nhà ở đây!");
-            }
+        if (!room || room.state !== 'playing' || !room.gameLogic || room.auction) return;
+
+        const game = room.gameLogic;
+        const player = game.getCurrentPlayer();
+        const safeTileId = clampInteger(tileId, 0, boardData.length - 1, -1);
+        const tile = boardData[safeTileId];
+        const decision = room.awaitingDecision;
+        if (!player || player.id !== socket.id || !tile || !['property', 'railroad', 'utility'].includes(tile.type)
+            || game.boardState[safeTileId] || decision?.type !== 'buy' || decision.tileId !== safeTileId) {
+            socket.emit('errorMsg', 'Không thể mở đấu giá cho ô này.');
+            return;
         }
-    });
-// --- BỘ MÁY ĐẤU GIÁ ---
-    socket.on('startAuction', ({ roomId, tileId }) => {
-        const room = monopolyGames[roomId];
-        const tile = boardData[tileId];
+
+        room.awaitingDecision = null;
         room.auction = {
-            tileId,
-            highestBid: 10, // Giá khởi điểm
+            tileId: safeTileId,
+            highestBid: 10,
+            highestBidderId: null,
             highestBidder: null,
-            timer: 10 // 10 giây đếm ngược
+            timer: 10
         };
         io.to(roomId).emit('auctionStarted', { tile, auction: room.auction });
-        
-        // Chạy bộ đếm ngược đấu giá
-        const auctionInt = setInterval(() => {
-            room.auction.timer--;
-            io.to(roomId).emit('auctionTimer', room.auction.timer);
 
-            if (room.auction.timer <= 0) {
-                clearInterval(auctionInt);
-                endAuction(roomId);
+        room.auctionInterval = setInterval(() => {
+            const liveRoom = monopolyGames[roomId];
+            if (!liveRoom?.auction) {
+                clearInterval(room.auctionInterval);
+                return;
+            }
+            liveRoom.auction.timer -= 1;
+            io.to(roomId).emit('auctionTimer', liveRoom.auction.timer);
+            if (liveRoom.auction.timer <= 0) {
+                clearInterval(liveRoom.auctionInterval);
+                liveRoom.auctionInterval = null;
+                endAuction(roomId).catch(error => console.error('Lỗi kết thúc đấu giá:', error));
             }
         }, 1000);
     });
 
-    socket.on('placeBid', ({ roomId, bidAmount }) => {
+    socket.on('placeBid', ({ roomId: rawRoomId, bidAmount }) => {
+        const roomId = String(rawRoomId || '').trim().toUpperCase();
         const room = monopolyGames[roomId];
-        if (bidAmount > room.auction.highestBid) {
-            room.auction.highestBid = bidAmount;
-            room.auction.highestBidder = socket.request.session.user.username;
-            room.auction.timer = 6; // Reset lại 6 giây mỗi khi có người trả giá mới
-            io.to(roomId).emit('auctionUpdate', room.auction);
+        if (!room?.auction || room.state !== 'playing' || !room.gameLogic) return;
+
+        const bidder = room.gameLogic.players.find(player => player.id === socket.id && !player.isBankrupt);
+        const safeBid = clampInteger(bidAmount, 11, 1000000, 0);
+        if (!bidder || safeBid <= room.auction.highestBid || bidder.money < safeBid) {
+            socket.emit('errorMsg', 'Mức trả giá không hợp lệ hoặc bé không đủ tiền.');
+            return;
         }
+
+        room.auction.highestBid = safeBid;
+        room.auction.highestBidderId = bidder.id;
+        room.auction.highestBidder = bidder.username;
+        room.auction.timer = 6;
+        io.to(roomId).emit('auctionUpdate', room.auction);
     });
 
     async function endAuction(roomId) {
         const room = monopolyGames[roomId];
-        const { tileId, highestBid, highestBidder } = room.auction;
-        if (highestBidder) {
-            const game = room.gameLogic;
-            const winner = game.players.find(p => p.username === highestBidder);
-            if (winner && winner.money >= highestBid) {
-                winner.money -= highestBid;
-                game.boardState[tileId] = winner.id;
-                game.log(`🔨 Đấu giá: ${highestBidder} đã mua ${boardData[tileId].name} với giá $${highestBid}`);
-                io.to(roomId).emit('monopolyUpdate', { players: game.players, logs: game.logs });
-            }
+        if (!room?.auction || !room.gameLogic) return;
+
+        const { tileId, highestBid, highestBidderId, highestBidder } = room.auction;
+        const game = room.gameLogic;
+        const winner = game.players.find(player => player.id === highestBidderId && !player.isBankrupt);
+        const tile = boardData[tileId];
+
+        if (winner && tile && !game.boardState[tileId] && winner.money >= highestBid) {
+            winner.money -= highestBid;
+            game.boardState[tileId] = winner.id;
+            winner.properties = Array.isArray(winner.properties) ? winner.properties : [];
+            winner.properties.push(tileId);
+            game.log(`🔨 Đấu giá: ${highestBidder} đã mua ${tile.name} với giá $${highestBid}`);
+            io.to(roomId).emit('monopolyUpdate', {
+                players: game.players,
+                propertyHouses: game.propertyHouses,
+                logs: game.logs.slice(-3)
+            });
         }
+
         io.to(roomId).emit('auctionEnded');
         delete room.auction;
+        room.awaitingDecision = null;
+        io.to(roomId).emit('enableEndTurn');
+        await finishMonopolyGame(roomId);
     }
     // --- DISCONNECT ---
-    socket.on('disconnecting', () => {
+    socket.on('disconnecting', async () => {
         // Xóa khỏi hàng chờ
-        Object.keys(waitingPlayers).forEach(key => { if (waitingPlayers[key] === socket) delete waitingPlayers[key]; });
+        Object.keys(waitingPlayers).forEach(key => {
+            if (waitingPlayers[key] === socket) delete waitingPlayers[key];
+        });
+        Object.keys(mathWaitingPlayers).forEach(key => {
+            if (mathWaitingPlayers[key] === socket) delete mathWaitingPlayers[key];
+        });
         const idx = monopolyQueue.indexOf(socket.id);
         if(socket.houseRoom) socket.to(socket.houseRoom).emit('playerLeftHouse', socket.id);
         if (idx > -1) monopolyQueue.splice(idx, 1);
@@ -1896,9 +2629,20 @@ socket.on('buildHouse', ({ roomId, tileId }) => {
         for (const roomId of socket.rooms) {
             if (roomId !== socket.id) {
                 const room = gameRooms[roomId];
-                if(room) {
-                    if (room.gameType === 'caro') {
-                        // Logic đặc biệt cho Caro
+                if (room) {
+                    if (room.gameType === 'math') {
+                        const usernames = Object.values(room.players || {}).map(player => player.username);
+                        if (usernames.length) {
+                            await User.updateMany(
+                                { username: { $in: usernames } },
+                                {
+                                    $inc: { score: 100 },
+                                    $push: { history: { activity: 'Hoàn lại 100đ do đối thủ rời trận Đấu Toán', timestamp: new Date() } }
+                                }
+                            );
+                        }
+                        io.to(roomId).emit('gameOver', { players: room.players, reason: 'disconnect_refund' });
+                    } else if (room.gameType === 'caro') {
                         io.to(roomId).emit('playerLeft', { name: room.playerNames[socket.id] });
                     } else {
                         io.to(roomId).emit('opponentLeft');
@@ -1912,7 +2656,8 @@ socket.on('buildHouse', ({ roomId, tileId }) => {
         for (const [roomId, game] of Object.entries(monopolyGames)) {
             const pIdx = game.players.findIndex(p => p.id === socket.id);
             if (pIdx !== -1) {
-                io.to(roomId).emit('notification', `Người chơi đã thoát. Ván game hủy!`);
+                if (game.auctionInterval) clearInterval(game.auctionInterval);
+                io.to(roomId).emit('notification', 'Người chơi đã thoát. Ván game hủy!');
                 io.to(roomId).emit('monopolyGameOver', { reason: 'disconnect' });
                 delete monopolyGames[roomId];
             }
@@ -1967,65 +2712,111 @@ if (!gameRooms[roomId]) { // THÊM ĐOẠN NÀY
 
 });
 // --- HÀM TỰ ĐỘNG QUÉT VÀ XỬ THUA ---
-async function autoCheckForfeit() {
-    const now = new Date();
-    // Tìm giải đấu đang diễn ra
-    const tourney = await Tournament.findOne({ status: 'playing' });
-    if (!tourney) return;
+function getTournamentMatches(tourney) {
+    if (!Array.isArray(tourney?.brackets)) return [];
+    return tourney.brackets.flatMap(entry =>
+        Array.isArray(entry?.matches) ? entry.matches : [entry]
+    ).filter(Boolean);
+}
 
-    let hasChange = false;
-
-    // Duyệt qua tất cả các trận đấu
-    tourney.brackets.forEach(match => {
-        // Nếu trận chưa có người thắng và đã có lịch bắt đầu
-        if (!match.winner && match.startTime) {
-            const startTime = new Date(match.startTime);
-            const diffInMinutes = (now - startTime) / (1000 * 60);
-
-            // LUẬT 10 PHÚT: Nếu quá 10 phút mà chưa ai vào đấu để có winner
-            if (diffInMinutes > 10) {
-                match.winner = "Hòa (Cùng vắng mặt)"; // Hoặc "Xử thua" tùy bạn quy định
-                hasChange = true;
-                console.log(`[Tournament] Tự động đóng trận ${match.matchId} do quá giờ.`);
-            }
-        }
+async function recordTournamentWinner(matchId, winnerUsername) {
+    if (!matchId || !winnerUsername) return false;
+    const tourney = await Tournament.findOne({
+        status: 'playing',
+        $or: [
+            { 'brackets.matchId': matchId },
+            { 'brackets.matches.matchId': matchId }
+        ]
     });
+    if (!tourney) return false;
 
-    if (hasChange) {
+    let updated = false;
+    for (const entry of tourney.brackets) {
+        if (Array.isArray(entry?.matches)) {
+            const match = entry.matches.find(item => item.matchId === matchId);
+            if (match && !match.winner) {
+                match.winner = winnerUsername;
+                updated = true;
+                break;
+            }
+        } else if (entry?.matchId === matchId && !entry.winner) {
+            entry.winner = winnerUsername;
+            updated = true;
+            break;
+        }
+    }
+
+    if (updated) {
         tourney.markModified('brackets');
         await tourney.save();
-        // Gửi tín hiệu để tất cả các máy bé đang mở trang giải đấu tự tải lại lịch mới
-        io.emit('tournamentUpdated'); 
+        io.emit('tournamentUpdated');
     }
+    return updated;
 }
-async function sendMatchReminders() {
-    const now = new Date();
-    const tourney = await Tournament.findOne({ status: 'playing' });
-    if (!tourney) return;
 
-    tourney.brackets.forEach(match => {
-        if (!match.winner && match.startTime) {
-            const startTime = new Date(match.startTime);
-            const diffInMinutes = (startTime - now) / (1000 * 60);
+async function autoCheckForfeit() {
+    try {
+        const now = new Date();
+        const tourney = await Tournament.findOne({ status: 'playing' });
+        if (!tourney) return;
 
-            // Nếu còn đúng 5 phút nữa là bắt đầu
-            if (diffInMinutes > 4 && diffInMinutes <= 5) {
-                [match.p1, match.p2].forEach(username => {
-                    const socketId = onlineUsers[username];
-                    if (socketId) {
-                        io.to(socketId).emit('matchNotice', {
-                            title: "🔔 NHẮC HẸN THI ĐẤU",
-                            message: `Trận đấu môn ${tourney.gameType.toUpperCase()} của bé sắp bắt đầu vào lúc ${startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}!`,
-                            type: 'warning'
-                        });
-                    }
-                });
+        let hasChange = false;
+        for (const match of getTournamentMatches(tourney)) {
+            if (!match.winner && match.startTime) {
+                const startTime = new Date(match.startTime);
+                const diffInMinutes = (now - startTime) / (1000 * 60);
+                if (diffInMinutes > 10) {
+                    match.winner = 'Hòa (Cùng vắng mặt)';
+                    hasChange = true;
+                    console.log(`[Tournament] Tự động đóng trận ${match.matchId} do quá giờ.`);
+                }
             }
         }
-    });
+
+        if (hasChange) {
+            tourney.markModified('brackets');
+            await tourney.save();
+            io.emit('tournamentUpdated');
+        }
+    } catch (error) {
+        console.error('Lỗi tự động xử lý bỏ trận:', error);
+    }
 }
-setInterval(sendMatchReminders, 60000); // Kiểm tra mỗi phút
-// Cứ mỗi 1 phút, Server sẽ tự thực hiện kiểm tra 1 lần
+
+async function sendMatchReminders() {
+    try {
+        const now = new Date();
+        const tourney = await Tournament.findOne({ status: 'playing' });
+        if (!tourney) return;
+
+        for (const match of getTournamentMatches(tourney)) {
+            if (!match.winner && match.startTime) {
+                const startTime = new Date(match.startTime);
+                const diffInMinutes = (startTime - now) / (1000 * 60);
+                if (diffInMinutes > 4 && diffInMinutes <= 5) {
+                    const timeText = startTime.toLocaleTimeString('vi-VN', {
+                        timeZone: 'Asia/Ho_Chi_Minh',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    for (const playerUsername of [match.p1, match.p2]) {
+                        const socketId = onlineUsers[playerUsername];
+                        if (socketId) {
+                            io.to(socketId).emit('matchNotice', {
+                                title: '🔔 NHẮC HẸN THI ĐẤU',
+                                message: `Trận ${tourney.gameType.toUpperCase()} sắp bắt đầu lúc ${timeText}!`,
+                                type: 'warning'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Lỗi gửi nhắc lịch thi đấu:', error);
+    }
+}
+setInterval(sendMatchReminders, 60000);
 setInterval(autoCheckForfeit, 60000);
 function calculateAutoSchedule(matchIndex, totalMatches, startH, endH, days) {
     const matchesPerDay = Math.ceil(totalMatches / days);

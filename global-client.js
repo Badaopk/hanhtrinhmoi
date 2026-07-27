@@ -1,196 +1,180 @@
-// Tên file: global-client.js
-// NỘI DUNG ĐẦY ĐỦ (Đã nâng cấp với TẤT CẢ listener)
+// Tiện ích dùng chung cho Hành Tinh Mơ Ước v2.
+(() => {
+    'use strict';
 
-(function() {
-    // (Tính năng cũ: Kết nối Socket)
-    const currentUser = localStorage.getItem('currentUser');
-    let globalSocket;
+    let currentUser = localStorage.getItem('currentUser');
+    let heartbeatTimer = null;
+    let globalSocket = null;
 
-    if (currentUser) {
-        try {
-            globalSocket = io(); 
-
-            // (Cũ) Lắng nghe thông báo riêng
-            globalSocket.on('adminNotification', (data) => {
-                showAdminPopup(data.title, data.message);
-            });
-
-            // (Cũ) Bị đá do hết giờ
-            globalSocket.on('playtimeLimitExceeded', () => {
-                handlePlaytimeLimit();
-            });
-            
-            // (Cũ) Bị đá do khóa tài khoản
-            globalSocket.on('accountSuspended', (data) => {
-                handleAccountSuspended(data.message);
-            });
-            
-            // (Mới) Lắng nghe sự kiện Bảo Trì
-            globalSocket.on('maintenanceModeOn', (data) => {
-                handleMaintenanceMode(true, data.message);
-            });
-            globalSocket.on('maintenanceModeOff', (data) => {
-                handleMaintenanceMode(false, data.message);
-            });
-
-        } catch (e) {
-            console.warn("Socket.IO chưa được tải hoặc kết nối thất bại.", e);
-        }
+    function createElement(tag, className, text) {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        if (text !== undefined) element.textContent = text;
+        return element;
     }
 
-    // (Tính năng cũ: Heartbeat)
-    let heartbeatInterval;
-    async function sendHeartbeat() {
-        if (!currentUser) {
-             if (heartbeatInterval) clearInterval(heartbeatInterval);
-             return;
+    function showToast({ title = 'Thông báo', message = '', type = 'info', actionText, actionUrl, duration = 15000 }) {
+        const container = document.getElementById('global-toast-container') || (() => {
+            const node = createElement('div', 'global-toast-container');
+            node.id = 'global-toast-container';
+            node.setAttribute('aria-live', 'polite');
+            document.body.appendChild(node);
+            return node;
+        })();
+
+        const toast = createElement('section', `global-toast global-toast--${type}`);
+        const header = createElement('div', 'global-toast__header');
+        const heading = createElement('strong', 'global-toast__title', title);
+        const closeButton = createElement('button', 'global-toast__close', '×');
+        closeButton.type = 'button';
+        closeButton.setAttribute('aria-label', 'Đóng thông báo');
+        header.append(heading, closeButton);
+
+        const body = createElement('p', 'global-toast__message', message);
+        toast.append(header, body);
+
+        if (actionText && actionUrl) {
+            const action = createElement('a', 'global-toast__action', actionText);
+            action.href = actionUrl;
+            toast.appendChild(action);
         }
-        
+
+        let removed = false;
+        const remove = () => {
+            if (removed) return;
+            removed = true;
+            toast.classList.add('is-leaving');
+            setTimeout(() => toast.remove(), 220);
+        };
+        closeButton.addEventListener('click', remove);
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
+        if (duration > 0) setTimeout(remove, duration);
+        return toast;
+    }
+
+    function showBlockOverlay(title, message, linkText = 'Về trang đăng nhập') {
+        if (document.getElementById('block-overlay')) return;
+
+        const overlay = createElement('div', 'block-overlay');
+        overlay.id = 'block-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+
+        const panel = createElement('div', 'block-overlay__panel');
+        panel.append(
+            createElement('div', 'block-overlay__icon', '🛡️'),
+            createElement('h1', 'block-overlay__title', title),
+            createElement('p', 'block-overlay__message', message)
+        );
+        const link = createElement('a', 'block-overlay__action', linkText);
+        link.href = '/login.html';
+        panel.appendChild(link);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        if (globalSocket) globalSocket.disconnect();
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('role');
+    }
+
+    function emitNotificationChange(detail = {}) {
+        window.dispatchEvent(new CustomEvent('hanhtrinh:notification', { detail }));
+    }
+
+    async function sendHeartbeat() {
+        if (!currentUser) return;
         try {
             const response = await fetch('/api/user/heartbeat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store'
             });
-            
-            if (!response.ok) {
-                 const errorData = await response.json();
-                 if (response.status === 403 || errorData.code === 'PLAYTIME_LIMIT_EXCEEDED') {
-                    handlePlaytimeLimit();
-                 }
-                 // (Mới) Check nếu bị khóa
-                 if (errorData.code === 'ACCOUNT_SUSPENDED') {
-                    handleAccountSuspended(errorData.message);
-                 }
-                 // (Mới) Check nếu bảo trì
-                 if (errorData.code === 'MAINTENANCE') {
-                     handleMaintenanceMode(true, errorData.message);
-                 }
-                 return;
+            const data = await response.json().catch(() => ({}));
+
+            if (response.status === 401) {
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('role');
+                window.dispatchEvent(new CustomEvent('hanhtrinh:session-expired'));
+                return;
             }
-            
-            const data = await response.json();
-            if (data.status === 'limit_exceeded') {
-                handlePlaytimeLimit();
+            if (data.code === 'PLAYTIME_LIMIT_EXCEEDED') {
+                showBlockOverlay('Đã hết thời gian chơi', 'Bạn đã dùng hết thời gian được phép hôm nay. Hãy nghỉ ngơi và quay lại vào ngày mai nhé!');
+            } else if (data.code === 'ACCOUNT_SUSPENDED') {
+                showBlockOverlay('Tài khoản đã bị khóa', data.message || 'Vui lòng liên hệ quản trị viên.');
+            } else if (data.code === 'MAINTENANCE') {
+                showBlockOverlay('Hệ thống đang bảo trì', data.message || 'Vui lòng quay lại sau.');
+            } else if (response.ok) {
+                window.dispatchEvent(new CustomEvent('hanhtrinh:heartbeat', { detail: data }));
             }
         } catch (error) {
-            console.error('Heartbeat error:', error);
+            console.warn('Không thể gửi heartbeat:', error.message);
         }
     }
 
-    // (Tính năng cũ: Hàm Overlay)
-    function showBlockOverlay(title, message, linkText = "Về Trang Chủ") {
-        if (document.getElementById('block-overlay')) return; 
-        
-        const overlay = document.createElement('div');
-        overlay.id = 'block-overlay';
-        overlay.style = `
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 9998;
-            display: flex; justify-content: center; align-items: center;
-            color: white; font-family: 'Baloo 2', cursive; text-align: center;
-        `;
-        overlay.innerHTML = `
-            <div style="background: #fff; color: #333; padding: 40px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.5);">
-                <h1 style="font-size: 2.5rem; color: #e74c3c;">${title}</h1>
-                <p style="font-size: 1.2rem;">${message}</p>
-                <a href="index.html" style="display: inline-block; padding: 10px 20px; background: #3498db; color: white; border-radius: 10px; text-decoration: none; font-weight: bold; margin-top: 20px;">${linkText}</a>
-            </div>
-        `;
-        document.body.appendChild(overlay);
+    function connectSocket() {
+        if (!currentUser || typeof window.io !== 'function' || globalSocket?.connected) return;
+        try {
+            globalSocket = window.io({ transports: ['websocket', 'polling'] });
+            window.hanhTrinhSocket = globalSocket;
 
-        // Ngắt kết nối tất cả socket
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
-        if (globalSocket) globalSocket.disconnect();
-        // Giả sử các trang game dùng 1 socket tên là 'socket'
-        if (typeof socket !== 'undefined' && socket.disconnect) socket.disconnect();
-        
-        // Đăng xuất user khỏi localStorage
-        localStorage.removeItem('currentUser');
-    }
-    
-    // (Hàm cũ)
-    function handlePlaytimeLimit() {
-        showBlockOverlay(
-            'Đã hết giờ!',
-            'Bạn đã sử dụng hết thời gian chơi cho ngày hôm nay. Hãy quay lại vào ngày mai nhé!'
-        );
-    }
-    
-    // (Hàm cũ)
-    function handleAccountSuspended(message) {
-         showBlockOverlay(
-            'Tài Khoản Bị Khóa!',
-            message || 'Tài khoản của bạn đã bị Admin tạm khóa. Vui lòng liên hệ Admin để biết thêm chi tiết.',
-            'Đăng xuất'
-        );
-    }
-    
-    // (Hàm mới)
-    function handleMaintenanceMode(isStarting, message) {
-        if (isStarting) {
-            // Bật bảo trì -> ĐÁ ra
-            showBlockOverlay(
-                'Hệ Thống Bảo Trì',
-                message || 'Hệ thống đang bảo trì. Vui lòng quay lại sau.',
-                'Đăng xuất'
-            );
-        } else {
-            // Tắt bảo trì -> Hiển thị thông báo nhẹ nhàng
-            showAdminPopup(
-                'Hệ Thống Mở Lại',
-                message || 'Hệ thống đã bảo trì xong! Vui lòng tải lại trang để tiếp tục.'
-            );
-            // Xóa overlay nếu lỡ có
-            const overlay = document.getElementById('block-overlay');
-            if (overlay) overlay.remove();
+            globalSocket.on('adminNotification', data => {
+                showToast({
+                    title: data?.title || 'Thông báo từ Admin',
+                    message: data?.message || '',
+                    type: data?.type || 'info'
+                });
+                emitNotificationChange({ type: 'admin', data });
+            });
+
+            globalSocket.on('matchNotice', data => {
+                showToast({
+                    title: data?.title || 'Sắp đến giờ thi đấu',
+                    message: data?.message || '',
+                    type: 'warning',
+                    actionText: 'Đến sân vận động',
+                    actionUrl: '/giai-dau.html',
+                    duration: 30000
+                });
+                emitNotificationChange({ type: 'match', data });
+            });
+
+            globalSocket.on('playtimeLimitExceeded', () => {
+                showBlockOverlay('Đã hết thời gian chơi', 'Bạn đã dùng hết thời gian chơi được phép trong ngày hôm nay.');
+            });
+            globalSocket.on('accountSuspended', data => {
+                showBlockOverlay('Tài khoản đã bị khóa', data?.message || 'Vui lòng liên hệ quản trị viên.');
+            });
+            globalSocket.on('maintenanceModeOn', data => {
+                showBlockOverlay('Hệ thống đang bảo trì', data?.message || 'Vui lòng quay lại sau.');
+            });
+            globalSocket.on('maintenanceModeOff', data => {
+                const overlay = document.getElementById('block-overlay');
+                if (overlay) overlay.remove();
+                showToast({
+                    title: 'Hệ thống đã mở lại',
+                    message: data?.message || 'Bạn có thể tải lại trang để tiếp tục.',
+                    type: 'success'
+                });
+            });
+        } catch (error) {
+            console.warn('Socket.IO chưa sẵn sàng:', error.message);
         }
     }
 
-    // (Hàm cũ: Hiển thị popup)
-    function showAdminPopup(title, message) {
-        if (document.getElementById('admin-popup')) return; 
-
-        const popup = document.createElement('div');
-        popup.id = 'admin-popup';
-        popup.style = `
-            position: fixed; top: 20px; right: 20px;
-            background: #fff; border: 2px solid #3498db;
-            border-radius: 10px; padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10000;
-            max-width: 300px;
-            font-family: 'Arial', sans-serif;
-            transition: opacity 0.3s;
-            opacity: 0;
-        `;
-        popup.innerHTML = `
-            <h3 style="margin: 0 0 10px 0; color: #2980b9;">${title || 'Thông báo'}</h3>
-            <p style="margin: 0 0 15px 0; color: #333; max-height: 100px; overflow-y: auto;">${message}</p>
-            <button id="admin-popup-close" style="padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">Đã hiểu</button>
-        `;
-        document.body.appendChild(popup);
-        
-        setTimeout(() => { popup.style.opacity = '1'; }, 10);
-        
-        popup.querySelector('#admin-popup-close').onclick = () => {
-            popup.style.opacity = '0';
-            setTimeout(() => { popup.remove(); }, 300);
-        };
-
-        setTimeout(() => {
-            if (popup) {
-                popup.style.opacity = '0';
-                setTimeout(() => { popup.remove(); }, 300);
-            }
-        }, 15000);
+    function start() {
+        currentUser = localStorage.getItem('currentUser');
+        if (!currentUser) return;
+        connectSocket();
+        if (!heartbeatTimer) {
+            setTimeout(sendHeartbeat, 3000);
+            heartbeatTimer = setInterval(sendHeartbeat, 60000);
+        }
     }
 
-    // (Hàm cũ: Bắt đầu Heartbeat)
-    document.addEventListener('DOMContentLoaded', () => {
-        if (currentUser) {
-            setTimeout(sendHeartbeat, 5000); 
-            heartbeatInterval = setInterval(sendHeartbeat, 60000); 
-        }
-    });
+    document.addEventListener('DOMContentLoaded', start);
+    window.addEventListener('hanhtrinh:authenticated', start);
 
+    window.HanhTrinhClient = { showToast, start, getSocket: () => globalSocket };
 })();

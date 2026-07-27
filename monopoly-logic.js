@@ -23,7 +23,8 @@ class MonopolyGame {
             color: color,
             isJailed: false,
             jailTurns: 0,
-            properties: []
+            properties: [],
+            isBankrupt: false
         };
         this.players.push(newPlayer);
         this.log(`👋 ${username} đã tham gia game.`);
@@ -43,9 +44,29 @@ class MonopolyGame {
     }
 
     nextTurn() {
-        this.turnIndex = (this.turnIndex + 1) % this.players.length;
-        this.log(`👉 Chuyển lượt sang: ${this.getCurrentPlayer().username}`);
-        return this.getCurrentPlayer();
+        if (!this.players.length) return null;
+
+        let attempts = 0;
+        do {
+            this.turnIndex = (this.turnIndex + 1) % this.players.length;
+            attempts++;
+        } while (this.players[this.turnIndex]?.isBankrupt && attempts <= this.players.length);
+
+        const nextPlayer = this.getCurrentPlayer();
+        if (nextPlayer) this.log(`👉 Chuyển lượt sang: ${nextPlayer.username}`);
+        return nextPlayer;
+    }
+
+    getActivePlayers() {
+        return this.players.filter(player => !player.isBankrupt && player.money > 0);
+    }
+
+    markBankruptIfNeeded(player) {
+        if (!player || player.money > 0) return false;
+        player.money = 0;
+        player.isBankrupt = true;
+        this.log(`💥 ${player.username} đã phá sản và rời cuộc đua.`);
+        return true;
     }
 
     rollDice() {
@@ -97,19 +118,24 @@ class MonopolyGame {
                 }
             } else if (ownerId !== player.id) {
                 const rent = this.calculateRent(pos);
-                player.money -= rent;
                 const owner = this.players.find(p => p.id === ownerId);
-                if (owner) owner.money += rent;
-                
+                const paid = Math.min(Math.max(player.money, 0), rent);
+                player.money -= paid;
+                if (owner) owner.money += paid;
+
                 action = 'rent_paid';
-                this.log(`💸 ${player.username} trả $${rent} tiền thuê cho ${owner.username}.`);
-                message = `Bé đã trả $${rent} tiền thuê nhà cho bạn ${owner.username}.`;
+                const ownerName = owner?.username || 'ngân hàng';
+                this.log(`💸 ${player.username} trả $${paid} tiền thuê cho ${ownerName}.`);
+                message = `Bé đã trả $${paid} tiền thuê nhà cho ${ownerName}.`;
+                this.markBankruptIfNeeded(player);
             }
         } 
         else if (cell.type === 'tax') {
-            player.money -= cell.price;
-            this.log(`💸 ${player.username} đóng thuế $${cell.price}.`);
-            message = `Bé bị trừ $${cell.price} tiền thuế Hành tinh.`;
+            const paid = Math.min(Math.max(player.money, 0), cell.price);
+            player.money -= paid;
+            this.log(`💸 ${player.username} đóng thuế $${paid}.`);
+            message = `Bé bị trừ $${paid} tiền thuế Hành tinh.`;
+            this.markBankruptIfNeeded(player);
         }
         else if (cell.type === 'gotojail') {
             player.position = 10; 
@@ -125,9 +151,11 @@ class MonopolyGame {
                 this.log(`🍀 ${player.username} nhặt được rương kim cương: +$100.`);
                 message = "May mắn quá! Bé được tặng $100.";
             } else {
-                player.money -= 50;
-                this.log(`⚠️ ${player.username} làm hỏng phi thuyền: -$50.`);
-                message = "Xui xẻo rồi! Bé bị phạt $50.";
+                const penalty = Math.min(Math.max(player.money, 0), 50);
+                player.money -= penalty;
+                this.log(`⚠️ ${player.username} làm hỏng phi thuyền: -$${penalty}.`);
+                message = `Xui xẻo rồi! Bé bị phạt $${penalty}.`;
+                this.markBankruptIfNeeded(player);
             }
         }
 
@@ -137,6 +165,9 @@ class MonopolyGame {
     buyProperty(pos) {
         const player = this.getCurrentPlayer();
         const cell = boardData[pos];
+
+        if (!player || !cell || !['property', 'railroad', 'utility'].includes(cell.type)) return false;
+        if (player.isBankrupt) return false;
 
         if (player.money >= cell.price && !this.boardState[pos]) {
             player.money -= cell.price;
@@ -150,7 +181,8 @@ class MonopolyGame {
 
     calculateRent(pos) {
         const cell = boardData[pos];
-        const houses = this.propertyHouses[pos] || 0;
+        if (!cell) return 0;
+        const houses = Math.min(Math.max(this.propertyHouses[pos] || 0, 0), 5);
 
         if (cell.type === 'property' && cell.rent) {
             return cell.rent[houses]; 
@@ -167,7 +199,7 @@ class MonopolyGame {
 
     canBuildHouse(playerId, tileId) {
         const cell = boardData[tileId];
-        if (cell.type !== 'property') return false;
+        if (!cell || cell.type !== 'property') return false;
         if (this.boardState[tileId] !== playerId) return false;
 
         const sameGroupTiles = boardData.filter(t => t.group === cell.group);
@@ -189,6 +221,7 @@ class MonopolyGame {
         const player = this.getCurrentPlayer();
         const tile = boardData[tileId];
 
+        if (!player || player.isBankrupt || !tile) return false;
         if (this.canBuildHouse(player.id, tileId)) {
             if (player.money < tile.housePrice) return false;
             
