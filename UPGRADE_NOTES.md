@@ -1,4 +1,4 @@
-# Nhật ký nâng cấp 2.0
+# Nhật ký nâng cấp 3.0
 
 ## Lỗi đã sửa
 
@@ -27,3 +27,24 @@
 - Trạng thái máy chủ.
 - Toast thông báo chung, hỗ trợ mobile và giảm chuyển động.
 - Giao diện responsive từ 320 px trở lên.
+
+
+## Thế giới Trang Trí Phòng 3.0
+
+- Bản đồ nhỏ theo thời gian thực và bản đồ lớn có danh sách địa danh.
+- Dịch chuyển nhanh tới Làng Mơ Ước, Đồi Cầu Vồng, Núi Pha Lê, Sông Ước Mơ, Vườn Tuyết và Chợ Trên Mây.
+- Thêm ba cây cầu, quảng trường, đường đi, cột mốc phát sáng và sự kiện môi trường.
+- Chủ đề Mùa xuân, Hoàng hôn, Mùa đông và Huyền ảo.
+- Chế độ ngày/hoàng hôn/đêm, thời tiết quang đãng/mưa/tuyết/sương mù hoặc tự động.
+- Thêm 12 công trình thế giới: chòi nghỉ, cối xay gió, quầy chợ, đèn đường, ghế công viên, lửa trại, bàn dã ngoại, xích đu, cây anh đào, tinh thể, cổng dịch chuyển và biển chỉ dẫn.
+- Chặn khách tham quan xây/phá hoặc lưu đè thế giới của chủ nhà.
+- Sửa lỗi trạng thái đặc biệt của cửa, thang và công trình bị ghi đè khi tạo mô hình.
+
+## Đổi điểm sang Robux
+
+- Người chơi nhập tên Roblox và số Robux muốn đổi; không yêu cầu mật khẩu, OTP hoặc cookie.
+- Điểm được giữ ngay khi gửi yêu cầu để chống đổi trùng.
+- Giới hạn tối thiểu, tối đa/ngày và số yêu cầu đang mở được cấu hình bằng biến môi trường.
+- Người chơi xem lịch sử, trạng thái và có thể hủy yêu cầu đang chờ để hoàn điểm.
+- Admin có bảng duyệt, từ chối kèm hoàn điểm và đánh dấu đã trả.
+- Không tự động chuyển Robux; admin chỉ xác nhận sau khi thanh toán bằng phương thức chính thức của Roblox.

@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hành Tinh Mơ Ước - Final Polish 27.0</title>
+    <title>Hành Tinh Mơ Ước - Thế Giới 3.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -101,6 +101,100 @@
 
         /* Đẩy cái bảng "Đang ở nhà" xuống một chút để không bị đè lên nút trang chủ */
         #visit-badge { top: 80px !important; }
+
+
+        /* ===== THẾ GIỚI 3.0 ===== */
+        #world-status {
+            position: absolute; top: 20px; left: 185px; z-index: 101;
+            display: flex; gap: 8px; flex-wrap: wrap; pointer-events: none;
+        }
+        .world-chip {
+            background: rgba(20, 28, 45, 0.78); color: white; border: 2px solid rgba(255,255,255,.75);
+            border-radius: 14px; padding: 7px 12px; font-weight: 800; font-size: .95rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,.28); backdrop-filter: blur(7px);
+        }
+        #world-map-btn {
+            position: absolute; top: 20px; right: 160px; z-index: 102;
+            border: 3px solid white; border-radius: 15px; padding: 10px 16px;
+            background: #16a085; color: white; font: 800 1rem 'Baloo 2'; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,.35);
+        }
+        #minimap-wrap {
+            position: absolute; top: 78px; right: 20px; z-index: 99; width: 184px;
+            background: rgba(15,23,42,.78); border: 3px solid rgba(255,255,255,.8);
+            border-radius: 18px; padding: 7px; color: white; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+            backdrop-filter: blur(8px);
+        }
+        #minimap { display:block; width:164px; height:132px; border-radius:12px; background:#bde7ff; }
+        #minimap-label { text-align:center; font-weight:800; font-size:.9rem; margin-top:4px; }
+        .shop-toolbar { display:grid; grid-template-columns: 1.2fr .8fr; gap:8px; margin-bottom:10px; }
+        .shop-toolbar input, .shop-toolbar select, .world-select {
+            width:100%; border:2px solid #dfe6e9; border-radius:12px; padding:9px 10px;
+            font:700 1rem 'Baloo 2'; background:white; color:#2c3e50;
+        }
+        .world-map-canvas { width:100%; height:auto; max-height:270px; border-radius:16px; background:#dff4ff; border:3px solid #dfe6e9; }
+        .world-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; overflow:auto; padding:4px; }
+        .landmark-card {
+            border:3px solid #ecf0f1; border-radius:15px; padding:10px; background:white;
+            text-align:left; cursor:pointer; font-family:inherit; transition:.15s;
+        }
+        .landmark-card:hover { border-color:#16a085; transform:translateY(-2px); }
+        .landmark-card b { display:block; color:#2c3e50; font-size:1.05rem; }
+        .landmark-card small { color:#667085; line-height:1.25; }
+        .settings-box { background:#f6f8fb; border-radius:16px; padding:11px; margin-top:9px; }
+        .settings-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+        .world-owner-note { color:#7f8c8d; font-size:.9rem; text-align:center; margin:4px 0 0; }
+        #world-event-banner {
+            position:absolute; left:50%; top:88px; transform:translateX(-50%); z-index:98;
+            background:rgba(142,68,173,.88); color:white; border:2px solid white; border-radius:20px;
+            padding:7px 18px; font-weight:800; display:none; box-shadow:0 4px 14px rgba(0,0,0,.3);
+        }
+        @media screen and (max-width: 800px) {
+            #world-status { left:12px; top:70px; max-width:70vw; }
+            .world-chip { font-size:.76rem; padding:5px 8px; }
+            #world-map-btn { right:122px; top:18px; padding:9px 12px; font-size:.85rem; }
+            #minimap-wrap { display:none; }
+            .settings-row { grid-template-columns:1fr; }
+            .world-grid { grid-template-columns:1fr 1fr; }
+            #world-event-banner { top:115px; font-size:.85rem; }
+        }
+
+
+        /* ===== ĐỔI THƯỞNG ROBUX ===== */
+        #robux-open-btn {
+            position:absolute; top:20px; right:300px; z-index:102;
+            border:3px solid white; border-radius:15px; padding:10px 16px;
+            background:#e67e22; color:white; font:800 1rem 'Baloo 2'; cursor:pointer;
+            box-shadow:0 4px 10px rgba(0,0,0,.35);
+        }
+        .reward-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+        .reward-stat { background:#f6f8fb; border:2px solid #e4e8ee; border-radius:14px; padding:9px; text-align:center; }
+        .reward-stat b { display:block; color:#2c3e50; font-size:1.15rem; }
+        .reward-stat small { color:#667085; }
+        .reward-form { background:#fff8e8; border:2px solid #f6d28b; border-radius:16px; padding:12px; }
+        .reward-form label { display:block; color:#2c3e50; font-weight:800; margin:7px 0 4px; }
+        .reward-form input {
+            width:100%; border:2px solid #dfe6e9; border-radius:12px; padding:9px 10px;
+            font:700 1rem 'Baloo 2'; background:white; color:#2c3e50;
+        }
+        .reward-preview { margin:8px 0; padding:9px; border-radius:12px; background:white; color:#8a4b08; font-weight:800; text-align:center; }
+        .reward-warning { font-size:.88rem; color:#7f5a20; line-height:1.35; margin:8px 0 0; }
+        .reward-history { overflow-y:auto; flex:1; min-height:100px; margin-top:10px; }
+        .reward-row { border:2px solid #edf0f3; border-radius:14px; padding:10px; margin-bottom:8px; background:white; }
+        .reward-row-head { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+        .reward-code { font-weight:900; color:#2c3e50; }
+        .reward-meta { color:#667085; font-size:.9rem; line-height:1.35; margin-top:4px; }
+        .reward-status { border-radius:20px; padding:4px 9px; color:white; font-weight:800; font-size:.82rem; white-space:nowrap; }
+        .reward-status.pending { background:#f39c12; }
+        .reward-status.approved { background:#3498db; }
+        .reward-status.paid { background:#27ae60; }
+        .reward-status.rejected, .reward-status.cancelled { background:#7f8c8d; }
+        .reward-cancel { border:0; border-radius:10px; padding:7px 10px; background:#e74c3c; color:white; font:800 .9rem 'Baloo 2'; cursor:pointer; margin-top:7px; }
+        @media screen and (max-width: 800px) {
+            #robux-open-btn { display:none; }
+            .reward-summary { grid-template-columns:1fr 1fr 1fr; }
+        }
+
     </style>
 </head>
 <body>
@@ -111,6 +205,19 @@
     <div id="interaction-tooltip">[E] Tương tác</div>
     <div id="visit-badge">🏡 Đang ở nhà: <span id="host-name"></span></div>
     <div id="hotbar"></div>
+
+    <div id="world-status">
+        <div class="world-chip">📍 <span id="biome-name">Làng Mơ Ước</span></div>
+        <div class="world-chip">🕒 <span id="world-time">Ban ngày</span></div>
+        <div class="world-chip">☀️ <span id="world-weather">Quang đãng</span></div>
+    </div>
+    <div id="world-event-banner"></div>
+    <button id="world-map-btn" onclick="openWorldPanel()">🗺️ BẢN ĐỒ</button>
+    <button id="robux-open-btn" onclick="openRobuxPanel()">🎁 ĐỔI ROBUX</button>
+    <div id="minimap-wrap">
+        <canvas id="minimap" width="328" height="264" aria-label="Bản đồ nhỏ thế giới"></canvas>
+        <div id="minimap-label">M: mở bản đồ lớn</div>
+    </div>
 
     <button id="mobile-menu-btn" onclick="openPanel('ui-panel')">🎒 MỞ SHOP</button>
 
@@ -127,10 +234,10 @@
 
     <div id="blocker">
         <div id="instructions">
-            <h1>🌍 HÀNH TINH MƠ ƯỚC 27.0</h1>
+            <h1>🌍 HÀNH TINH MƠ ƯỚC 3.0</h1>
             <div id="pc-hint" style="margin-bottom: 20px; line-height: 1.6; font-size:1.1rem;">
                 <p>⌨️ <b>W, A, S, D</b>: Di chuyển | 🚀 <b>Space</b>: Nhảy</p>
-                <p>🛒 <b>Phím B</b>: Mở Shop | 🔄 <b>Phím R</b>: Giải cứu (Khi bị kẹt)</p>
+                <p>🛒 <b>B</b>: Mở Shop | 🗺️ <b>M</b>: Bản đồ | 🔄 <b>R</b>: Giải cứu</p>
                 <p>🚪 <b>Phím E</b>: Tương tác (Mở Cửa / Ngồi / Mở Tủ / Ngủ)</p>
                 <p>🖱️ <b>Chuột Trái/Phải</b>: Xây/Phá</p>
             </div>
@@ -144,6 +251,19 @@
             <button id="tab-btn-shop" class="tab-btn active" onclick="switchTab('shop')">Cửa Hàng</button>
             <button id="tab-btn-inv" class="tab-btn" onclick="switchTab('inv')">Ba Lô</button>
         </div>
+        <div class="shop-toolbar" id="shop-toolbar">
+            <input id="shop-search" type="search" placeholder="🔎 Tìm vật phẩm..." oninput="filterShop()">
+            <select id="shop-category" onchange="filterShop()">
+                <option value="all">Tất cả</option>
+                <option value="world">🌍 Công trình thế giới</option>
+                <option value="furniture">🛏️ Nội thất</option>
+                <option value="decor">🎨 Trang trí</option>
+                <option value="electronics">📺 Điện tử</option>
+                <option value="pet">🐾 Thú cưng</option>
+                <option value="paint">🧱 Khối tường</option>
+                <option value="floor">🌿 Địa hình</option>
+            </select>
+        </div>
         <div id="grid-shop" class="grid-container"></div>
         <div id="grid-inv" class="grid-container" style="display:none"></div>
         
@@ -151,9 +271,73 @@
             <button class="btn-general" style="background:#e74c3c; font-size: 1.2rem; padding: 15px;" onclick="saveHouse()">💾 LƯU THẾ GIỚI</button>
             <div class="panel-footer-row">
                 <button class="btn-general" style="background:#8e44ad;" onclick="visitFriend()">🌐 ĐI THĂM BẠN</button>
+                <button class="btn-general" style="background:#e67e22;" onclick="openRobuxPanel()">🎁 ĐỔI ROBUX</button>
                 <button class="btn-general" style="background:#34495e;" onclick="closePanels()">TIẾP TỤC</button>
-                <a href="index.html" id="home-btn">🏠 TRANG CHỦ</a>
             </div>
+        </div>
+    </div>
+
+
+    <div id="world-panel" class="panel">
+        <h2 style="text-align:center; color:#2c3e50; margin:0 0 8px;">🗺️ BẢN ĐỒ THẾ GIỚI</h2>
+        <canvas id="world-map-canvas" class="world-map-canvas" width="720" height="320" aria-label="Bản đồ các khu vực"></canvas>
+        <div id="landmark-grid" class="world-grid"></div>
+        <div class="settings-box">
+            <b style="display:block; margin-bottom:7px; color:#2c3e50;">🎛️ Không khí thế giới của bạn</b>
+            <div class="settings-row">
+                <select id="world-theme" class="world-select">
+                    <option value="spring">🌿 Mùa xuân</option>
+                    <option value="sunset">🌇 Hoàng hôn</option>
+                    <option value="winter">❄️ Mùa đông</option>
+                    <option value="fantasy">🔮 Huyền ảo</option>
+                </select>
+                <select id="world-time-mode" class="world-select">
+                    <option value="auto">🕒 Tự chuyển ngày đêm</option>
+                    <option value="day">☀️ Ban ngày</option>
+                    <option value="sunset">🌅 Hoàng hôn</option>
+                    <option value="night">🌙 Ban đêm</option>
+                </select>
+                <select id="world-weather-mode" class="world-select">
+                    <option value="auto">🌦️ Thời tiết tự động</option>
+                    <option value="clear">☀️ Quang đãng</option>
+                    <option value="rain">🌧️ Mưa</option>
+                    <option value="snow">❄️ Tuyết</option>
+                    <option value="fog">🌫️ Sương mù</option>
+                </select>
+            </div>
+            <button id="save-world-settings" class="btn-general" style="background:#16a085; margin-top:9px;" onclick="saveWorldSettingsFromUI()">✨ ÁP DỤNG & LƯU</button>
+            <div id="world-owner-note" class="world-owner-note">Chỉ chủ thế giới mới có thể đổi không khí.</div>
+        </div>
+        <div class="panel-footer">
+            <div class="panel-footer-row">
+                <button class="btn-general" style="background:#8e44ad;" onclick="returnHomeWorld()">🏠 VỀ THẾ GIỚI CỦA TÔI</button>
+                <button class="btn-general" style="background:#34495e;" onclick="closePanels()">TIẾP TỤC</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="robux-panel" class="panel">
+        <h2 style="text-align:center; color:#2c3e50; margin:0 0 8px;">🎁 ĐỔI ĐIỂM SANG ROBUX</h2>
+        <div class="reward-summary">
+            <div class="reward-stat"><b id="reward-score">0</b><small>Điểm hiện có</small></div>
+            <div class="reward-stat"><b id="reward-rate">100:1</b><small>Tỷ lệ điểm/Robux</small></div>
+            <div class="reward-stat"><b id="reward-limit">100</b><small>Robux tối đa/ngày</small></div>
+        </div>
+        <div class="reward-form">
+            <label for="roblox-username">Tên tài khoản Roblox</label>
+            <input id="roblox-username" maxlength="20" autocomplete="off" placeholder="Ví dụ: Badaopk123">
+            <label for="roblox-user-id">Roblox User ID (không bắt buộc)</label>
+            <input id="roblox-user-id" inputmode="numeric" maxlength="24" autocomplete="off" placeholder="Chỉ nhập dãy số ID">
+            <label for="robux-amount">Số Robux muốn đổi</label>
+            <input id="robux-amount" type="number" min="10" step="1" value="10" oninput="updateRobuxPreview()">
+            <div id="reward-preview" class="reward-preview">Cần 1.000 điểm</div>
+            <button id="reward-submit" class="btn-general" style="background:#e67e22;" onclick="submitRobuxRequest()">GỬI YÊU CẦU ĐỔI</button>
+            <p class="reward-warning">⚠️ Đây là yêu cầu có admin kiểm duyệt, không phải chuyển Robux tự động. Tuyệt đối không nhập mật khẩu, mã xác minh hoặc cookie Roblox. Admin chỉ được trả thưởng bằng phương thức chính thức của Roblox.</p>
+        </div>
+        <h3 style="margin:10px 0 4px; color:#2c3e50;">📜 Lịch sử yêu cầu</h3>
+        <div id="reward-history" class="reward-history"><div class="world-owner-note">Đang tải...</div></div>
+        <div class="panel-footer">
+            <button class="btn-general" style="background:#34495e;" onclick="closePanels()">TIẾP TỤC</button>
         </div>
     </div>
 
@@ -177,6 +361,27 @@
     let myUsername = "", currentHost = "", otherPlayers = {};
     let houseState = { score: 0, inventory: [], items: [] };
     let shopItems = [], chestsData = {}, currentChestId = null;
+
+    let worldSettings = { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' };
+    let worldStaticObjects = [], ambientWorldObjects = [];
+    let robuxConfig = { enabled: false, pointsPerRobux: 100, minRobux: 10, maxDailyRobux: 100, maxOpenRequests: 2 };
+    let lastMinimapPaint = 0;
+
+    const WORLD_THEMES = {
+        spring: { name:'Mùa xuân', ground:0x2ecc71, grass:'#27ae60', dirt:'#6e2c00', leaf:'#2ecc71', water:0x3498db, sand:'#f1c40f', wall:'#f5cd79', roof:'#c0392b', skyDay:0x87CEEB, skyNight:0x07152e, fog:0x87CEEB },
+        sunset: { name:'Hoàng hôn', ground:0xd4a657, grass:'#b9770e', dirt:'#6e2c00', leaf:'#d68910', water:0x5dade2, sand:'#f5c16c', wall:'#f8c471', roof:'#922b21', skyDay:0xf5b06a, skyNight:0x24133d, fog:0xf5b06a },
+        winter: { name:'Mùa đông', ground:0xdfe6e9, grass:'#ecf0f1', dirt:'#95a5a6', leaf:'#b8d8e8', water:0x74b9ff, sand:'#d6eaf8', wall:'#d6eaf8', roof:'#5d6d7e', skyDay:0xbde7ff, skyNight:0x0d1d32, fog:0xdfe6e9 },
+        fantasy: { name:'Huyền ảo', ground:0x6c5ce7, grass:'#55efc4', dirt:'#4a235a', leaf:'#00cec9', water:0x0984e3, sand:'#ffeaa7', wall:'#d2b4de', roof:'#8e44ad', skyDay:0x74b9ff, skyNight:0x17002f, fog:0x6c5ce7 }
+    };
+
+    const WORLD_LANDMARKS = [
+        { id:'village', name:'Làng Mơ Ước', icon:'🏘️', x:0, z:-250, description:'Khu trung tâm, nhà của bé và quảng trường.' },
+        { id:'rainbow_hill', name:'Đồi Cầu Vồng', icon:'🌈', x:-1500, z:-1000, description:'Đồi cao để ngắm toàn cảnh thế giới.' },
+        { id:'crystal_mountain', name:'Núi Pha Lê', icon:'💎', x:1800, z:-800, description:'Vùng núi cao và khoáng thạch huyền ảo.' },
+        { id:'dream_river', name:'Sông Ước Mơ', icon:'🌊', x:0, z:1050, description:'Bờ sông nối hai miền bằng những cây cầu.' },
+        { id:'snow_garden', name:'Vườn Tuyết', icon:'❄️', x:-2000, z:2200, description:'Khu vườn yên tĩnh ở bờ bên kia.' },
+        { id:'sky_market', name:'Chợ Trên Mây', icon:'🎪', x:1500, z:2600, description:'Khu chợ để đặt quầy, đèn và công trình.' }
+    ];
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     let isGameRunning = false, isSwimming = false, canJump = false, isSitting = false;
@@ -261,18 +466,34 @@
         weatherMat = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 3, transparent: true, opacity: 0.8 });
         weatherSystem = new THREE.Points(weatherGeo, weatherMat); weatherSystem.visible = false; scene.add(weatherSystem);
     }
-    function setWeather(t) {
-        weatherType = t;
-        if(t==='rain') { weatherMat.color.setHex(0xa4b0be); weatherMat.size = 4; weatherSystem.visible = true; showNotification("🌧️ Trời đổ mưa!"); }
-        else if(t==='snow') { weatherMat.color.setHex(0xffffff); weatherMat.size = 6; weatherSystem.visible = true; showNotification("❄️ Tuyết bắt đầu rơi!"); }
-        else { weatherSystem.visible = false; }
+    function setWeather(t, notify = true) {
+        weatherType = ['clear', 'rain', 'snow', 'fog'].includes(t) ? t : 'clear';
+        const palette = WORLD_THEMES[worldSettings.theme] || WORLD_THEMES.spring;
+        scene.fog.color.setHex(palette.fog);
+        scene.fog.near = weatherType === 'fog' ? 60 : 200;
+        scene.fog.far = weatherType === 'fog' ? 700 : 2400;
+
+        if(weatherType === 'rain') {
+            weatherMat.color.setHex(0xa4b0be); weatherMat.size = 4; weatherSystem.visible = true;
+            if(notify) showNotification("🌧️ Trời đổ mưa!");
+        } else if(weatherType === 'snow') {
+            weatherMat.color.setHex(0xffffff); weatherMat.size = 6; weatherSystem.visible = true;
+            if(notify) showNotification("❄️ Tuyết bắt đầu rơi!");
+        } else {
+            weatherSystem.visible = false;
+            if(weatherType === 'fog' && notify) showNotification("🌫️ Sương mù đang phủ xuống!");
+        }
+        updateWorldStatus();
     }
     function startAutoWeather() {
-        autoWeatherTimer = setTimeout(() => {
-            const w = ['clear', 'clear', 'clear', 'rain', 'snow'];
-            setWeather(w[Math.floor(Math.random() * w.length)]);
-            startAutoWeather();
-        }, Math.floor(Math.random() * 120000) + 60000);
+        clearTimeout(autoWeatherTimer);
+        if(worldSettings.weatherMode !== 'auto') {
+            setWeather(worldSettings.weatherMode, false);
+            return;
+        }
+        const w = ['clear', 'clear', 'clear', 'rain', 'snow', 'fog'];
+        setWeather(w[Math.floor(Math.random() * w.length)], false);
+        autoWeatherTimer = setTimeout(startAutoWeather, Math.floor(Math.random() * 120000) + 60000);
     }
 
     function createBlockMaterial(hexColor) {
@@ -292,8 +513,11 @@
     }
 
     function generateWorld() {
-        objects.forEach(o => scene.remove(o)); objects = []; animatedObjects = []; houseState.items = [];
-        const floorMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
+        objects.forEach(o => scene.remove(o));
+        worldStaticObjects.forEach(o => scene.remove(o));
+        objects = []; animatedObjects = []; ambientWorldObjects = []; worldStaticObjects = []; houseState.items = [];
+        const palette = WORLD_THEMES[worldSettings.theme] || WORLD_THEMES.spring;
+        const floorMat = new THREE.MeshLambertMaterial({ color: palette.ground });
         const createPart = (w, d, x, z) => {
             const g = new THREE.Mesh(new THREE.BoxGeometry(w, 1000, d), floorMat);
             g.position.set(x, -500, z);
@@ -306,13 +530,13 @@
         createPart(6000, 2000, 0, 2400);  // Bờ bên kia sông (2000x6000)
 
         // Dòng sông kéo dài ra 6000 để vắt ngang bản đồ
-        const river = new THREE.Mesh(new THREE.BoxGeometry(6000, 1000, 400), new THREE.MeshLambertMaterial({color: 0x3498db, transparent:true, opacity:0.6}));
+        const river = new THREE.Mesh(new THREE.BoxGeometry(6000, 1000, 400), new THREE.MeshLambertMaterial({color: palette.water, transparent:true, opacity:0.65}));
         river.position.set(0, -510, 1200); // Nằm chính giữa 2 bờ
         river.updateMatrixWorld(true);
         river.userData = { isWater: true, bbox: new THREE.Box3().setFromObject(river), isIndestructible: true }; scene.add(river); objects.push(river);
 
         // Đáy sông cát vàng cũng dài 6000
-        const riverBed = new THREE.Mesh(new THREE.BoxGeometry(6000, 500, 400), createBlockMaterial('#f1c40f')); 
+        const riverBed = new THREE.Mesh(new THREE.BoxGeometry(6000, 500, 400), createBlockMaterial(palette.sand)); 
         riverBed.position.set(0, -1000, 1200);
         riverBed.updateMatrixWorld(true);
         riverBed.userData = { bbox: new THREE.Box3().setFromObject(riverBed), isIndestructible: true }; scene.add(riverBed); objects.push(riverBed);
@@ -322,8 +546,8 @@
         gridHelper.position.set(0, 1, 450); // Căn giữa bề mặt
         gridHelper.material.opacity = 0.2;
         gridHelper.material.transparent = true;
-        scene.add(gridHelper);
-        const grassMat = createBlockMaterial('#27ae60'), dirtMat = createBlockMaterial('#6e2c00');  
+        scene.add(gridHelper); worldStaticObjects.push(gridHelper);
+        const grassMat = createBlockMaterial(palette.grass), dirtMat = createBlockMaterial(palette.dirt);  
         function spawnVoxelHill(cx, cz, rad, height) {
             for(let dx = -rad; dx <= rad; dx++) {
                 for(let dz = -rad; dz <= rad; dz++) {
@@ -345,7 +569,7 @@
         spawnVoxelHill(-2000, 2000, 10, 8);  // Bên kia sông
         spawnVoxelHill(2500, 1800, 14, 9);   // Bên kia sông
         spawnVoxelHill(0, 2500, 11, 7);
-        const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial('#2ecc71');
+        const woodMat = createBlockMaterial('#e67e22'), leafMat = createBlockMaterial(palette.leaf);
         for(let i=0; i<45; i++){
             let x = Math.floor(((Math.random()-0.5)*5000)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2; 
             let z = Math.floor(((Math.random()-0.5)*4000 - 300)/BLOCK_SIZE)*BLOCK_SIZE + BLOCK_SIZE/2;
@@ -366,7 +590,7 @@
             }
         }
 
-        const wallMat = createBlockMaterial('#f5cd79'), roofMat = createBlockMaterial('#c0392b');
+        const wallMat = createBlockMaterial(palette.wall), roofMat = createBlockMaterial(palette.roof);
         let sX = -400 + BLOCK_SIZE/2, sZ = -400 + BLOCK_SIZE/2;
         for(let wx = 0; wx < 5; wx++) {
             for(let wz = 0; wz < 5; wz++) {
@@ -456,8 +680,16 @@
             // Xoay mặt về hướng đi ban đầu
             villager.rotation.y = Math.atan2(initVelX, initVelZ);
             
-            scene.add(villager); animatedObjects.push(villager);
+            scene.add(villager); animatedObjects.push(villager); worldStaticObjects.push(villager);
         }
+        // Bảo vệ địa hình mặc định khỏi việc phá để nhân vật phẩm vô hạn.
+        objects.forEach(obj => {
+            if(!obj.userData.uniqueId) obj.userData.isIndestructible = true;
+        });
+        decorateWorld();
+        applyWorldSettings(false);
+        renderWorldMap();
+        renderLandmarks();
     }
     function setupControls() {
         document.addEventListener('keydown', e => {
@@ -470,6 +702,7 @@
                     else if(canJump || isSwimming) { velocity.y = isSwimming ? 200 : 400; canJump = false; } 
                     break;
                 case 'KeyB': controls.unlock(); openPanel('ui-panel'); break;
+                case 'KeyM': controls.unlock(); openWorldPanel(); break;
                 case 'KeyE': triggerInteraction(); break;
                 case 'KeyR': controls.getObject().position.set(0, 800, 0); velocity.y = 0; showNotification("🚀 Đã bay lên trời giải cứu!"); break;
                 case 'Digit1': selectHotbar(0); break; case 'Digit2': selectHotbar(1); break;
@@ -480,7 +713,7 @@
             }
         });
         document.addEventListener('keyup', e => {
-            switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
+            switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; break; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
         });
         document.addEventListener('mousedown', e => { if(controls.isLocked && !isSitting) handleBuildBreak(e.button === 0 ? 'build' : 'break'); });
 
@@ -505,7 +738,10 @@
 
         controls.addEventListener('unlock', () => { 
             isGameRunning = false;
-            if(!document.getElementById('chest-panel').classList.contains('show') && !document.getElementById('ui-panel').classList.contains('show')){ 
+            if(!document.getElementById('chest-panel').classList.contains('show')
+                && !document.getElementById('ui-panel').classList.contains('show')
+                && !document.getElementById('world-panel').classList.contains('show')
+                && !document.getElementById('robux-panel').classList.contains('show')){ 
                 document.getElementById('blocker').style.display = 'flex'; 
                 document.getElementById('instructions').style.display = 'block';
             }
@@ -585,15 +821,25 @@
         const delta = Math.min((time - prevTime) / 1000, 0.04); 
         prevTime = time;
 
-        timeOfDay += delta * timeSpeed; 
+        if(worldSettings.timeMode === 'auto') {
+            timeOfDay += delta * timeSpeed;
+        } else {
+            const fixedTimes = { day: Math.PI/2, sunset: Math.PI * 0.06, night: Math.PI * 1.5 };
+            timeOfDay = fixedTimes[worldSettings.timeMode] ?? Math.PI/2;
+        }
         sunSphere.position.set(Math.cos(timeOfDay)*1200, Math.sin(timeOfDay)*1200, 0);
         moonSphere.position.set(-Math.cos(timeOfDay)*1200, -Math.sin(timeOfDay)*1200, 0);
         dirLight.position.copy(sunSphere.position);
-        dirLight.intensity = Math.max(0.1, Math.sin(timeOfDay));
-        
-        const skyLight = Math.max(0.1, (Math.sin(timeOfDay)+1)/2);
-        scene.background.copy(new THREE.Color().setHSL(0.6, 0.5, skyLight * 0.8));
-        scene.fog.color.copy(scene.background);
+        const sunHeight = Math.sin(timeOfDay);
+        dirLight.intensity = Math.max(0.08, sunHeight);
+        sunSphere.visible = sunHeight > -0.1;
+        moonSphere.visible = sunHeight < 0.25;
+
+        const palette = WORLD_THEMES[worldSettings.theme] || WORLD_THEMES.spring;
+        const daylight = Math.max(0, Math.min(1, (sunHeight + 0.25) / 1.25));
+        const skyColor = new THREE.Color(palette.skyNight).lerp(new THREE.Color(palette.skyDay), daylight);
+        scene.background.copy(skyColor);
+        if(weatherType !== 'fog') scene.fog.color.copy(skyColor);
 
         if(weatherType !== 'clear') {
             const isIndoor = checkIndoor();
@@ -782,6 +1028,17 @@
             });
             checkLookingAt();
         }
+
+        ambientWorldObjects.forEach((obj, index) => {
+            if(obj.userData.spinPart) obj.userData.spinPart.rotation.z -= delta * 0.8;
+            if(obj.userData.pulseLight) obj.userData.pulseLight.intensity = 1.2 + Math.sin(time * 0.004 + index) * 0.55;
+            if(obj.userData.flickerLight) obj.userData.flickerLight.intensity = 1.5 + Math.random() * 0.8;
+        });
+        if(time - lastMinimapPaint > 250) {
+            renderMiniMap();
+            updateWorldStatus();
+            lastMinimapPaint = time;
+        }
         renderer.render(scene, camera);
     }
 
@@ -950,7 +1207,88 @@
         else if(id.includes('trophy')) { addP(15, 5, 15, '#333', 0, 2.5, 0); addP(5, 15, 5, '#f1c40f', 0, 12.5, 0); addP(20, 15, 20, '#f1c40f', 0, 27.5, 0); addP(25, 5, 5, '#f1c40f', 0, 30, 0); }
 
         // ==========================================
-        // 6. NHÓM THÚ CƯNG ĐI DẠO (PET)
+        // 6. CÔNG TRÌNH THẾ GIỚI
+        // ==========================================
+        else if(id.startsWith('world_')) {
+            if(id === 'world_gazebo') {
+                addP(90, 8, 90, '#d4ac0d', 0, 4, 0);
+                [[-38,-38],[38,-38],[-38,38],[38,38]].forEach(([px,pz]) => addP(8, 85, 8, '#8b4513', px, 46, pz));
+                addP(105, 10, 105, '#c0392b', 0, 92, 0);
+                addP(70, 12, 70, '#e74c3c', 0, 103, 0);
+            } else if(id === 'world_windmill') {
+                addP(70, 95, 70, '#f5cd79', 0, 48, 0);
+                addP(82, 20, 82, '#922b21', 0, 104, 0);
+                const rotor = new THREE.Group();
+                rotor.position.set(0, 78, 38);
+                const hub = new THREE.Mesh(new THREE.BoxGeometry(16,16,10), new THREE.MeshLambertMaterial({color:'#8b4513'}));
+                hub.userData.parentGroup = g; rotor.add(hub);
+                for(let r=0;r<4;r++) {
+                    const arm = new THREE.Group();
+                    arm.rotation.z = r * Math.PI/2;
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(12,72,7), new THREE.MeshLambertMaterial({color:'#ecf0f1'}));
+                    blade.position.y = 39;
+                    blade.userData.parentGroup = g;
+                    arm.add(blade);
+                    rotor.add(arm);
+                }
+                g.add(rotor); g.userData.spinPart = rotor;
+            } else if(id === 'world_market_stall') {
+                addP(80, 8, 55, '#8b4513', 0, 4, 0);
+                addP(75, 45, 8, '#a04000', 0, 27, -24);
+                addP(90, 10, 70, '#e74c3c', 0, 58, 0);
+                addP(70, 5, 35, '#f5b041', 0, 32, 10);
+            } else if(id === 'world_street_lamp') {
+                addP(12, 10, 12, '#34495e', 0, 5, 0);
+                addP(6, 85, 6, '#566573', 0, 50, 0);
+                addP(26, 24, 26, 'rgba(255,230,120,0.8)', 0, 98, 0);
+                const light = new THREE.PointLight(0xffdd88, 1.4, 450);
+                light.position.set(0, 98, 0); g.add(light); g.userData.pulseLight = light;
+            } else if(id === 'world_park_bench') {
+                addP(80, 10, 25, '#8b4513', 0, 30, 0);
+                addP(80, 42, 8, '#a0522d', 0, 52, -10);
+                addP(8, 30, 8, '#34495e', -30, 15, 0); addP(8, 30, 8, '#34495e', 30, 15, 0);
+            } else if(id === 'world_campfire') {
+                for(let i=-1;i<=1;i+=2) {
+                    const log=addP(55, 8, 10, '#6e2c00', 0, 7, i*6); log.rotation.y=i*Math.PI/5;
+                }
+                addP(20, 32, 20, 'rgba(255,120,0,0.8)', 0, 28, 0);
+                const light = new THREE.PointLight(0xff6600, 1.8, 350);
+                light.position.set(0,35,0); g.add(light); g.userData.flickerLight = light;
+            } else if(id === 'world_picnic') {
+                addP(85, 8, 55, '#d35400', 0, 38, 0);
+                addP(8, 38, 8, '#8b4513', -28, 19, 0); addP(8, 38, 8, '#8b4513', 28, 19, 0);
+                addP(90, 8, 18, '#a04000', 0, 24, -42); addP(90, 8, 18, '#a04000', 0, 24, 42);
+            } else if(id === 'world_swing') {
+                addP(8, 100, 8, '#8b4513', -45, 50, 0); addP(8, 100, 8, '#8b4513', 45, 50, 0);
+                addP(100, 8, 8, '#a0522d', 0, 98, 0);
+                addP(3, 65, 3, '#bdc3c7', -18, 62, 0); addP(3, 65, 3, '#bdc3c7', 18, 62, 0);
+                addP(50, 8, 25, '#d35400', 0, 29, 0);
+            } else if(id === 'world_cherry_tree') {
+                addP(18, 100, 18, '#8b4513', 0, 50, 0);
+                [[0,115,0],[-30,100,0],[30,100,0],[0,100,-30],[0,100,30]].forEach(([px,py,pz]) => addP(55,45,55,'#fd79a8',px,py,pz));
+            } else if(id === 'world_crystal') {
+                const crystal = addP(42, 95, 42, 'rgba(90,220,255,0.75)', 0, 50, 0);
+                crystal.rotation.y = Math.PI/4; crystal.rotation.z = 0.15;
+                addP(75, 12, 75, '#6c5ce7', 0, 6, 0);
+                const light = new THREE.PointLight(0x55ffff, 1.7, 500);
+                light.position.set(0,60,0); g.add(light); g.userData.pulseLight = light;
+            } else if(id === 'world_portal') {
+                addP(18, 115, 18, '#6c5ce7', -48, 58, 0); addP(18, 115, 18, '#6c5ce7', 48, 58, 0);
+                addP(114, 18, 18, '#8e44ad', 0, 108, 0);
+                addP(72, 88, 8, 'rgba(0,220,255,0.45)', 0, 54, 0);
+                const light = new THREE.PointLight(0x00dfff, 2.2, 650);
+                light.position.set(0,55,0); g.add(light); g.userData.pulseLight = light;
+            } else if(id === 'world_sign') {
+                addP(10, 75, 10, '#8b4513', 0, 38, 0);
+                addP(80, 38, 8, '#d35400', 0, 70, 0);
+                addP(45, 6, 9, '#f1c40f', 8, 70, 1);
+            } else {
+                addP(55,55,55,'#16a085',0,28,0);
+            }
+        }
+
+        // ==========================================
+        // 7. NHÓM THÚ CƯNG ĐI DẠO (PET)
         // ==========================================
         else if(id.includes('pet')) {
             const isCat = id.includes('cat'); 
@@ -1034,6 +1372,10 @@
         return g;
     }
     function handleBuildBreak(type) {
+        if (currentHost !== myUsername) {
+            showNotification("⛔ Bạn chỉ được xây và phá trong thế giới của mình!", true);
+            return;
+        }
         raycaster.setFromCamera(new THREE.Vector2(), camera);
         const hits = raycaster.intersectObjects(objects, true);
         if(hits.length > 0) {
@@ -1117,7 +1459,7 @@
                 m.position.set(x, y - 25, z);
             }
         }
-        m.userData = { id: info.id, uniqueId: uid };
+        m.userData = { ...m.userData, id: info.id, uniqueId: uid };
         m.updateMatrixWorld(true); m.userData.bbox = new THREE.Box3().setFromObject(m);
         scene.add(m); objects.push(m);
 
@@ -1126,6 +1468,9 @@
             m.userData.moveTimer = 0; 
             m.userData.baseY = m.position.y; // Lưu cao độ gốc để chống lún
             animatedObjects.push(m); 
+        }
+        if(info.category === 'world' || info.type === 'w') {
+            ambientWorldObjects.push(m);
         }
         if(!isSync) houseState.items.push({ id:info.id, uniqueId:uid, x, y, z });
     }
@@ -1249,16 +1594,10 @@ function setupMultiplayer() {
         const res = await fetch('/api/house/buy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: myUsername, itemId:id}) });
         const d = await res.json(); 
         if(res.ok) { 
-            houseState.score = d.newScore; 
-            if (item && (item.category === 'paint' || item.category === 'floor')) {
-                for(let i = 0; i < 10; i++) {
-                    houseState.inventory.push(id);
-                }
-                showNotification(`🛍️ Đã mua 10 khối ${item.name}!`);
-            } else {
-                houseState.inventory.push(id);
-                showNotification("🛍️ Đã mua thành công!");
-            }
+            houseState.score = d.newScore;
+            const quantity = Math.max(1, Number(d.quantity) || 1);
+            for(let i = 0; i < quantity; i++) houseState.inventory.push(id);
+            showNotification(d.message || `🛍️ Đã mua ${quantity} x ${item?.name || 'vật phẩm'}!`);
             updateUI(); 
         } else {
             showNotification("❌ " + d.message);
@@ -1395,6 +1734,566 @@ function setupMultiplayer() {
             isGameRunning = true; 
         }
     }
+
+    // ============================================================
+    // THẾ GIỚI 3.0 + BẢN ĐỒ + ĐỔI THƯỞNG ROBUX
+    // ============================================================
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+        })[ch]);
+    }
+
+    function sanitizeWorldSettings(value) {
+        const source = value || {};
+        return {
+            theme: ['spring','sunset','winter','fantasy'].includes(source.theme) ? source.theme : 'spring',
+            weatherMode: ['auto','clear','rain','snow','fog'].includes(source.weatherMode) ? source.weatherMode : 'auto',
+            timeMode: ['auto','day','sunset','night'].includes(source.timeMode) ? source.timeMode : 'auto'
+        };
+    }
+
+    function addWorldBox(w, h, d, color, x, y, z, options = {}) {
+        const material = new THREE.MeshLambertMaterial({
+            color,
+            transparent: Boolean(options.transparent),
+            opacity: options.opacity ?? 1
+        });
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = options.castShadow !== false;
+        mesh.receiveShadow = true;
+        mesh.updateMatrixWorld(true);
+        mesh.userData = {
+            bbox: new THREE.Box3().setFromObject(mesh),
+            isIndestructible: true,
+            worldDecoration: true
+        };
+        scene.add(mesh);
+        objects.push(mesh);
+        return mesh;
+    }
+
+    function decorateWorld() {
+        const palette = WORLD_THEMES[worldSettings.theme] || WORLD_THEMES.spring;
+
+        // Ba cây cầu giúp đi qua sông mà không phải bơi.
+        [-1200, 0, 1200].forEach(bridgeX => {
+            for(let z = 975; z <= 1425; z += 50) {
+                addWorldBox(82, 16, 48, '#a0522d', bridgeX, 8, z);
+            }
+            addWorldBox(10, 38, 500, '#8b4513', bridgeX - 42, 28, 1200);
+            addWorldBox(10, 38, 500, '#8b4513', bridgeX + 42, 28, 1200);
+        });
+
+        // Quảng trường trung tâm và các lối đi.
+        for(let x = -200; x <= 200; x += 50) {
+            for(let z = -500; z <= -100; z += 50) {
+                addWorldBox(48, 8, 48, palette.sand, x, 4, z, { castShadow:false });
+            }
+        }
+        for(let z = -100; z <= 950; z += 50) {
+            addWorldBox(100, 8, 48, palette.sand, 0, 4, z, { castShadow:false });
+        }
+
+        // Cột mốc phát sáng tại các khu vực trên bản đồ.
+        WORLD_LANDMARKS.forEach((landmark, index) => {
+            const group = new THREE.Group();
+            const pillar = new THREE.Mesh(
+                new THREE.BoxGeometry(18, 120, 18),
+                new THREE.MeshLambertMaterial({ color: index % 2 ? 0x16a085 : 0x8e44ad })
+            );
+            pillar.position.y = 60;
+            const top = new THREE.Mesh(
+                new THREE.BoxGeometry(42, 42, 42),
+                new THREE.MeshLambertMaterial({ color: index % 2 ? 0x55efc4 : 0xa29bfe, transparent:true, opacity:0.8 })
+            );
+            top.position.y = 135;
+            const light = new THREE.PointLight(index % 2 ? 0x55efc4 : 0xa29bfe, 1.2, 450);
+            light.position.y = 135;
+            group.add(pillar, top, light);
+            group.position.set(landmark.x, 0, landmark.z);
+            group.userData = { worldBeacon:true, pulseLight:light };
+            scene.add(group);
+            worldStaticObjects.push(group);
+            ambientWorldObjects.push(group);
+        });
+    }
+
+    function applyWorldSettings(notify = false) {
+        worldSettings = sanitizeWorldSettings(worldSettings);
+        document.getElementById('world-theme').value = worldSettings.theme;
+        document.getElementById('world-time-mode').value = worldSettings.timeMode;
+        document.getElementById('world-weather-mode').value = worldSettings.weatherMode;
+
+        if(worldSettings.timeMode === 'day') timeOfDay = Math.PI/2;
+        else if(worldSettings.timeMode === 'sunset') timeOfDay = Math.PI * 0.06;
+        else if(worldSettings.timeMode === 'night') timeOfDay = Math.PI * 1.5;
+
+        startAutoWeather();
+        updateWorldStatus();
+        if(notify) showNotification(`✨ Đã áp dụng không khí ${WORLD_THEMES[worldSettings.theme].name}!`);
+    }
+
+    function spawnSavedItems(items) {
+        const safeItems = Array.isArray(items) ? items : [];
+        safeItems.forEach(i => {
+            const info = shopItems.find(x => x.id === i.id);
+            if(!info) return;
+            spawnItem(info, Number(i.x) || 0, Number(i.y) || 25, Number(i.z) || 0, i.uniqueId || `item_${Date.now()}_${Math.random()}`, true);
+            if(i.isOpen) {
+                const obj = objects.find(o => o.userData.uniqueId === i.uniqueId);
+                if(obj) {
+                    obj.userData.isOpen = true;
+                    obj.rotation.y = Math.PI/2;
+                    obj.updateMatrixWorld(true);
+                    obj.userData.bbox.setFromObject(obj);
+                }
+            }
+        });
+        houseState.items = safeItems.map(item => ({ ...item }));
+    }
+
+    function rebuildCurrentWorld() {
+        const placedItems = houseState.items.map(item => ({ ...item }));
+        generateWorld();
+        spawnSavedItems(placedItems);
+        controls.getObject().position.set(0, 800, 0);
+        velocity.y = 0;
+    }
+
+    function getBiomeAt(x, z) {
+        let nearest = WORLD_LANDMARKS[0];
+        let nearestDistance = Infinity;
+        WORLD_LANDMARKS.forEach(landmark => {
+            const distance = Math.hypot(x - landmark.x, z - landmark.z);
+            if(distance < nearestDistance) {
+                nearest = landmark;
+                nearestDistance = distance;
+            }
+        });
+        return nearestDistance <= 850 ? nearest : { name:'Đồng Cỏ Phiêu Lưu', icon:'🌿' };
+    }
+
+    function updateWorldStatus() {
+        if(!controls || !controls.getObject) return;
+        const pos = controls.getObject().position;
+        const biome = getBiomeAt(pos.x, pos.z);
+        const sunHeight = Math.sin(timeOfDay);
+        const timeLabel = worldSettings.timeMode === 'day' ? 'Ban ngày'
+            : worldSettings.timeMode === 'sunset' ? 'Hoàng hôn'
+            : worldSettings.timeMode === 'night' ? 'Ban đêm'
+            : sunHeight > 0.45 ? 'Ban ngày' : sunHeight > -0.1 ? 'Hoàng hôn' : 'Ban đêm';
+        const weatherLabels = { clear:'☀️ Quang đãng', rain:'🌧️ Mưa', snow:'❄️ Tuyết', fog:'🌫️ Sương mù' };
+        document.getElementById('biome-name').textContent = `${biome.icon || '📍'} ${biome.name}`;
+        document.getElementById('world-time').textContent = timeLabel;
+        document.getElementById('world-weather').textContent = (weatherLabels[weatherType] || weatherLabels.clear).replace(/^.. /, '');
+    }
+
+    function worldToCanvas(x, z, canvas) {
+        const minX = -3000, maxX = 3000, minZ = -1700, maxZ = 3400;
+        return {
+            x: ((x - minX) / (maxX - minX)) * canvas.width,
+            y: ((z - minZ) / (maxZ - minZ)) * canvas.height
+        };
+    }
+
+    function paintWorldMap(canvas, includeLabels) {
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const palette = WORLD_THEMES[worldSettings.theme] || WORLD_THEMES.spring;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = `#${palette.ground.toString(16).padStart(6,'0')}`;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        const riverTop = worldToCanvas(0, 1000, canvas).y;
+        const riverBottom = worldToCanvas(0, 1400, canvas).y;
+        ctx.fillStyle = `#${palette.water.toString(16).padStart(6,'0')}`;
+        ctx.fillRect(0, riverTop, canvas.width, riverBottom-riverTop);
+
+        [-1200,0,1200].forEach(x => {
+            const a = worldToCanvas(x-55, 950, canvas);
+            const b = worldToCanvas(x+55, 1450, canvas);
+            ctx.fillStyle = '#8b5a2b';
+            ctx.fillRect(a.x, a.y, Math.max(3,b.x-a.x), b.y-a.y);
+        });
+
+        WORLD_LANDMARKS.forEach((landmark, index) => {
+            const point = worldToCanvas(landmark.x, landmark.z, canvas);
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, includeLabels ? 9 : 6, 0, Math.PI*2);
+            ctx.fillStyle = index % 2 ? '#16a085' : '#8e44ad';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = includeLabels ? 3 : 2;
+            ctx.stroke();
+            if(includeLabels) {
+                ctx.fillStyle = '#17202a';
+                ctx.font = 'bold 15px Baloo 2, sans-serif';
+                ctx.fillText(`${landmark.icon} ${landmark.name}`, point.x + 12, point.y + 5);
+            }
+        });
+
+        if(controls?.getObject) {
+            const pos = controls.getObject().position;
+            const player = worldToCanvas(pos.x, pos.z, canvas);
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, includeLabels ? 9 : 6, 0, Math.PI*2);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+    }
+
+    function renderMiniMap() {
+        paintWorldMap(document.getElementById('minimap'), false);
+    }
+
+    function renderWorldMap() {
+        paintWorldMap(document.getElementById('world-map-canvas'), true);
+    }
+
+    function renderLandmarks() {
+        const grid = document.getElementById('landmark-grid');
+        if(!grid) return;
+        grid.innerHTML = WORLD_LANDMARKS.map(landmark => `
+            <button class="landmark-card" type="button" onclick="teleportToLandmark('${landmark.id}')">
+                <b>${landmark.icon} ${escapeHtml(landmark.name)}</b>
+                <small>${escapeHtml(landmark.description)}</small>
+            </button>
+        `).join('');
+    }
+
+    function teleportToLandmark(id) {
+        const landmark = WORLD_LANDMARKS.find(item => item.id === id);
+        if(!landmark) return;
+        closePanels();
+        controls.getObject().position.set(landmark.x, 800, landmark.z);
+        velocity.set(0,0,0);
+        showNotification(`✈️ Đã dịch chuyển tới ${landmark.name}`);
+    }
+
+    function openWorldPanel() {
+        const isOwner = currentHost === myUsername;
+        const controlsIds = ['world-theme','world-time-mode','world-weather-mode','save-world-settings'];
+        controlsIds.forEach(id => document.getElementById(id).disabled = !isOwner);
+        document.getElementById('world-owner-note').textContent = isOwner
+            ? 'Thay đổi sẽ được lưu cùng thế giới của bạn.'
+            : `Bạn đang tham quan thế giới của ${currentHost}; chỉ chủ thế giới được chỉnh sửa.`;
+        applyWorldSettings(false);
+        renderWorldMap();
+        renderLandmarks();
+        openPanel('world-panel');
+    }
+
+    async function saveWorldSettingsFromUI() {
+        if(currentHost !== myUsername) {
+            return showNotification('⛔ Chỉ chủ thế giới mới có thể đổi không khí.', true);
+        }
+        worldSettings = sanitizeWorldSettings({
+            theme: document.getElementById('world-theme').value,
+            timeMode: document.getElementById('world-time-mode').value,
+            weatherMode: document.getElementById('world-weather-mode').value
+        });
+        rebuildCurrentWorld();
+        applyWorldSettings(true);
+        await saveHouse();
+        openWorldPanel();
+    }
+
+    function showWorldEvent(message) {
+        const banner = document.getElementById('world-event-banner');
+        banner.textContent = message;
+        banner.style.display = 'block';
+        clearTimeout(window.__worldBannerTimer);
+        window.__worldBannerTimer = setTimeout(() => banner.style.display = 'none', 6000);
+    }
+
+    function scheduleWorldEvents() {
+        clearInterval(window.__worldEventInterval);
+        window.__worldEventInterval = setInterval(() => {
+            const events = [
+                '✨ Mưa sao băng đang xuất hiện trên Núi Pha Lê!',
+                '🎪 Chợ Trên Mây đang mở hội trang trí!',
+                '🌈 Cầu vồng xuất hiện gần Đồi Cầu Vồng!',
+                '🔥 Dân làng đang tụ họp quanh khu lửa trại!'
+            ];
+            showWorldEvent(events[Math.floor(Math.random()*events.length)]);
+        }, 90000);
+    }
+
+    function filterShop() {
+        const query = (document.getElementById('shop-search')?.value || '').trim().toLowerCase();
+        const category = document.getElementById('shop-category')?.value || 'all';
+        const visibleItems = shopItems.filter(item => {
+            const matchesText = !query || `${item.name} ${item.id}`.toLowerCase().includes(query);
+            const matchesCategory = category === 'all' || item.category === category;
+            return matchesText && matchesCategory;
+        });
+        const grid = document.getElementById('grid-shop');
+        grid.innerHTML = visibleItems.length ? visibleItems.map(i => `
+            <div class="item-card" onclick="buyItem('${i.id}')">
+                <div>${i.icon}</div><b>${escapeHtml(i.name)}</b>
+                <div class="price">${Number(i.price || 0).toLocaleString('vi-VN')} 💎</div>
+            </div>
+        `).join('') : '<div class="world-owner-note" style="grid-column:1/-1">Không tìm thấy vật phẩm phù hợp.</div>';
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = Number(houseState.score || 0).toLocaleString('vi-VN');
+        const rewardScore = document.getElementById('reward-score');
+        if(rewardScore) rewardScore.textContent = Number(houseState.score || 0).toLocaleString('vi-VN');
+        filterShop();
+
+        const iGrid = document.getElementById('grid-inv');
+        const scrollPos = iGrid.scrollTop;
+        const counts = {};
+        houseState.inventory.forEach(id => counts[id] = (counts[id] || 0) + 1);
+        iGrid.innerHTML = Object.entries(counts).map(([id, count]) => {
+            const item = shopItems.find(x => x.id === id);
+            return item ? `<div class="item-card" onclick="equipToHotbar('${id}')"><div>${item.icon}</div><b>${escapeHtml(item.name)}</b><br><div class="count-badge">Còn: ${count}</div></div>` : '';
+        }).join('');
+        iGrid.scrollTop = scrollPos;
+    }
+
+    function switchTab(tab) {
+        document.getElementById('grid-shop').style.display = tab === 'shop' ? 'grid' : 'none';
+        document.getElementById('grid-inv').style.display = tab === 'inv' ? 'grid' : 'none';
+        document.getElementById('shop-toolbar').style.display = tab === 'shop' ? 'grid' : 'none';
+        document.getElementById('tab-btn-shop').classList.toggle('active', tab === 'shop');
+        document.getElementById('tab-btn-inv').classList.toggle('active', tab === 'inv');
+    }
+
+    async function loadWorldSnapshot(data, hostUsername, isOwner) {
+        currentHost = hostUsername;
+        worldSettings = sanitizeWorldSettings(data.worldSettings);
+        if(isOwner) {
+            houseState.score = Number(data.score || 0);
+            houseState.inventory = Array.isArray(data.inventory) ? data.inventory : [];
+            shopItems = Array.isArray(data.shopItems) ? data.shopItems : shopItems;
+            chestsData = data.chestsData || {};
+        }
+        generateWorld();
+        spawnSavedItems(data.houseData || []);
+        applyWorldSettings(false);
+        updateUI();
+        renderHotbarUI();
+        renderMiniMap();
+        renderWorldMap();
+
+        document.getElementById('host-name').innerText = hostUsername;
+        document.getElementById('visit-badge').style.display = isOwner ? 'none' : 'block';
+        socket.emit('join3DHouse', hostUsername);
+    }
+
+    async function loadDataFromServer() {
+        try {
+            const res = await fetch('/api/house/info');
+            if(res.status === 401) {
+                window.location.href = 'login.html';
+                return;
+            }
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.message || 'Không tải được thế giới.');
+
+            myUsername = data.username || `Be_${Math.floor(Math.random()*1000)}`;
+            let slot = 0;
+            hotbarSlots.fill(null);
+            [...new Set(data.inventory || [])].forEach(id => {
+                if(slot < HOTBAR_SIZE) hotbarSlots[slot++] = id;
+            });
+            await loadWorldSnapshot(data, myUsername, true);
+            isLoadingMap = false;
+            scheduleWorldEvents();
+            loadRobuxRewards(false);
+        } catch(error) {
+            console.error(error);
+            showNotification('⚠️ Lỗi tải dữ liệu. Hãy F5!', true);
+            isLoadingMap = false;
+        }
+    }
+
+    async function saveHouse() {
+        if(currentHost !== myUsername) {
+            showNotification('⛔ Bạn không thể lưu thay đổi trong thế giới của bạn bè!', true);
+            return false;
+        }
+        try {
+            const res = await fetch('/api/house/save', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    username: myUsername,
+                    hostUsername: currentHost,
+                    items: houseState.items,
+                    inventory: houseState.inventory,
+                    chestsData,
+                    worldSettings
+                })
+            });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.message || 'Không thể lưu.');
+            showNotification('💾 Đã lưu toàn bộ Thế Giới!');
+            return true;
+        } catch(error) {
+            showNotification(`⚠️ ${error.message}`, true);
+            return false;
+        }
+    }
+
+    async function visitFriend() {
+        const friend = prompt('Nhập tên bạn bè muốn thăm:');
+        if(!friend) return;
+        try {
+            const res = await fetch(`/api/house/visit/${encodeURIComponent(friend.trim())}`);
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.message || 'Không thể đi thăm.');
+            await loadWorldSnapshot(data, data.friendName || friend.trim(), false);
+            closePanels();
+            controls.getObject().position.set(0,800,0);
+            velocity.y = 0;
+            showNotification(`✈️ Đã bay tới thế giới của ${data.friendName || friend}`);
+        } catch(error) {
+            showNotification(`❌ ${error.message}`, true);
+        }
+    }
+
+    async function returnHomeWorld() {
+        try {
+            const res = await fetch('/api/house/info');
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.message || 'Không thể về nhà.');
+            await loadWorldSnapshot(data, myUsername, true);
+            closePanels();
+            controls.getObject().position.set(0,800,0);
+            velocity.y = 0;
+            showNotification('🏠 Đã trở về thế giới của bạn!');
+        } catch(error) {
+            showNotification(`❌ ${error.message}`, true);
+        }
+    }
+
+    // -------------------- ROBUX REWARDS --------------------
+    function updateRobuxPreview() {
+        const amount = Number.parseInt(document.getElementById('robux-amount')?.value, 10) || 0;
+        const needed = amount * Number(robuxConfig.pointsPerRobux || 100);
+        document.getElementById('reward-preview').textContent = `Cần ${needed.toLocaleString('vi-VN')} điểm`;
+    }
+
+    function rewardStatusLabel(status) {
+        return {
+            pending:'Đang chờ duyệt',
+            approved:'Đã duyệt',
+            paid:'Đã trả Robux',
+            rejected:'Bị từ chối',
+            cancelled:'Đã hủy'
+        }[status] || status;
+    }
+
+    function renderRobuxHistory(requests) {
+        const history = document.getElementById('reward-history');
+        if(!Array.isArray(requests) || requests.length === 0) {
+            history.innerHTML = '<div class="world-owner-note">Bạn chưa có yêu cầu đổi Robux nào.</div>';
+            return;
+        }
+        history.innerHTML = requests.map(request => `
+            <div class="reward-row">
+                <div class="reward-row-head">
+                    <span class="reward-code">${escapeHtml(request.requestCode)}</span>
+                    <span class="reward-status ${escapeHtml(request.status)}">${escapeHtml(rewardStatusLabel(request.status))}</span>
+                </div>
+                <div class="reward-meta">
+                    🎮 Roblox: <b>${escapeHtml(request.robloxUsername)}</b>${request.robloxUserId ? ` (ID: ${escapeHtml(request.robloxUserId)})` : ''}<br>
+                    🎁 ${Number(request.robuxAmount).toLocaleString('vi-VN')} Robux • 💎 ${Number(request.pointsSpent).toLocaleString('vi-VN')} điểm<br>
+                    🕒 ${new Date(request.createdAt).toLocaleString('vi-VN')}
+                    ${request.adminNote ? `<br>📝 Admin: ${escapeHtml(request.adminNote)}` : ''}
+                </div>
+                ${request.status === 'pending' ? `<button class="reward-cancel" onclick="cancelRobuxRequest('${request._id}')">HỦY & HOÀN ĐIỂM</button>` : ''}
+            </div>
+        `).join('');
+    }
+
+    async function loadRobuxRewards(showErrors = true) {
+        try {
+            const [configRes, requestsRes] = await Promise.all([
+                fetch('/api/robux/config'),
+                fetch('/api/robux/my-requests')
+            ]);
+            const configData = await configRes.json();
+            const requestsData = await requestsRes.json();
+            if(!configRes.ok) throw new Error(configData.message || 'Không tải được cấu hình đổi thưởng.');
+            if(!requestsRes.ok) throw new Error(requestsData.message || 'Không tải được lịch sử đổi thưởng.');
+
+            robuxConfig = configData;
+            houseState.score = Number(configData.score || houseState.score || 0);
+            document.getElementById('reward-score').textContent = houseState.score.toLocaleString('vi-VN');
+            document.getElementById('reward-rate').textContent = `${Number(configData.pointsPerRobux).toLocaleString('vi-VN')}:1`;
+            document.getElementById('reward-limit').textContent = Number(configData.maxDailyRobux).toLocaleString('vi-VN');
+            const amountInput = document.getElementById('robux-amount');
+            amountInput.min = configData.minRobux;
+            amountInput.max = configData.maxDailyRobux;
+            if(Number(amountInput.value) < configData.minRobux) amountInput.value = configData.minRobux;
+            const submitButton = document.getElementById('reward-submit');
+            submitButton.disabled = !configData.enabled;
+            submitButton.textContent = configData.enabled ? 'GỬI YÊU CẦU ĐỔI' : 'HỆ THỐNG ĐANG TẠM KHÓA';
+            updateRobuxPreview();
+            renderRobuxHistory(requestsData.requests || []);
+            updateUI();
+        } catch(error) {
+            if(showErrors) showNotification(`❌ ${error.message}`, true);
+        }
+    }
+
+    async function openRobuxPanel() {
+        openPanel('robux-panel');
+        await loadRobuxRewards(true);
+    }
+
+    async function submitRobuxRequest() {
+        const robloxUsername = document.getElementById('roblox-username').value.trim();
+        const robloxUserId = document.getElementById('roblox-user-id').value.trim();
+        const robuxAmount = Number.parseInt(document.getElementById('robux-amount').value, 10);
+        const pointsNeeded = robuxAmount * Number(robuxConfig.pointsPerRobux || 100);
+        if(!confirm(`Gửi yêu cầu đổi ${pointsNeeded.toLocaleString('vi-VN')} điểm lấy ${robuxAmount} Robux cho tài khoản "${robloxUsername}"?`)) return;
+
+        const button = document.getElementById('reward-submit');
+        button.disabled = true;
+        button.textContent = 'ĐANG GỬI...';
+        try {
+            const res = await fetch('/api/robux/redeem', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({ robloxUsername, robloxUserId, robuxAmount })
+            });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.message || 'Không thể gửi yêu cầu.');
+            houseState.score = Number(data.newScore || 0);
+            showNotification(`🎁 ${data.message}`);
+            await loadRobuxRewards(false);
+        } catch(error) {
+            showNotification(`❌ ${error.message}`, true);
+        } finally {
+            button.disabled = !robuxConfig.enabled;
+            button.textContent = robuxConfig.enabled ? 'GỬI YÊU CẦU ĐỔI' : 'HỆ THỐNG ĐANG TẠM KHÓA';
+        }
+    }
+
+    async function cancelRobuxRequest(requestId) {
+        if(!confirm('Hủy yêu cầu này và hoàn lại toàn bộ điểm?')) return;
+        try {
+            const res = await fetch(`/api/robux/cancel/${encodeURIComponent(requestId)}`, { method:'POST' });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.message || 'Không thể hủy yêu cầu.');
+            houseState.score = Number(data.newScore || houseState.score);
+            showNotification(`↩️ ${data.message}`);
+            await loadRobuxRewards(false);
+        } catch(error) {
+            showNotification(`❌ ${error.message}`, true);
+        }
+    }
+
 </script>
 </body>
 </html>

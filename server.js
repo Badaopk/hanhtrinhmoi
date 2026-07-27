@@ -19,6 +19,20 @@ const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+function readEnvInt(name, fallback, min, max) {
+    const parsed = Number.parseInt(process.env[name], 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
+// Robux chỉ được xử lý dưới dạng yêu cầu đổi thưởng có kiểm duyệt.
+// Máy chủ không thu thập mật khẩu/cookie Roblox và không tự ý đăng nhập tài khoản người chơi.
+const ROBUX_REWARDS_ENABLED = String(process.env.ROBUX_REWARDS_ENABLED || 'false').toLowerCase() === 'true';
+const ROBUX_POINTS_PER_ROBUX = readEnvInt('ROBUX_POINTS_PER_ROBUX', 100, 1, 1_000_000);
+const ROBUX_MIN_REDEEM = readEnvInt('ROBUX_MIN_REDEEM', 10, 1, 100_000);
+const ROBUX_MAX_DAILY = readEnvInt('ROBUX_MAX_DAILY', 100, ROBUX_MIN_REDEEM, 1_000_000);
+const ROBUX_MAX_OPEN_REQUESTS = readEnvInt('ROBUX_MAX_OPEN_REQUESTS', 2, 1, 20);
+
 if (!MONGO_URI) {
     console.error('❌ Thiếu biến môi trường MONGO_URI hoặc MONGODB_URI.');
     process.exit(1);
@@ -62,6 +76,10 @@ const userSchema = new mongoose.Schema({
     inventory: { type: Array, default: [] }, // Danh sách ID đồ đã mua: ['bed_1', 'table_2']
     houseData: { type: Array, default: [] },
     chestsData: { type: Object, default: {} },
+    worldSettings: {
+        type: Object,
+        default: { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' }
+    },
     colors: { type: Object, default: { wall: '#b2bec3', floor: '#f5f6fa' } },
     // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
     musicLevel: { type: Number, default: 1 }, // Thêm vào danh sách các cấp độ game
@@ -209,6 +227,20 @@ const HOME_FURNITURE = [
     { id: 'magic_ball', name: 'Quả Cầu Pha Lê', price: 500, type: 'd', category: 'decor', icon: '🔮' },
     { id: 'trophy_gold', name: 'Cúp Vô Địch', price: 900, type: 'd', category: 'decor', icon: '🏆' },
 
+    // --- 5. CÔNG TRÌNH THẾ GIỚI (world) ---
+    { id: 'world_gazebo', name: 'Chòi Nghỉ Công Viên', price: 850, type: 'w', category: 'world', icon: '🏛️' },
+    { id: 'world_windmill', name: 'Cối Xay Gió', price: 1200, type: 'w', category: 'world', icon: '🌬️' },
+    { id: 'world_market_stall', name: 'Quầy Chợ Làng', price: 500, type: 'w', category: 'world', icon: '🏪' },
+    { id: 'world_street_lamp', name: 'Đèn Đường Phép Thuật', price: 260, type: 'w', category: 'world', icon: '💡' },
+    { id: 'world_park_bench', name: 'Ghế Công Viên', price: 180, type: 'w', category: 'world', icon: '🪑' },
+    { id: 'world_campfire', name: 'Lửa Trại', price: 220, type: 'w', category: 'world', icon: '🔥' },
+    { id: 'world_picnic', name: 'Bàn Dã Ngoại', price: 320, type: 'w', category: 'world', icon: '🧺' },
+    { id: 'world_swing', name: 'Xích Đu Sân Vườn', price: 380, type: 'w', category: 'world', icon: '🎠' },
+    { id: 'world_cherry_tree', name: 'Cây Anh Đào', price: 450, type: 'w', category: 'world', icon: '🌸' },
+    { id: 'world_crystal', name: 'Tinh Thể Phát Sáng', price: 700, type: 'w', category: 'world', icon: '💠' },
+    { id: 'world_portal', name: 'Cổng Dịch Chuyển', price: 1500, type: 'w', category: 'world', icon: '🌀' },
+    { id: 'world_sign', name: 'Biển Chỉ Dẫn', price: 90, type: 'w', category: 'world', icon: '🪧' },
+
     // --- 5. THÚ CƯNG ĐI DẠO (pet) - TỰ ĐỘNG CHẠY NHẢY TRONG GAME ---
     { id: 'pet_cat', name: 'Mèo Lười', price: 500, type: 'p', category: 'pet', icon: '🐱' },
     { id: 'pet_dog', name: 'Cún Corgi', price: 260, type: 'p', category: 'pet', icon: '🐶' },
@@ -287,7 +319,29 @@ const notificationSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now, index: true }
 });
 
+const robuxRedemptionSchema = new mongoose.Schema({
+    requestCode: { type: String, required: true, unique: true, index: true },
+    gameUsername: { type: String, required: true, index: true },
+    robloxUsername: { type: String, required: true, maxlength: 20 },
+    robloxUserId: { type: String, default: '', maxlength: 24 },
+    pointsSpent: { type: Number, required: true, min: 1 },
+    robuxAmount: { type: Number, required: true, min: 1 },
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'paid', 'rejected', 'cancelled'],
+        default: 'pending',
+        index: true
+    },
+    adminNote: { type: String, default: '', maxlength: 500 },
+    processedBy: { type: String, default: '' },
+    processedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+robuxRedemptionSchema.index({ gameUsername: 1, createdAt: -1 });
+robuxRedemptionSchema.index({ status: 1, createdAt: -1 });
+
 const Notification = mongoose.model('Notification', notificationSchema);
+const RobuxRedemption = mongoose.model('RobuxRedemption', robuxRedemptionSchema);
 
 // --- DANH SÁCH VẬT PHẨM NÂNG CẤP (FULL OPTION) ---
 const Tournament = mongoose.model('Tournament', tournamentSchema);
@@ -1616,6 +1670,281 @@ app.post('/api/admin/reset-all-levels', async (req, res) => {
         res.status(500).json({ message: 'Lỗi hệ thống: ' + e.message });
     }
 });
+// --- HỆ THỐNG ĐỔI ĐIỂM SANG ROBUX (YÊU CẦU CÓ KIỂM DUYỆT) ---
+function getRobuxRewardConfig() {
+    return {
+        enabled: ROBUX_REWARDS_ENABLED,
+        pointsPerRobux: ROBUX_POINTS_PER_ROBUX,
+        minRobux: ROBUX_MIN_REDEEM,
+        maxDailyRobux: ROBUX_MAX_DAILY,
+        maxOpenRequests: ROBUX_MAX_OPEN_REQUESTS,
+        payoutMode: 'manual-group-payout',
+        notice: 'Hệ thống chỉ tạo yêu cầu. Admin phải chi trả bằng phương thức chính thức của Roblox. Không bao giờ nhập mật khẩu hoặc cookie Roblox.'
+    };
+}
+
+function normalizeRobloxUsername(value) {
+    return String(value || '').trim();
+}
+
+function isValidRobloxUsername(value) {
+    return /^[A-Za-z0-9_]{3,20}$/.test(value) && !value.startsWith('_') && !value.endsWith('_');
+}
+
+function createRobuxRequestCode() {
+    return `RBX-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+}
+
+app.get('/api/robux/config', requireAuth, async (req, res) => {
+    const user = await User.findOne({ username: req.session.user.username }).select('score');
+    res.json({
+        ...getRobuxRewardConfig(),
+        score: user?.score || 0
+    });
+});
+
+app.get('/api/robux/my-requests', requireAuth, async (req, res) => {
+    const requests = await RobuxRedemption.find({ gameUsername: req.session.user.username })
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean();
+    res.json({ requests });
+});
+
+app.post('/api/robux/redeem', requireAuth, async (req, res) => {
+    if (!ROBUX_REWARDS_ENABLED) {
+        return res.status(503).json({ message: 'Hệ thống đổi Robux đang tạm khóa.' });
+    }
+
+    const robloxUsername = normalizeRobloxUsername(req.body.robloxUsername);
+    const robloxUserId = String(req.body.robloxUserId || '').trim();
+    const robuxAmount = Number.parseInt(req.body.robuxAmount, 10);
+
+    if (!isValidRobloxUsername(robloxUsername)) {
+        return res.status(400).json({ message: 'Tên Roblox phải dài 3–20 ký tự và chỉ gồm chữ, số hoặc dấu gạch dưới.' });
+    }
+    if (robloxUserId && !/^\d{1,24}$/.test(robloxUserId)) {
+        return res.status(400).json({ message: 'Roblox User ID chỉ được chứa chữ số.' });
+    }
+    if (!Number.isInteger(robuxAmount) || robuxAmount < ROBUX_MIN_REDEEM || robuxAmount > ROBUX_MAX_DAILY) {
+        return res.status(400).json({ message: `Mỗi yêu cầu phải từ ${ROBUX_MIN_REDEEM} đến ${ROBUX_MAX_DAILY} Robux.` });
+    }
+
+    const username = req.session.user.username;
+    const openStatuses = ['pending', 'approved'];
+    const openCount = await RobuxRedemption.countDocuments({
+        gameUsername: username,
+        status: { $in: openStatuses }
+    });
+    if (openCount >= ROBUX_MAX_OPEN_REQUESTS) {
+        return res.status(429).json({ message: `Bạn đang có ${openCount} yêu cầu chưa hoàn tất. Hãy chờ admin xử lý.` });
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const dailyRows = await RobuxRedemption.aggregate([
+        {
+            $match: {
+                gameUsername: username,
+                createdAt: { $gte: startOfDay },
+                status: { $in: ['pending', 'approved', 'paid'] }
+            }
+        },
+        { $group: { _id: null, total: { $sum: '$robuxAmount' } } }
+    ]);
+    const dailyUsed = dailyRows[0]?.total || 0;
+    if (dailyUsed + robuxAmount > ROBUX_MAX_DAILY) {
+        return res.status(400).json({
+            message: `Giới hạn hôm nay là ${ROBUX_MAX_DAILY} Robux. Bạn đã dùng ${dailyUsed} Robux.`
+        });
+    }
+
+    const pointsSpent = robuxAmount * ROBUX_POINTS_PER_ROBUX;
+    const activity = `🎁 Giữ ${pointsSpent} điểm cho yêu cầu đổi ${robuxAmount} Robux`;
+    const updatedUser = await User.findOneAndUpdate(
+        {
+            username,
+            isSuspended: { $ne: true },
+            score: { $gte: pointsSpent }
+        },
+        {
+            $inc: { score: -pointsSpent },
+            $push: { history: { activity, timestamp: new Date() } }
+        },
+        { new: true }
+    ).select('score');
+
+    if (!updatedUser) {
+        return res.status(400).json({ message: `Không đủ điểm. Cần ${pointsSpent.toLocaleString('vi-VN')} điểm.` });
+    }
+
+    try {
+        const request = await RobuxRedemption.create({
+            requestCode: createRobuxRequestCode(),
+            gameUsername: username,
+            robloxUsername,
+            robloxUserId,
+            pointsSpent,
+            robuxAmount,
+            status: 'pending'
+        });
+
+        return res.status(201).json({
+            message: `Đã gửi yêu cầu ${robuxAmount} Robux. ${pointsSpent.toLocaleString('vi-VN')} điểm đang được giữ để tránh đổi trùng.`,
+            newScore: updatedUser.score,
+            request
+        });
+    } catch (error) {
+        await User.updateOne(
+            { username },
+            {
+                $inc: { score: pointsSpent },
+                $push: { history: { activity: `Hoàn ${pointsSpent} điểm vì tạo yêu cầu Robux thất bại`, timestamp: new Date() } }
+            }
+        );
+        console.error('Lỗi tạo yêu cầu Robux:', error);
+        return res.status(500).json({ message: 'Không thể tạo yêu cầu. Điểm đã được hoàn lại.' });
+    }
+});
+
+app.post('/api/robux/cancel/:requestId', requireAuth, async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.requestId)) {
+        return res.status(400).json({ message: 'Mã yêu cầu không hợp lệ.' });
+    }
+
+    const request = await RobuxRedemption.findOneAndUpdate(
+        {
+            _id: req.params.requestId,
+            gameUsername: req.session.user.username,
+            status: 'pending'
+        },
+        {
+            $set: {
+                status: 'cancelled',
+                processedAt: new Date(),
+                adminNote: 'Người chơi tự hủy yêu cầu'
+            }
+        },
+        { new: true }
+    );
+
+    if (!request) {
+        return res.status(400).json({ message: 'Chỉ có thể hủy yêu cầu đang chờ duyệt.' });
+    }
+
+    const user = await User.findOneAndUpdate(
+        { username: req.session.user.username },
+        {
+            $inc: { score: request.pointsSpent },
+            $push: {
+                history: {
+                    activity: `↩️ Hoàn ${request.pointsSpent} điểm do hủy yêu cầu ${request.requestCode}`,
+                    timestamp: new Date()
+                }
+            }
+        },
+        { new: true }
+    ).select('score');
+
+    res.json({
+        message: `Đã hủy yêu cầu và hoàn ${request.pointsSpent.toLocaleString('vi-VN')} điểm.`,
+        newScore: user?.score || 0,
+        request
+    });
+});
+
+app.get('/api/admin/robux-redemptions', requireAdmin, async (req, res) => {
+    const allowedStatuses = ['all', 'pending', 'approved', 'paid', 'rejected', 'cancelled'];
+    const requestedStatus = allowedStatuses.includes(req.query.status) ? req.query.status : 'pending';
+    const filter = requestedStatus === 'all' ? {} : { status: requestedStatus };
+    const requests = await RobuxRedemption.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+
+    const summaryRows = await RobuxRedemption.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 }, robux: { $sum: '$robuxAmount' } } }
+    ]);
+    const summary = Object.fromEntries(summaryRows.map(row => [row._id, { count: row.count, robux: row.robux }]));
+
+    res.json({ config: getRobuxRewardConfig(), requests, summary });
+});
+
+app.post('/api/admin/robux-redemptions/:requestId/action', requireAdmin, async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.requestId)) {
+        return res.status(400).json({ message: 'Mã yêu cầu không hợp lệ.' });
+    }
+
+    const action = String(req.body.action || '').trim();
+    const adminNote = String(req.body.adminNote || '').trim().slice(0, 500);
+    const adminUsername = req.session.user.username;
+    let fromStatuses;
+    let nextStatus;
+
+    if (action === 'approve') {
+        fromStatuses = ['pending'];
+        nextStatus = 'approved';
+    } else if (action === 'mark-paid') {
+        fromStatuses = ['approved'];
+        nextStatus = 'paid';
+    } else if (action === 'reject') {
+        fromStatuses = ['pending', 'approved'];
+        nextStatus = 'rejected';
+    } else {
+        return res.status(400).json({ message: 'Hành động không hợp lệ.' });
+    }
+
+    const request = await RobuxRedemption.findOneAndUpdate(
+        { _id: req.params.requestId, status: { $in: fromStatuses } },
+        {
+            $set: {
+                status: nextStatus,
+                adminNote,
+                processedBy: adminUsername,
+                processedAt: new Date()
+            }
+        },
+        { new: true }
+    );
+
+    if (!request) {
+        return res.status(409).json({ message: 'Yêu cầu đã được xử lý hoặc không còn ở trạng thái phù hợp.' });
+    }
+
+    if (nextStatus === 'rejected') {
+        await User.updateOne(
+            { username: request.gameUsername },
+            {
+                $inc: { score: request.pointsSpent },
+                $push: {
+                    history: {
+                        activity: `↩️ Hoàn ${request.pointsSpent} điểm vì yêu cầu ${request.requestCode} bị từ chối`,
+                        timestamp: new Date()
+                    }
+                }
+            }
+        );
+    } else if (nextStatus === 'paid') {
+        await User.updateOne(
+            { username: request.gameUsername },
+            {
+                $push: {
+                    history: {
+                        activity: `✅ Yêu cầu ${request.requestCode}: admin xác nhận đã chi ${request.robuxAmount} Robux`,
+                        timestamp: new Date()
+                    }
+                }
+            }
+        );
+    }
+
+    res.json({
+        message: nextStatus === 'approved'
+            ? 'Đã duyệt yêu cầu. Hãy thanh toán bằng phương thức chính thức của Roblox rồi đánh dấu đã trả.'
+            : nextStatus === 'paid'
+                ? 'Đã đánh dấu yêu cầu là đã trả Robux.'
+                : `Đã từ chối và hoàn ${request.pointsSpent.toLocaleString('vi-VN')} điểm.`,
+        request
+    });
+});
+
 // --- API NGÔI NHÀ CỦA BÉ ---
 // --- API MỚI: TẢI NHÀ CỦA BẠN BÈ ĐỂ ĐI THĂM ---
 app.get('/api/house/visit/:friendUsername', async (req, res) => {
@@ -1626,7 +1955,8 @@ app.get('/api/house/visit/:friendUsername', async (req, res) => {
 
         res.json({ 
             friendName: friend.username,
-            houseData: friend.houseData || []
+            houseData: friend.houseData || [],
+            worldSettings: friend.worldSettings || { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' }
         });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server' });
@@ -1647,6 +1977,7 @@ app.get('/api/house/info', async (req, res) => {
             inventory: user.inventory || [],
             houseData: user.houseData || [],
             chestsData: user.chestsData || {},
+            worldSettings: user.worldSettings || { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' },
             shopItems: SHOP_ITEMS // Đảm bảo biến SHOP_ITEMS đã được khai báo ở trên
         });
     } catch (error) {
@@ -1656,34 +1987,66 @@ app.get('/api/house/info', async (req, res) => {
 // 2. Mua đồ
 app.post('/api/house/buy', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const { itemId } = req.body;
+
+    const itemId = String(req.body.itemId || '');
     const item = SHOP_ITEMS.find(i => i.id === itemId);
-    const user = await User.findOne({ username: req.session.user.username });
+    if (!item) return res.status(400).json({ message: 'Vật phẩm không tồn tại' });
 
-    if (!item) return res.status(400).json({ message: "Vật phẩm không tồn tại" });
-    if (user.score < item.price) return res.status(400).json({ message: "Bé không đủ điểm rồi!" });
-    
-    // Trừ điểm và thêm vào kho
-    user.score -= item.price;
-    user.inventory.push(itemId);
-    await user.save();
+    // Sơn và sàn được bán theo gói 10 ô; các vật phẩm khác nhận 1 món.
+    const quantity = ['paint', 'floor'].includes(item.category) ? 10 : 1;
+    const inventoryItems = Array.from({ length: quantity }, () => itemId);
+    const user = await User.findOneAndUpdate(
+        {
+            username: req.session.user.username,
+            isSuspended: { $ne: true },
+            score: { $gte: item.price }
+        },
+        {
+            $inc: { score: -item.price },
+            $push: {
+                inventory: { $each: inventoryItems },
+                history: {
+                    activity: `🛍️ Mua ${quantity} x ${item.name}: -${item.price} điểm`,
+                    timestamp: new Date()
+                }
+            }
+        },
+        { new: true }
+    ).select('score');
 
-    res.json({ message: `Đã mua ${item.name}!`, newScore: user.score });
+    if (!user) {
+        return res.status(400).json({ message: 'Không đủ điểm hoặc tài khoản đang bị tạm khóa.' });
+    }
+
+    res.json({
+        message: `Đã mua ${quantity} x ${item.name}!`,
+        newScore: user.score,
+        quantity
+    });
 });
 
 // 3. Lưu vị trí đồ đạc (ĐÃ FIX LỖI CƯỚP NHÀ)
 app.post('/api/house/save', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: 'Chưa đăng nhập' });
-    const { username, items, inventory, chestsData } = req.body;    
+    const { username, hostUsername, items, inventory, chestsData, worldSettings } = req.body;    
     
     // BẢO MẬT: Chặn không cho lưu nếu tên chủ nhà (gửi từ frontend) khác với tên người đang đăng nhập
-    if (username && username !== req.session.user.username) {
-        return res.status(403).json({ message: "Bạn chỉ có thể lưu khi ở nhà của chính mình!" });
+    if ((username && username !== req.session.user.username) || (hostUsername && hostUsername !== req.session.user.username)) {
+        return res.status(403).json({ message: "Bạn chỉ có thể lưu khi ở thế giới của chính mình!" });
     }
 
     await User.updateOne(
         { username: req.session.user.username }, 
-        { $set: { houseData: items, inventory: inventory, chestsData: chestsData || {} } } 
+        { $set: {
+            houseData: Array.isArray(items) ? items : [],
+            inventory: Array.isArray(inventory) ? inventory : [],
+            chestsData: chestsData || {},
+            worldSettings: {
+                theme: ['spring', 'sunset', 'winter', 'fantasy'].includes(worldSettings?.theme) ? worldSettings.theme : 'spring',
+                weatherMode: ['auto', 'clear', 'rain', 'snow', 'fog'].includes(worldSettings?.weatherMode) ? worldSettings.weatherMode : 'auto',
+                timeMode: ['auto', 'day', 'sunset', 'night'].includes(worldSettings?.timeMode) ? worldSettings.timeMode : 'auto'
+            }
+        } } 
     );
     res.json({ message: "Đã lưu ngôi nhà và kho đồ!" });
 });

@@ -126,6 +126,20 @@
             border-radius: 8px; box-sizing: border-box; font-size: 1rem;
         }
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+
+        .robux-admin-box { background:#fff8e8; border:2px solid #e67e22; border-radius:14px; padding:18px; margin:20px 0; }
+        .robux-admin-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+        .robux-admin-toolbar select { padding:8px; border:1px solid #ccc; border-radius:7px; }
+        .robux-summary { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
+        .robux-summary span { background:white; border:1px solid #f1c27d; border-radius:20px; padding:6px 10px; font-weight:bold; }
+        .robux-table-wrap { overflow-x:auto; }
+        #robux-table { width:100%; border-collapse:collapse; min-width:980px; background:white; }
+        #robux-table th, #robux-table td { border:1px solid #e2e2e2; padding:8px; text-align:left; vertical-align:top; }
+        #robux-table th { background:#fff1d6; }
+        .rbx-status { color:white; border-radius:12px; padding:3px 8px; display:inline-block; font-weight:bold; font-size:.85rem; }
+        .rbx-pending { background:#f39c12; } .rbx-approved { background:#3498db; }
+        .rbx-paid { background:#27ae60; } .rbx-rejected, .rbx-cancelled { background:#7f8c8d; }
+        .rbx-action { border:0; color:white; border-radius:6px; padding:6px 8px; margin:2px; cursor:pointer; font-weight:bold; }
     </style>
 </head>
 <body>
@@ -280,6 +294,36 @@
         </div>
         
         <div id="message-log"></div>
+
+        <section class="robux-admin-box">
+            <h2 style="margin-top:0;">🎁 DUYỆT YÊU CẦU ĐỔI ROBUX</h2>
+            <p><b>Lưu ý:</b> Trang web không tự đăng nhập Roblox. Chỉ đánh dấu “Đã trả” sau khi admin đã chi trả bằng phương thức chính thức của Roblox. Không yêu cầu người chơi gửi mật khẩu, mã OTP hoặc cookie.</p>
+            <div class="robux-admin-toolbar">
+                <label for="robux-status-filter"><b>Trạng thái:</b></label>
+                <select id="robux-status-filter" onchange="loadRobuxRedemptions()">
+                    <option value="pending">Đang chờ duyệt</option>
+                    <option value="approved">Đã duyệt, chờ trả</option>
+                    <option value="paid">Đã trả</option>
+                    <option value="rejected">Từ chối</option>
+                    <option value="cancelled">Người chơi đã hủy</option>
+                    <option value="all">Tất cả</option>
+                </select>
+                <button type="button" class="create-btn" onclick="loadRobuxRedemptions()">Làm mới</button>
+            </div>
+            <div id="robux-config-summary" class="robux-summary"></div>
+            <div class="robux-table-wrap">
+                <table id="robux-table">
+                    <thead>
+                        <tr>
+                            <th>Mã yêu cầu</th><th>Người chơi</th><th>Tài khoản Roblox</th>
+                            <th>Điểm giữ</th><th>Robux</th><th>Trạng thái</th>
+                            <th>Thời gian / Ghi chú</th><th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="robux-table-body"><tr><td colspan="8">Đang tải...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
 
         <table id="user-table">
             <thead>
@@ -823,9 +867,96 @@ async function startSmartTourney() {
             }, 5000); 
         }
 
+        function escapeAdminHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+            })[ch]);
+        }
+
+        function robuxStatusLabel(status) {
+            return {
+                pending:'Đang chờ', approved:'Đã duyệt', paid:'Đã trả',
+                rejected:'Từ chối', cancelled:'Đã hủy'
+            }[status] || status;
+        }
+
+        async function loadRobuxRedemptions() {
+            const tbody = document.getElementById('robux-table-body');
+            const status = document.getElementById('robux-status-filter').value;
+            tbody.innerHTML = '<tr><td colspan="8">Đang tải...</td></tr>';
+            try {
+                const res = await fetch(`/api/admin/robux-redemptions?status=${encodeURIComponent(status)}`);
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.message || 'Không tải được yêu cầu.');
+
+                const cfg = data.config || {};
+                const summary = data.summary || {};
+                document.getElementById('robux-config-summary').innerHTML = `
+                    <span>${cfg.enabled ? '🟢 Đang bật' : '🔴 Đang tắt'}</span>
+                    <span>💎 ${Number(cfg.pointsPerRobux || 0).toLocaleString('vi-VN')} điểm = 1 Robux</span>
+                    <span>🎁 Tối thiểu ${Number(cfg.minRobux || 0).toLocaleString('vi-VN')} Robux</span>
+                    <span>📅 Tối đa ${Number(cfg.maxDailyRobux || 0).toLocaleString('vi-VN')} Robux/ngày</span>
+                    <span>⏳ Chờ: ${summary.pending?.count || 0}</span>
+                    <span>✅ Đã trả: ${summary.paid?.robux || 0} Robux</span>
+                `;
+
+                const rows = data.requests || [];
+                tbody.innerHTML = rows.length ? rows.map(request => {
+                    let actions = '';
+                    if(request.status === 'pending') {
+                        actions = `
+                            <button class="rbx-action" style="background:#3498db" onclick="robuxAdminAction('${request._id}','approve')">Duyệt</button>
+                            <button class="rbx-action" style="background:#e74c3c" onclick="robuxAdminAction('${request._id}','reject')">Từ chối</button>`;
+                    } else if(request.status === 'approved') {
+                        actions = `
+                            <button class="rbx-action" style="background:#27ae60" onclick="robuxAdminAction('${request._id}','mark-paid')">Đã trả</button>
+                            <button class="rbx-action" style="background:#e74c3c" onclick="robuxAdminAction('${request._id}','reject')">Từ chối & hoàn điểm</button>`;
+                    } else {
+                        actions = '<span style="color:#7f8c8d">Đã kết thúc</span>';
+                    }
+                    return `
+                        <tr>
+                            <td><b>${escapeAdminHtml(request.requestCode)}</b></td>
+                            <td>${escapeAdminHtml(request.gameUsername)}</td>
+                            <td><b>${escapeAdminHtml(request.robloxUsername)}</b>${request.robloxUserId ? `<br>ID: ${escapeAdminHtml(request.robloxUserId)}` : ''}</td>
+                            <td>${Number(request.pointsSpent).toLocaleString('vi-VN')}</td>
+                            <td><b>${Number(request.robuxAmount).toLocaleString('vi-VN')}</b></td>
+                            <td><span class="rbx-status rbx-${escapeAdminHtml(request.status)}">${escapeAdminHtml(robuxStatusLabel(request.status))}</span></td>
+                            <td>${new Date(request.createdAt).toLocaleString('vi-VN')}${request.adminNote ? `<br>📝 ${escapeAdminHtml(request.adminNote)}` : ''}</td>
+                            <td>${actions}</td>
+                        </tr>`;
+                }).join('') : '<tr><td colspan="8" style="text-align:center">Không có yêu cầu ở trạng thái này.</td></tr>';
+            } catch(error) {
+                tbody.innerHTML = `<tr><td colspan="8" style="color:#e74c3c">${escapeAdminHtml(error.message)}</td></tr>`;
+            }
+        }
+
+        async function robuxAdminAction(requestId, action) {
+            const actionText = action === 'approve' ? 'duyệt yêu cầu'
+                : action === 'mark-paid' ? 'xác nhận đã trả Robux'
+                : 'từ chối và hoàn điểm';
+            if(!confirm(`Bạn chắc chắn muốn ${actionText}?`)) return;
+            const adminNote = prompt('Ghi chú cho người chơi (có thể để trống):') || '';
+            try {
+                const res = await fetch(`/api/admin/robux-redemptions/${encodeURIComponent(requestId)}/action`, {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({ action, adminNote })
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.message || 'Không thể xử lý yêu cầu.');
+                showMessage(data.message);
+                await loadRobuxRedemptions();
+                fetchUsers();
+            } catch(error) {
+                showMessage(error.message, true);
+            }
+        }
+
         // Chạy khi tải trang
         fetchUsers();
         checkMaintenanceStatus();
+        loadRobuxRedemptions();
     </script>
 </body>
 </html>
