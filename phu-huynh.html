@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta name="google-adsense-account" content="ca-pub-2735044868175045">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2735044868175045" crossorigin="anonymous"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Điều Khiển Của Phụ Huynh</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-container { max-width: 800px; margin: 40px auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: left; }
+        #parent-code-wrapper { background: #eee; padding: 15px; border-radius: 8px; }
+        #parent-code { font-weight: bold; font-size: 1.2rem; color: #e74c3c; user-select: all; }
+        .child-record { background: #f9f9f9; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #eee; }
+        .child-record h3 { margin-top: 0; color: #3498db; }
+        .history-list { list-style-type: none; padding-left: 0; }
+        .history-list li { margin-bottom: 10px; color: #555; border-left: 3px solid #1abc9c; padding-left: 15px; }
+        .history-list li .time { font-size: 0.9em; color: #888; display: block; }
+    </style>
+    <link rel="stylesheet" href="modern-ui.css">
+</head>
+<body class="my-home-bg">
+    <h1 class="page-header header-home">👤 Bảng Điều Khiển Của Phụ Huynh</h1>
+    <div class="dashboard-container" id="dashboard-content">
+        <p>Đang tải dữ liệu...</p>
+    </div>
+    <a href="index.html" class="back-button">Về Trang Chủ</a>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const dashboardContent = document.getElementById('dashboard-content');
+            try {
+                const res = await fetch('/api/parent/dashboard');
+
+                // Nếu không được xác thực, chuyển về trang đăng nhập
+                if (res.status === 401 || res.status === 403) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                if (!res.ok) {
+                    throw new Error('Không thể tải dữ liệu.');
+                }
+
+                const data = await res.json();
+                
+                let childrenHTML = '';
+                if (data.children.length === 0) {
+                    childrenHTML = '<p>Chưa có tài khoản nào của con được liên kết. Hãy đưa mã kết nối cho bé để đăng ký tài khoản.</p>';
+                } else {
+                    data.children.forEach(child => {
+                        let historyHTML = '<ul class="history-list">';
+                        if (child.history.length === 0) {
+                            historyHTML += '<li>Chưa có hoạt động nào được ghi lại.</li>';
+                        } else {
+                            child.history.forEach(log => {
+                                const time = new Date(log.timestamp).toLocaleString('vi-VN');
+                                historyHTML += `<li><strong>${log.activity}</strong><span class="time">${time}</span></li>`;
+                            });
+                        }
+                        historyHTML += '</ul>';
+                        childrenHTML += `<div class="child-record"><h3>Tài khoản của bé: ${child.username}</h3>${historyHTML}</div>`;
+                    });
+                }
+
+                dashboardContent.innerHTML = `
+                    <div id="parent-code-wrapper">
+                         <p>Hãy đưa mã này cho con để bé có thể liên kết tài khoản khi đăng ký:</p>
+                         <p id="parent-code">${data.parentCode}</p>
+                    </div>
+                    <h2 style="margin-top: 40px;">Hoạt động gần đây của các con</h2>
+                    <div id="children-container">${childrenHTML}</div>
+                `;
+
+            } catch (error) {
+                dashboardContent.innerHTML = `<p style="color: red;">Lỗi: ${error.message}. Vui lòng thử đăng nhập lại.</p>`;
+            }
+        });
+    </script>
+    <script src="modern-ui.js"></script>
+</body>
+</html>

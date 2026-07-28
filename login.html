@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta name="google-adsense-account" content="ca-pub-2735044868175045">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2735044868175045" crossorigin="anonymous"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập / Đăng Ký</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .auth-container { max-width: 450px; margin: 40px auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .auth-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .tab-btn { padding: 10px 20px; border: none; background: none; font-family: 'Baloo 2', cursive; font-size: 1.2rem; cursor: pointer; color: #888; width: 50%; }
+        .tab-btn.active { border-bottom: 3px solid #ff6347; font-weight: bold; color: #333; }
+        .form-content { display: none; }
+        .form-content.active { display: block; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-family: 'Baloo 2', cursive; font-size: 1rem; }
+        .submit-btn { width: 100%; padding: 12px; background: #ff6347; color: white; border: none; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: background-color 0.3s; }
+        .submit-btn:hover { background-color: #e5533d; }
+        #message { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 8px; display: none; }
+        #message.success { background-color: #d4edda; color: #155724; display: block; }
+        #message.error { background-color: #f8d7da; color: #721c24; display: block; }
+    </style>
+    <link rel="stylesheet" href="modern-ui.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-tabs">
+            <button class="tab-btn active" onclick="showForm(event, 'login')">Đăng Nhập</button>
+            <button class="tab-btn" onclick="showForm(event, 'register')">Đăng Ký</button>
+        </div>
+
+        <div id="login" class="form-content active">
+            <h2>Đăng Nhập</h2>
+            <form id="login-form">
+                <div class="input-group"><label for="login-username">Tên đăng nhập</label><input type="text" id="login-username" name="username" required autocomplete="username" maxlength="24"></div>
+                <div class="input-group"><label for="login-password">Mật khẩu</label><input type="password" id="login-password" name="password" required minlength="6" maxlength="72" autocomplete="current-password"></div>
+                <button type="submit" class="submit-btn">Vào Hành Tinh!</button>
+            </form>
+        </div>
+
+        <div id="register" class="form-content">
+            <h2>Đăng Ký</h2>
+            <form id="register-form">
+                <div class="input-group"><label for="reg-username">Tên đăng nhập</label><input type="text" id="reg-username" name="username" required minlength="3" maxlength="24" autocomplete="username" pattern="[A-Za-z0-9_À-ỹ]+"></div>
+                <div class="input-group"><label for="reg-password">Mật khẩu</label><input type="password" id="reg-password" name="password" required minlength="6" maxlength="72" autocomplete="new-password"></div>
+                <button type="submit" class="submit-btn">Tạo Tài Khoản</button>
+            </form>
+        </div>
+
+        <div id="message"></div>
+    </div>
+    <a href="index.html" class="back-button">Về Trang Chủ</a>
+
+    <script>
+        const messageEl = document.getElementById('message');
+        
+        // Chuyển tab
+        function showForm(event, formId) {
+            document.querySelectorAll('.form-content').forEach(f => f.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(formId).classList.add('active');
+            event.currentTarget.classList.add('active');
+            messageEl.className = '';
+            messageEl.textContent = '';
+        }
+        
+        // Hiển thị thông báo
+        function showMessage(text, isError = false) {
+            messageEl.textContent = text; 
+            messageEl.className = isError ? 'error' : 'success';
+        }
+
+        // Xử lý gửi form chung
+        async function handleFormSubmit(event, url) {
+            event.preventDefault();
+            const form = event.target;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const body = Object.fromEntries(new FormData(form).entries());
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Đang xử lý...';
+            
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.message);
+                }
+
+                // Vì không còn phụ huynh, ta chỉ in ra thông báo mặc định
+                showMessage(data.message || 'Thành công!');
+                
+                if (url.includes('register')) {
+                    form.reset();
+                    // Có thể tự động chuyển sang tab đăng nhập sau khi đăng ký thành công
+                    setTimeout(() => document.querySelector('.auth-tabs button:first-child').click(), 1500);
+                }
+
+                if (url === '/api/login') {
+                    localStorage.setItem('currentUser', data.user.username);
+                    localStorage.setItem('role', data.user.role || 'child');
+                    
+                    showMessage('Đăng nhập thành công! Đang chuyển về trang chủ...');
+                    setTimeout(() => window.location.href = 'index.html', 1500); 
+                }
+
+            } catch (err) {
+                showMessage(err.message, true);
+            } finally {
+                 submitButton.disabled = false;
+                 if(url === '/api/login') submitButton.textContent = 'Vào Hành Tinh!';
+                 else submitButton.textContent = 'Tạo Tài Khoản';
+            }
+        }
+
+        document.getElementById('login-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/login'));
+        // Lưu ý: Đảm bảo endpoint API '/api/register' ở phía Backend không yêu cầu parentCode
+        document.getElementById('register-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/register'));
+
+        if (window.location.hash === '#register') {
+            document.querySelectorAll('.form-content').forEach(f => f.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('register').classList.add('active');
+            document.querySelector('.auth-tabs button:nth-child(2)').classList.add('active');
+        }
+    </script>
+    <script src="modern-ui.js"></script>
+</body>
+</html>
