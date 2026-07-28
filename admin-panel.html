@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta name="google-adsense-account" content="ca-pub-2735044868175045">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2735044868175045" crossorigin="anonymous"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background-color: #f1f2f6; }
+        .admin-container { max-width: 1400px; margin: 20px auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; }
+        
+        /* (CSS Form - Cũ) */
+        .admin-forms-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        @media (max-width: 900px) { .admin-forms-container { grid-template-columns: 1fr; } }
+        .admin-create-form {
+            background: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .admin-create-form h2 { margin-top: 0; }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .form-group label {
+            width: 120px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: inherit;
+        }
+        .create-btn {
+            padding: 10px 20px; background-color: #3498db; color: white;
+            border: none; border-radius: 5px; cursor: pointer; font-size: 1rem;
+        }
+        .create-btn:hover { background-color: #2980b9; }
+        .create-btn.bot-btn { background-color: #9b59b6; }
+        .create-btn.bot-btn:hover { background-color: #8e44ad; }
+        .create-btn.broadcast-btn { background-color: #e67e22; }
+        .create-btn.broadcast-btn:hover { background-color: #d35400; }
+        .create-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+        /* (CSS Nút Bảo Trì - Cũ) */
+        .maintenance-btn {
+            background-color: #e74c3c; /* Màu đỏ */
+        }
+        .maintenance-btn.safe {
+            background-color: #2ecc71; /* Màu xanh */
+        }
+        #maintenance-status {
+            font-weight: bold;
+            margin-left: 15px;
+        }
+
+        /* (CSS Bảng - Cũ) */
+        #user-table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+        #user-table th, #user-table td {
+            padding: 10px; border: 1px solid #ddd;
+            text-align: left; vertical-align: middle;
+            word-wrap: break-word;
+        }
+        #user-table th { background-color: #f9f9f9; }
+        #user-table input[type="number"] {
+            width: 70px; padding: 5px; border: 1px solid #ccc;
+            border-radius: 5px; font-size: 1rem;
+        }
+
+        /* (CSS Nút Hành Động - Cũ) */
+        .action-btn {
+            padding: 5px 10px; font-size: 0.9rem; color: white;
+            border: none; border-radius: 5px; cursor: pointer;
+            margin-right: 5px; margin-bottom: 5px; width: 85px; 
+            text-align: center;
+        }
+        .save-btn { background-color: #2ecc71; }
+        .save-btn:hover { background-color: #27ae60; }
+        .delete-btn { background-color: #e74c3c; }
+        .delete-btn:hover { background-color: #c0392b; }
+        .notify-btn { background-color: #f39c12; }
+        .notify-btn:hover { background-color: #e67e22; }
+        .suspend-btn { background-color: #7f8c8d; }
+        .suspend-btn:hover { background-color: #34495e; }
+        .suspend-btn.active { background-color: #c0392b; font-weight: bold; }
+        .reset-pw-btn { background-color: #3498db; }
+        .reset-pw-btn:hover { background-color: #2980b9; }
+        .transfer-btn { background-color: #1abc9c; } 
+        .transfer-btn:hover { background-color: #16a085; }
+
+        .role-parent { color: #2980b9; font-weight: bold; }
+        .role-child { color: #2c3e50; }
+        .role-suspended { color: #c0392b; text-decoration: line-through; }
+
+        #message-log {
+            margin-top: 20px; font-weight: bold;
+            color: #2ecc71; text-align: center; min-height: 1.2em;
+        }
+
+        /* --- PHẦN SỬA LỖI: Đưa CSS Giao Nhiệm Vụ lên đây --- */
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.7); display: none; justify-content: center; 
+            align-items: center; z-index: 1000; 
+        }
+        .quest-modal { 
+            background: white; padding: 25px; border-radius: 15px; 
+            width: 400px; text-align: left; color: #333;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .quest-modal h2 { margin-top: 0; color: #8e44ad; }
+        .quest-modal label { display: block; margin: 10px 0 5px; font-weight: bold; }
+        .quest-modal select, .quest-modal input { 
+            width: 100%; padding: 10px; border: 1px solid #ccc; 
+            border-radius: 8px; box-sizing: border-box; font-size: 1rem;
+        }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+
+        .robux-admin-box { background:#fff8e8; border:2px solid #e67e22; border-radius:14px; padding:18px; margin:20px 0; }
+        .robux-admin-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+        .robux-admin-toolbar select { padding:8px; border:1px solid #ccc; border-radius:7px; }
+        .robux-summary { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
+        .robux-summary span { background:white; border:1px solid #f1c27d; border-radius:20px; padding:6px 10px; font-weight:bold; }
+        .robux-table-wrap { overflow-x:auto; }
+        #robux-table { width:100%; border-collapse:collapse; min-width:980px; background:white; }
+        #robux-table th, #robux-table td { border:1px solid #e2e2e2; padding:8px; text-align:left; vertical-align:top; }
+        #robux-table th { background:#fff1d6; }
+        .rbx-status { color:white; border-radius:12px; padding:3px 8px; display:inline-block; font-weight:bold; font-size:.85rem; }
+        .rbx-pending { background:#f39c12; } .rbx-approved { background:#3498db; }
+        .rbx-paid { background:#27ae60; } .rbx-rejected, .rbx-cancelled { background:#7f8c8d; }
+        .rbx-action { border:0; color:white; border-radius:6px; padding:6px 8px; margin:2px; cursor:pointer; font-weight:bold; }
+    </style>
+    <link rel="stylesheet" href="modern-ui.css">
+</head>
+<body>
+<div class="admin-create-form" style="background: #e3f2fd; border: 2px solid #2196f3;">
+    <h2>📢 ĐĂNG THÔNG BÁO CHÍNH THỨC</h2>
+    <div class="form-group">
+        <label>Tiêu đề:</label>
+        <input type="text" id="notif-title" placeholder="Ví dụ: Lịch bảo trì Server">
+    </div>
+    <div class="form-group">
+        <label>Nội dung:</label>
+        <textarea id="notif-content" rows="3"></textarea>
+    </div>
+    <div class="form-group">
+        <label>Loại tin:</label>
+        <select id="notif-type">
+            <option value="info">💡 Thông tin chung</option>
+            <option value="event">🏆 Giải đấu / Sự kiện</option>
+            <option value="warning">⚠️ Bảo trì / Cảnh báo</option>
+        </select>
+    </div>
+    <button class="create-btn" onclick="postOfficialNotification()" style="background:#2196f3; width:100%">ĐĂNG THÔNG BÁO</button>
+</div>
+    <div class="admin-container">
+        <h1>Bảng Điều Khiển Admin</h1>
+        <p>Quản lý dữ liệu người chơi. (Chỉ Admin mới thấy trang này)</p>
+
+        <div class="admin-forms-container">
+            <div class="admin-create-form">
+                <h2>Tạo Tài Khoản Đơn</h2>
+                <form id="create-user-form">
+                    <div class="form-group">
+                        <label for="new-username">Username:</label>
+                        <input type="text" id="new-username" required minlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">Password:</label>
+                        <input type="password" id="new-password" required minlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-role">Vai trò:</label>
+                        <select id="new-role">
+                            <option value="parent">Phụ Huynh</option>
+                            <option value="child">Trẻ Em</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="parent-code-group" style="display: none;">
+                        <label for="new-parentCode">Mã Phụ Huynh:</label>
+                        <input type="text" id="new-parentCode" placeholder="Bắt buộc nếu tạo tài khoản Trẻ Em">
+                    </div>
+                    <button type="submit" class="create-btn">Tạo Tài Khoản</button>
+                </form>
+            </div>
+            
+            <div class="admin-create-form">
+                <h2>Tạo Bot (Parent + Child)</h2>
+                <p>Tạo nhanh các cặp tài khoản Phụ huynh-Trẻ em ngẫu nhiên để thử nghiệm. (Mật khẩu: BotPassword123)</p>
+                <form id="create-random-batch-form">
+                    <div class="form-group">
+                        <label for="random-count">Số lượng cặp:</label>
+                        <input type="number" id="random-count" required min="1" max="100" value="10">
+                    </div>
+                    <button type="submit" id="create-random-btn" class="create-btn bot-btn">Chạy Tạo Bot</button>
+                </form>
+            </div>
+        </div>
+        <div class="admin-create-form" style="margin-top: 10px; border-color: #f1c40f;">
+    <h3>📊 Theo Dõi Đăng Ký</h3>
+    <p>Số lượng: <strong id="reg-count" style="color: #e74c3c; font-size: 1.2rem;">0</strong> bé</p>
+    <div id="reg-list" style="background: #eee; padding: 10px; border-radius: 5px; color: #333;">Đang chờ...</div>
+</div>
+<div class="admin-create-form" style="background: #eef2f7; border: 2px solid #3498db; grid-column: 1/-1;">
+    <h2>🏆 QUẢN LÝ GIẢI ĐẤU HÀNH TINH</h2>
+    
+    <div class="admin-forms-container">
+        <div class="form-group">
+            <label>Môn thi đấu:</label>
+            <select id="tour-game">
+                <option value="chess">Cờ Vua</option>
+                <option value="caro">Cờ Caro</option>
+                <option value="go">Cờ Vây</option>
+                <option value="othello">Vua Phục Kích</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Mở đăng ký trong (Ngày):</label>
+            <input type="number" id="reg-days" value="1" min="1">
+        </div>
+        <div class="form-group">
+            <label>Thời gian (phút/trận):</label>
+            <input type="number" id="tour-time" value="10" min="1">
+        </div>
+    </div>
+
+    <div class="admin-forms-container">
+        <div class="form-group">
+            <label>Tổng thời gian giải (Ngày):</label>
+            <input type="number" id="tour-duration" value="7" min="1">
+        </div>
+        <div class="form-group">
+            <label>Khung giờ thi đấu (Giờ):</label>
+            <div style="display:flex; gap:10px; align-items: center;">
+                <input type="number" id="start-hour" value="8" min="0" max="23" style="width:60px">
+                <span>đến</span>
+                <input type="number" id="end-hour" value="18" min="0" max="23" style="width:60px">
+            </div>
+        </div>
+    </div>
+
+    <hr style="margin: 20px 0; border-top: 1px dashed #bbb;">
+
+    <div style="display:flex; gap:10px; flex-wrap: wrap;">
+        <button class="create-btn" onclick="apiCall('/api/admin/create-tournament', 'POST', getTourData())" style="background:#2ecc71; flex:1;">
+            1. Thiết Lập & Mở Đăng Ký
+        </button>        
+        <button class="create-btn" onclick="startSmartTourney()" style="background:#e74c3c; flex:1;">
+            2. Chốt & Lập Lịch Tự Động
+        </button>
+        
+        <button class="create-btn" onclick="apiCall('/api/admin/advance-to-knockout', 'POST', {})" style="background:#3498db; flex:1;">
+            2.5. Vào Vòng Loại (Nếu có Bảng)
+        </button>
+
+        <button class="create-btn" onclick="finishTourney()" style="background:#f1c40f; color:#333; flex:1;">
+            3. Trao Thưởng & Kết Thúc
+        </button>
+    </div>
+</div>
+        <div class="admin-create-form" style="background: #fffbe6;">
+            <h2>Công Cụ Chung</h2>
+            <form id="broadcast-form">
+                <div class="form-group">
+                    <label for="broadcast-message">Gửi Toàn Server:</label>
+                    <textarea id="broadcast-message" rows="3" placeholder="Gõ thông báo... (vd: Server sẽ bảo trì trong 5 phút!)"></textarea>
+                </div>
+                <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+                    <div class="form-group">
+                    <label style="color:red;">⚠️ VÙNG NGUY HIỂM:</label>
+                    <button type="button" class="create-btn delete-btn" onclick="resetAllServerLevels()">🔄 RESET TOÀN BỘ CẤP ĐỘ</button>
+                    <button class="create-btn" onclick="apiCall('/api/admin/advance-to-knockout', 'POST', {})" style="background:#3498db">
+    2.5. Kết thúc Vòng Bảng -> Vào Vòng Loại
+                    </button>
+            </div>
+                <button type="submit" id="broadcast-btn" class="create-btn broadcast-btn">Gửi Broadcast</button>
+            </form>
+            <hr style="margin: 20px 0;">
+            <div class="form-group">
+                <label>Chế Độ Bảo Trì:</label>
+                <button type="button" id="maintenance-toggle-btn" class="create-btn maintenance-btn">Đang tải...</button>
+                <span id="maintenance-status">Đang tải trạng thái...</span>
+            </div>
+        </div>
+        
+        <div id="message-log"></div>
+
+        <section class="robux-admin-box">
+            <h2 style="margin-top:0;">🎁 DUYỆT YÊU CẦU ĐỔI ROBUX</h2>
+            <p><b>Lưu ý:</b> Trang web không tự đăng nhập Roblox. Chỉ đánh dấu “Đã trả” sau khi admin đã chi trả bằng phương thức chính thức của Roblox. Không yêu cầu người chơi gửi mật khẩu, mã OTP hoặc cookie.</p>
+            <div class="robux-admin-toolbar">
+                <label for="robux-status-filter"><b>Trạng thái:</b></label>
+                <select id="robux-status-filter" onchange="loadRobuxRedemptions()">
+                    <option value="pending">Đang chờ duyệt</option>
+                    <option value="approved">Đã duyệt, chờ trả</option>
+                    <option value="paid">Đã trả</option>
+                    <option value="rejected">Từ chối</option>
+                    <option value="cancelled">Người chơi đã hủy</option>
+                    <option value="all">Tất cả</option>
+                </select>
+                <button type="button" class="create-btn" onclick="loadRobuxRedemptions()">Làm mới</button>
+            </div>
+            <div id="robux-config-summary" class="robux-summary"></div>
+            <div class="robux-table-wrap">
+                <table id="robux-table">
+                    <thead>
+                        <tr>
+                            <th>Mã yêu cầu</th><th>Người chơi</th><th>Tài khoản Roblox</th>
+                            <th>Điểm giữ</th><th>Robux</th><th>Trạng thái</th>
+                            <th>Thời gian / Ghi chú</th><th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="robux-table-body"><tr><td colspan="8">Đang tải...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <table id="user-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Username</th>
+                    <th style="width: 8%;">Vai trò</th>
+                    <th style="width: 7%;">Điểm</th>
+                    <th style="width: 25%;">Cấp Độ (Cờ, Car, GH, OC, LN)</th>
+                    <th style="width: 15%;">Nhiệm vụ đang có</th> <th style="width: 10%;">Thời Gian</th>
+                    <th style="width: 15%;">Thời Gian Chơi</th>
+                    <th style="width: 30%;">Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="user-table-body">
+                <tr><td colspan="6" style="text-align: center;">Đang tải danh sách người chơi...</td></tr>
+            </tbody>
+        </table>
+        
+    </div>
+
+    <a href="index.html" class="back-button" style="display: block; width: 200px; margin: 20px auto; text-align: center;">Về Trang Chủ</a>
+
+    <div id="quest-modal-overlay" class="modal-overlay">
+        <div class="quest-modal">
+            <h2>Giao Nhiệm Vụ Mới</h2>
+            <p id="target-user-text" style="font-weight: bold; color: #2980b9;"></p>
+            
+            <label>Chọn Loại Trò Chơi:</label>
+            <select id="q-taskType">
+                <option value="Thám tử">🔍 Thám tử</option>
+                <option value="Ô Chữ">🧩 Ô Chữ</option>
+                <option value="Tiếng Anh">🇬🇧 Tiếng Anh</option>
+                <option value="Luyện Nói Việt">🎙️ Luyện Nói Việt</option>
+                <option value="Kiểm Tra">📝 Kiểm Tra</option>
+                <option value="Cờ Vua">♟️ Cờ Vua</option>
+                <option value="Trí Nhớ">🧠 Trí Nhớ</option>
+                <option value="Ghép Hình">🖼️ Ghép Hình</option>
+                <option value="Sáng Tác">✍️ Sáng Tác</option>
+                <option value="Cờ Vây">⚫ Cờ Vây</option>
+                <option value="Phục Kích">🟢 Phục Kích</option>
+                <option value="Cờ Caro">❌ Cờ Caro</option>
+                <option value="Âm Nhạc">🎵 Âm Nhạc</option>
+                <option value="Xây Dựng">🧱 Xây Dựng</option>
+                <option value="Vẽ Tranh">🎨 Vẽ Tranh</option>
+            </select>    
+            <label>Số lần cần làm:</label>
+            <input type="number" id="q-target" value="1" min="1">
+    
+            <label>Điểm thưởng (+):</label>
+            <input type="number" id="q-reward" value="100" min="0">
+    
+            <label>Điểm phạt nếu quá giờ (-):</label>
+            <input type="number" id="q-penalty" value="20" min="0">
+    
+            <label>Thời gian giới hạn (Giây, 0 = Không hạn):</label>
+            <input type="number" id="q-timeLimit" value="0" min="0">
+    
+            <div class="modal-btns">
+                <button class="create-btn" onclick="submitQuest()" style="flex:1">Xác Nhận Giao</button>
+                <button class="create-btn delete-btn" onclick="closeQuestModal()" style="flex:1; background:#95a5a6">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // (Biến DOM cũ)
+        const userTableBody = document.getElementById('user-table-body');
+        const messageLog = document.getElementById('message-log');
+        const createUserForm = document.getElementById('create-user-form');
+        const newRoleSelect = document.getElementById('new-role');
+        const parentCodeGroup = document.getElementById('parent-code-group');
+        const createRandomBatchForm = document.getElementById('create-random-batch-form');
+        const createRandomBtn = document.getElementById('create-random-btn');
+        const broadcastForm = document.getElementById('broadcast-form');
+        const broadcastBtn = document.getElementById('broadcast-btn');
+        const maintenanceToggleBtn = document.getElementById('maintenance-toggle-btn');
+        const maintenanceStatusText = document.getElementById('maintenance-status');
+// Đặt hàm này vào vùng script chính
+async function postOfficialNotification() {
+    const data = {
+        title: document.getElementById('notif-title').value,
+        content: document.getElementById('notif-content').value,
+        type: document.getElementById('notif-type').value
+    };
+    if(!data.title || !data.content) return alert("Vui lòng nhập đủ thông tin!");
+
+    const res = await fetch('/api/admin/post-notification', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    alert(result.message);
+    document.getElementById('notif-title').value = '';
+    document.getElementById('notif-content').value = '';
+}
+async function finishTourney() {
+    const top1 = prompt("Nhập Username người giải NHẤT (Cộng 500đ):");
+    if(!top1) return;
+    const top2 = prompt("Nhập Username người giải NHÌ (Cộng 300đ):");
+    const top3 = prompt("Nhập Username người giải BA (Cộng 100đ):");
+
+    await apiCall('/api/admin/finish-tournament', 'POST', { top1, top2, top3 });
+}
+async function updateAdminTourInfo() {
+    try {
+        const res = await fetch('/api/tournament/status');
+        const tour = await res.json();
+        if(tour.participants) {
+            // Kiểm tra xem thẻ HTML có tồn tại không trước khi gán
+            const countEl = document.getElementById('reg-count');
+            const listEl = document.getElementById('reg-list');
+            if (countEl) countEl.textContent = tour.participants.length;
+            if (listEl) listEl.textContent = tour.participants.length > 0 ? tour.participants.join(', ') : "Chưa có ai đăng ký";
+        }
+    } catch(e) {}
+}
+
+// Gọi lặp lại mỗi 3 giây (Xóa dấu / thừa đi)
+setInterval(updateAdminTourInfo, 3000);
+        // --- HÀM TẢI USER --- 
+function getTourData() {
+    return {
+        gameType: document.getElementById('tour-game').value,
+        matchDuration: parseInt(document.getElementById('tour-time').value) || 10,
+        regDays: parseInt(document.getElementById('reg-days').value) || 1, // Số ngày cho phép đăng ký
+        tourDays: parseInt(document.getElementById('tour-duration').value) || 7, // Tổng ngày thi đấu
+        dailyStart: parseInt(document.getElementById('start-hour').value) || 8, // Giờ bắt đầu
+        dailyEnd: parseInt(document.getElementById('end-hour').value) || 18     // Giờ kết thúc
+    };
+}
+async function apiCall(url, method, data) {
+    const res = await fetch(url, {
+        method, headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    alert(result.message);
+}
+
+// Sửa lại đoạn setInterval bị lỗi ở cuối file:
+setInterval(updateAdminTourInfo, 3000);
+// --- HÀM RESET TOÀN BỘ SERVER (MỚI) ---
+        async function resetAllServerLevels() {
+            // Hỏi lần 1 để tránh bấm nhầm
+            if (!confirm("⚠️ CẢNH BÁO: Bạn có chắc chắn muốn đưa cấp độ của TẤT CẢ các bé về 1 không?")) return;
+            
+            // Hỏi lần 2 để chắc chắn 100%
+            const confirmation = prompt("❗ Hành động này KHÔNG THỂ khôi phục! Nhập chữ 'RESET' để xác nhận:");
+            if (confirmation !== 'RESET') return alert("Đã hủy thao tác.");
+
+            try {
+                const res = await fetch('/api/admin/reset-all-levels', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    alert(data.message);
+                    fetchUsers(); // Tải lại bảng danh sách để thấy kết quả
+                } else {
+                    alert("Lỗi: " + data.message);
+                }
+            } catch (e) {
+                alert("Lỗi kết nối server!");
+            }
+        }
+        async function fetchUsers() {
+            try {
+                const response = await fetch('/api/admin/all-users');
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        alert('Bạn không có quyền truy cập! Đang chuyển về trang đăng nhập.');
+                        window.location.href = '/login.html';
+                    }
+                    throw new Error('Không thể tải danh sách.');
+                }
+                const users = await response.json();
+                renderTable(users);
+            } catch (error) {
+                userTableBody.innerHTML = `<tr><td colspan="6" style="color: red;">Lỗi: ${error.message}</td></tr>`;
+            }
+        }
+
+        // --- HÀM VẼ BẢNG ---
+        function renderTable(users) {
+            userTableBody.innerHTML = '';
+            users.sort((a, b) => (a.role > b.role) ? 1 : -1); 
+            
+            users.forEach(user => {
+                if (user.role === 'admin' && user.username !== 'Admin') return; 
+
+                const row = document.createElement('tr');
+                row.id = `user-${user.username}`;
+                
+                const isChild = user.role === 'child';
+                const disabled = isChild ? '' : 'disabled'; 
+                const isSuspended = user.isSuspended === true;
+                const suspendClass = isSuspended ? 'role-suspended' : '';
+                const suspendBtnText = isSuspended ? 'Mở Khóa' : 'Khóa';
+                const suspendBtnClass = isSuspended ? 'active' : '';
+
+                // --- Tóm tắt danh sách nhiệm vụ ---
+                const questsSummary = user.quests && user.quests.length > 0 
+                    ? user.quests.map(q => `
+                        <div style="font-size:0.75rem; border-bottom:1px solid #eee; padding:2px 0;">
+                            <strong>${q.isDaily ? '📅' : '🌟'} ${q.taskType}</strong>: ${q.progress}/${q.target}
+                        </div>`).join('')
+                    : '<span style="color:#bdc3c7; font-size:0.8rem;">Trống</span>';
+
+                row.innerHTML = `
+                    <td><strong class="${suspendClass}">${user.username}</strong></td>
+                    <td><span class="role-${user.role} ${suspendClass}">${user.role}</span></td>
+                    <td><input type="number" id="score-${user.username}" value="${user.score}" ${disabled}></td>
+                    <td>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+                            <input type="number" id="chess-${user.username}" value="${user.chessLevel || 1}" title="Cờ Vua">
+                            <input type="number" id="caro-${user.username}" value="${user.caroLevel || 1}" title="Caro">
+                            <input type="number" id="mem-${user.username}" value="${user.memoryLevel || 1}" title="Ghép Hình">
+                            <input type="number" id="cross-${user.username}" value="${user.crosswordLevel || 1}" title="Ô Chữ">
+                            <input type="number" id="speech-${user.username}" value="${user.englishSpeechLevel || 1}" title="L.Nói">
+                            <input type="number" id="det-${user.username}" value="${user.detectiveLevel || 1}" title="Thám Tử">
+                            <input type="number" id="go-${user.username}" value="${user.goLevel || 1}" title="Cờ Vây">
+                            <input type="number" id="oth-${user.username}" value="${user.othelloLevel || 1}" title="P.Kích">
+                            <input type="number" id="story-${user.username}" value="${user.storyLevel || 1}" title="Sáng Tác">
+                            <input type="number" id="shape-${user.username}" value="${user.shapeLevel || 1}" title="Tạo Hình">
+                            <input type="number" id="build-${user.username}" value="${user.buildLevel || 1}" title="Xây Dựng">
+                        </div>
+                    </td>
+                    <td><div style="max-height: 100px; overflow-y: auto; background: #fcfcfc; padding: 5px; border-radius: 5px; border: 1px inset #eee;">${questsSummary}</div></td>
+                    <td>
+                        <input type="number" id="playtimeLimit-${user.username}" value="${user.playtimeLimitMinutes || 0}" ${disabled} style="width:50px;">
+                        <br><small>${isChild ? (user.playtimeUsedToday || 0) + 'm' : 'N/A'}</small>
+                    </td>
+                    <td>
+                        <button class="action-btn save-btn" onclick="saveUser('${user.username}')" ${disabled}>Lưu</button>
+                        <button class="action-btn notify-btn" style="background:#8e44ad" onclick="assignCustomQuest('${user.username}')" ${disabled}>Giao NV</button>
+                        <button class="action-btn suspend-btn ${suspendBtnClass}" onclick="toggleSuspend('${user.username}')">${suspendBtnText}</button>
+                        <button class="action-btn delete-btn" onclick="deleteUser('${user.username}', '${user.role}')">Xóa</button>
+                    </td>
+                `;
+                userTableBody.appendChild(row);
+            });
+        }
+        // --- CÁC HÀM XỬ LÝ (SAVE, DELETE, NOTIFY...) ---
+async function startSmartTourney() {
+    const days = document.getElementById('tour-duration').value;
+    const startHour = document.getElementById('start-hour').value;
+    const endHour = document.getElementById('end-hour').value;
+    
+    // Gửi thêm thông tin startHour và endHour lên Server
+    await apiCall('/api/admin/start-tournament', 'POST', { 
+        ...getTourData(), 
+        durationDays: parseInt(days),
+        dailyStartHour: parseInt(startHour),
+        dailyEndHour: parseInt(endHour)
+    });
+    
+    updateAdminTourInfo();
+}
+        async function saveUser(username) {
+            const data = {
+                username: username,
+                score: document.getElementById(`score-${username}`).value,
+                // PHẢI THÊM ĐỦ CÁC DÒNG DƯỚI ĐÂY:
+                chessLevel: document.getElementById(`chess-${username}`).value,
+                caroLevel: document.getElementById(`caro-${username}`).value,
+                memoryLevel: document.getElementById(`mem-${username}`).value,
+                crosswordLevel: document.getElementById(`cross-${username}`).value,
+                englishSpeechLevel: document.getElementById(`speech-${username}`).value,
+                detectiveLevel: document.getElementById(`det-${username}`).value,
+                goLevel: document.getElementById(`go-${username}`).value,
+                othelloLevel: document.getElementById(`oth-${username}`).value,
+                storyLevel: document.getElementById(`story-${username}`).value,
+                shapeLevel: document.getElementById(`shape-${username}`).value,
+                buildLevel: document.getElementById(`build-${username}`).value,
+                playtimeLimitMinutes: document.getElementById(`playtimeLimit-${username}`).value
+           };
+    
+           const res = await fetch('/api/admin/update-user', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(data)
+           });
+    if(res.ok) showMessage("✅ Đã cập nhật thành công 11 cấp độ!");
+}
+        async function deleteUser(username, role) {
+            if (username === 'Admin') return;
+            const confirmMsg = role === 'parent' 
+                ? `Bạn có chắc muốn XÓA phụ huynh '${username}'? Tất cả tài khoản con của họ cũng sẽ bị xóa vĩnh viễn!`
+                : `Bạn có chắc muốn XÓA tài khoản '${username}'?`;
+            if (!confirm(confirmMsg)) return;
+            try {
+                 const response = await fetch('/api/admin/delete-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, role })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(`Đã xóa thành công ${username}!`);
+                document.getElementById(`user-${username}`).remove();
+            } catch (error) {
+                showMessage(`Lỗi khi xóa: ${error.message}`, true);
+            }
+        }
+
+        async function sendNotification(username) {
+            const message = prompt(`Nhập nội dung thông báo cho '${username}':`);
+            if (!message || message.trim() === '') return;
+            try {
+                const response = await fetch('/api/admin/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, message: message })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(`Đã gửi thông báo cho ${username}!`);
+            } catch (error) {
+                showMessage(`Lỗi: ${error.message}`, true);
+            }
+        }
+        
+        // --- LOGIC FORM TẠO USER & BOT ---
+        newRoleSelect.addEventListener('change', (e) => {
+            parentCodeGroup.style.display = e.target.value === 'child' ? 'flex' : 'none';
+        });
+        createUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('new-username').value;
+            const password = document.getElementById('new-password').value;
+            const role = document.getElementById('new-role').value;
+            const parentCode = document.getElementById('new-parentCode').value;
+            const data = { username, password, role };
+            if (role === 'child') { data.parentCode = parentCode; }
+            try {
+                 const response = await fetch('/api/admin/create-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message);
+                createUserForm.reset(); 
+                parentCodeGroup.style.display = 'none';
+                fetchUsers(); 
+            } catch (error) {
+                showMessage(`Lỗi khi tạo: ${error.message}`, true);
+            }
+        });
+
+        createRandomBatchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const count = document.getElementById('random-count').value;
+            if (!count || count <= 0 || count > 100) return showMessage("Vui lòng nhập số lượng từ 1 đến 100.", true);
+            if (!confirm(`Bạn có chắc muốn tạo ${count} cặp tài khoản Bot?`)) return;
+            createRandomBtn.disabled = true; createRandomBtn.textContent = 'Đang tạo...';
+            try {
+                const response = await fetch('/api/admin/create-random-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ count: count })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message); fetchUsers(); 
+            } catch (error) {
+                showMessage(`Lỗi khi tạo bot: ${error.message}`, true);
+            } finally {
+                createRandomBtn.disabled = false; createRandomBtn.textContent = 'Chạy Tạo Bot';
+            }
+        });
+
+        broadcastForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('broadcast-message').value;
+            if (!message || message.trim() === '') return showMessage("Vui lòng nhập tin nhắn broadcast.", true);
+            if (!confirm(`Bạn có chắc muốn gửi thông báo:\n"${message}"\nĐẾN TẤT CẢ NGƯỜI DÙNG?`)) return;
+            broadcastBtn.disabled = true; broadcastBtn.textContent = 'Đang gửi...';
+            try {
+                const response = await fetch('/api/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message); document.getElementById('broadcast-message').value = '';
+            } catch (error) {
+                showMessage(`Lỗi broadcast: ${error.message}`, true);
+            } finally {
+                broadcastBtn.disabled = false; broadcastBtn.textContent = 'Gửi Broadcast';
+            }
+        });
+        
+        async function toggleSuspend(username) {
+            if (username === 'Admin') return;
+            const btn = document.querySelector(`#user-${username} .suspend-btn`);
+            const isSuspending = !btn.classList.contains('active');
+            const confirmMsg = isSuspending ? `Bạn có chắc muốn KHÓA tài khoản '${username}'?` : `Bạn có chắc muốn MỞ KHÓA tài khoản '${username}'?`;
+            if (!confirm(confirmMsg)) return;
+            try {
+                 const response = await fetch('/api/admin/toggle-suspend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message); fetchUsers(); 
+            } catch (error) {
+                showMessage(`Lỗi: ${error.message}`, true);
+            }
+        }
+        
+        async function resetPassword(username) {
+            if (username === 'Admin') return;
+            if (!confirm(`Bạn có chắc muốn reset mật khẩu của '${username}' về "123456"?`)) return;
+            try {
+                 const response = await fetch('/api/admin/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message); alert(result.message); 
+            } catch (error) {
+                showMessage(`Lỗi: ${error.message}`, true);
+            }
+        }
+        
+        // --- TÍNH NĂNG MỚI (CHUYỂN PHỤ HUYNH & BẢO TRÌ) ---
+        async function transferParent(childUsername) {
+            const newParentCode = prompt(`Nhập MÃ PHỤ HUYNH mới cho '${childUsername}':`);
+            if (!newParentCode || newParentCode.trim() === '') return;
+            if (!confirm(`Chuyển '${childUsername}' cho phụ huynh '${newParentCode}'?`)) return;
+            try {
+                const response = await fetch('/api/admin/transfer-child', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ childUsername, newParentCode: newParentCode.trim() })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                showMessage(result.message); fetchUsers(); 
+            } catch (error) {
+                showMessage(`Lỗi: ${error.message}`, true);
+            }
+        }
+        
+        async function checkMaintenanceStatus() {
+            try {
+                const response = await fetch('/api/admin/maintenance-status');
+                const result = await response.json();
+                updateMaintenanceButton(result.maintenanceMode);
+            } catch (error) {
+                maintenanceStatusText.textContent = "Lỗi tải trạng thái";
+                maintenanceStatusText.style.color = '#e74c3c';
+            }
+        }
+
+        function updateMaintenanceButton(isMaintenance) {
+            if (isMaintenance) {
+                maintenanceToggleBtn.textContent = 'TẮT Chế Độ Bảo Trì';
+                maintenanceToggleBtn.classList.remove('safe');
+                maintenanceToggleBtn.classList.add('maintenance-btn');
+                maintenanceStatusText.textContent = 'ĐANG BẬT';
+                maintenanceStatusText.style.color = '#e74c3c';
+            } else {
+                maintenanceToggleBtn.textContent = 'BẬT Chế Độ Bảo Trì';
+                maintenanceToggleBtn.classList.remove('maintenance-btn');
+                maintenanceToggleBtn.classList.add('safe');
+                maintenanceStatusText.textContent = 'ĐANG TẮT';
+                maintenanceStatusText.style.color = '#2ecc71';
+            }
+        }
+
+        maintenanceToggleBtn.addEventListener('click', async () => {
+            const isCurrentlyOn = maintenanceStatusText.textContent === 'ĐANG BẬT';
+            const action = isCurrentlyOn ? 'TẮT' : 'BẬT';
+            if (!confirm(`Bạn có chắc muốn ${action} chế độ bảo trì?`)) return;
+            try {
+                const response = await fetch('/api/admin/maintenance-toggle', { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+                updateMaintenanceButton(result.maintenanceMode);
+                showMessage(`Đã ${action} chế độ bảo trì thành công.`);
+            } catch (error) {
+                showMessage(`Lỗi: ${error.message}`, true);
+            }
+        });
+
+        // --- LOGIC GIAO NHIỆM VỤ MỚI (Đã sửa lỗi vị trí) ---
+        let selectedUsernameForQuest = "";
+
+        function assignCustomQuest(username) {
+            selectedUsernameForQuest = username;
+            document.getElementById('target-user-text').textContent = "Người nhận: " + username;
+            document.getElementById('quest-modal-overlay').style.display = 'flex';
+        }
+
+        function closeQuestModal() {
+            document.getElementById('quest-modal-overlay').style.display = 'none';
+        }
+
+        async function submitQuest() {
+            const data = {
+                username: selectedUsernameForQuest,
+                taskType: document.getElementById('q-taskType').value,
+                target: document.getElementById('q-target').value,
+                reward: document.getElementById('q-reward').value,
+                penalty: document.getElementById('q-penalty').value,
+                timeLimit: document.getElementById('q-timeLimit').value
+            };
+
+            try {
+                const res = await fetch('/api/admin/assign-quest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                showMessage(result.message);
+                alert(result.message);
+                closeQuestModal(); 
+            } catch (e) { 
+                alert("Lỗi kết nối server!"); 
+            }
+        }
+
+        function showMessage(message, isError = false) {
+            messageLog.textContent = message;
+            messageLog.style.color = isError ? '#e74c3c' : '#2ecc71';
+            setTimeout(() => {
+                messageLog.textContent = '';
+                messageLog.style.color = '#2ecc71';
+            }, 5000); 
+        }
+
+        function escapeAdminHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+            })[ch]);
+        }
+
+        function robuxStatusLabel(status) {
+            return {
+                pending:'Đang chờ', approved:'Đã duyệt', paid:'Đã trả',
+                rejected:'Từ chối', cancelled:'Đã hủy'
+            }[status] || status;
+        }
+
+        async function loadRobuxRedemptions() {
+            const tbody = document.getElementById('robux-table-body');
+            const status = document.getElementById('robux-status-filter').value;
+            tbody.innerHTML = '<tr><td colspan="8">Đang tải...</td></tr>';
+            try {
+                const res = await fetch(`/api/admin/robux-redemptions?status=${encodeURIComponent(status)}`);
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.message || 'Không tải được yêu cầu.');
+
+                const cfg = data.config || {};
+                const summary = data.summary || {};
+                document.getElementById('robux-config-summary').innerHTML = `
+                    <span>${cfg.enabled ? '🟢 Đang bật' : '🔴 Đang tắt'}</span>
+                    <span>💎 ${Number(cfg.pointsPerRobux || 0).toLocaleString('vi-VN')} điểm = 1 Robux</span>
+                    <span>🎁 Tối thiểu ${Number(cfg.minRobux || 0).toLocaleString('vi-VN')} Robux</span>
+                    <span>📅 Tối đa ${Number(cfg.maxDailyRobux || 0).toLocaleString('vi-VN')} Robux/ngày</span>
+                    <span>⏳ Chờ: ${summary.pending?.count || 0}</span>
+                    <span>✅ Đã trả: ${summary.paid?.robux || 0} Robux</span>
+                `;
+
+                const rows = data.requests || [];
+                tbody.innerHTML = rows.length ? rows.map(request => {
+                    let actions = '';
+                    if(request.status === 'pending') {
+                        actions = `
+                            <button class="rbx-action" style="background:#3498db" onclick="robuxAdminAction('${request._id}','approve')">Duyệt</button>
+                            <button class="rbx-action" style="background:#e74c3c" onclick="robuxAdminAction('${request._id}','reject')">Từ chối</button>`;
+                    } else if(request.status === 'approved') {
+                        actions = `
+                            <button class="rbx-action" style="background:#27ae60" onclick="robuxAdminAction('${request._id}','mark-paid')">Đã trả</button>
+                            <button class="rbx-action" style="background:#e74c3c" onclick="robuxAdminAction('${request._id}','reject')">Từ chối & hoàn điểm</button>`;
+                    } else {
+                        actions = '<span style="color:#7f8c8d">Đã kết thúc</span>';
+                    }
+                    return `
+                        <tr>
+                            <td><b>${escapeAdminHtml(request.requestCode)}</b></td>
+                            <td>${escapeAdminHtml(request.gameUsername)}</td>
+                            <td><b>${escapeAdminHtml(request.robloxUsername)}</b>${request.robloxUserId ? `<br>ID: ${escapeAdminHtml(request.robloxUserId)}` : ''}</td>
+                            <td>${Number(request.pointsSpent).toLocaleString('vi-VN')}</td>
+                            <td><b>${Number(request.robuxAmount).toLocaleString('vi-VN')}</b></td>
+                            <td><span class="rbx-status rbx-${escapeAdminHtml(request.status)}">${escapeAdminHtml(robuxStatusLabel(request.status))}</span></td>
+                            <td>${new Date(request.createdAt).toLocaleString('vi-VN')}${request.adminNote ? `<br>📝 ${escapeAdminHtml(request.adminNote)}` : ''}</td>
+                            <td>${actions}</td>
+                        </tr>`;
+                }).join('') : '<tr><td colspan="8" style="text-align:center">Không có yêu cầu ở trạng thái này.</td></tr>';
+            } catch(error) {
+                tbody.innerHTML = `<tr><td colspan="8" style="color:#e74c3c">${escapeAdminHtml(error.message)}</td></tr>`;
+            }
+        }
+
+        async function robuxAdminAction(requestId, action) {
+            const actionText = action === 'approve' ? 'duyệt yêu cầu'
+                : action === 'mark-paid' ? 'xác nhận đã trả Robux'
+                : 'từ chối và hoàn điểm';
+            if(!confirm(`Bạn chắc chắn muốn ${actionText}?`)) return;
+            const adminNote = prompt('Ghi chú cho người chơi (có thể để trống):') || '';
+            try {
+                const res = await fetch(`/api/admin/robux-redemptions/${encodeURIComponent(requestId)}/action`, {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({ action, adminNote })
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.message || 'Không thể xử lý yêu cầu.');
+                showMessage(data.message);
+                await loadRobuxRedemptions();
+                fetchUsers();
+            } catch(error) {
+                showMessage(error.message, true);
+            }
+        }
+
+        // Chạy khi tải trang
+        fetchUsers();
+        checkMaintenanceStatus();
+        loadRobuxRedemptions();
+    </script>
+    <script src="modern-ui.js"></script>
+</body>
+</html>
