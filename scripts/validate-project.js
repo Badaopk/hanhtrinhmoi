@@ -9,7 +9,18 @@ const root = path.resolve(__dirname, '..');
 const entries = fs.readdirSync(root, { withFileTypes: true });
 const files = new Set(entries.filter(entry => entry.isFile()).map(entry => entry.name));
 const htmlFiles = [...files].filter(file => file.endsWith('.html'));
-const jsFiles = [...files].filter(file => file.endsWith('.js') && !file.endsWith('.bak'));
+function walk(dir, prefix = '') {
+    const out = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === '.git' || entry.name === 'node_modules') continue;
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) out.push(...walk(path.join(dir, entry.name), rel));
+        else out.push(rel);
+    }
+    return out;
+}
+const allFiles = new Set(walk(root));
+const jsFiles = [...allFiles].filter(file => file.endsWith('.js') && !file.endsWith('.bak'));
 const failures = [];
 
 for (const file of jsFiles) {
@@ -46,7 +57,7 @@ for (const htmlFile of htmlFiles) {
         const value = match[1];
         if (!value || value.includes('${') || /^(?:https?:|data:|mailto:|javascript:|#|\/socket\.io)/i.test(value)) continue;
         const target = value.split(/[?#]/)[0].replace(/^\//, '');
-        if (target && !files.has(target)) failures.push(`${htmlFile}: thiếu tệp ${target}`);
+        if (target && !allFiles.has(target)) failures.push(`${htmlFile}: thiếu tệp ${target}`);
     }
 }
 
@@ -54,6 +65,14 @@ for (const htmlFile of htmlFiles) {
     const content = fs.readFileSync(path.join(root, htmlFile), 'utf8');
     if (!content.includes('modern-ui.css')) failures.push(`${htmlFile}: chưa nạp modern-ui.css`);
     if (!content.includes('modern-ui.js')) failures.push(`${htmlFile}: chưa nạp modern-ui.js`);
+}
+
+for (const htmlFile of htmlFiles) {
+    const content = fs.readFileSync(path.join(root, htmlFile), 'utf8');
+    if (!content.includes('assets/ui/ui-v11.css') || !content.includes('assets/ui/ui-v11.js')) failures.push(`${htmlFile}: chưa nạp lớp sửa giao diện V11.`);
+    const ids = [...content.matchAll(/\sid=["']([^"']+)["']/gi)].map(match => match[1]);
+    const seen = new Set();
+    for (const id of ids) { if (seen.has(id)) failures.push(`${htmlFile}: ID giao diện bị trùng ${id}`); seen.add(id); }
 }
 
 try {
@@ -156,6 +175,42 @@ for (const snippet of ['arenaPoints', 'arena-noncash', 'refundTournamentEntries'
     if (!serverSource.includes(snippet)) failures.push(`Máy chủ thiếu bảo vệ quỹ giải V9: ${snippet}`);
 }
 
+for (const route of ['/api/survival/state', '/api/survival/sync', '/api/survival/mine', '/api/survival/craft', '/api/survival/eat', '/api/survival/reset', '/api/learning/preferences', '/api/learning/roadmap', '/api/learning/practical/submit']) {
+    if (!serverRoutes.has(route)) failures.push(`Thiếu API V11: ${route}`);
+}
+for (const snippet of ['survivalState', 'removedBlocks', 'SURVIVAL_RECIPES', 'validateSurvivalMine', 'LearningPractical', 'practicalTypeForSubject']) {
+    if (!serverSource.includes(snippet)) failures.push(`Máy chủ thiếu nâng cấp V11: ${snippet}`);
+}
+try {
+    const survivalModule = require(path.join(root, 'server/modules/survival-v11.js'));
+    const types = Object.keys(survivalModule.BLOCKS || {});
+    if (types.length < 10 || Object.keys(survivalModule.RECIPES || {}).length < 5) failures.push('Mô-đun sinh tồn V11 thiếu khối hoặc công thức.');
+    const diamonds = [];
+    for (let x = -survivalModule.WORLD.radius; x <= survivalModule.WORLD.radius; x += 1) {
+        for (let z = -survivalModule.WORLD.radius; z <= survivalModule.WORLD.radius; z += 1) {
+            for (let y = survivalModule.WORLD.minY; y <= -3; y += 1) {
+                if (survivalModule.allowedBlockTypesAt(x, y, z).has('diamond')) diamonds.push(`${x}:${y}:${z}`);
+            }
+        }
+    }
+    if (!diamonds.length) failures.push('Đảo sinh tồn không sinh được kim cương.');
+    if (survivalModule.validateMineRequest({ blockType: 'diamond', blockKey: '0:0:0', toolId: 'tool_iron_pickaxe', inventory: ['tool_iron_pickaxe'] }).ok) failures.push('Máy chủ cho phép giả mạo kim cương ở sai tọa độ.');
+    if (diamonds.length && survivalModule.validateMineRequest({ blockType: 'diamond', blockKey: diamonds[0], toolId: '', inventory: [] }).ok) failures.push('Máy chủ cho phép đào kim cương bằng tay không.');
+    if (diamonds.length && !survivalModule.validateMineRequest({ blockType: 'diamond', blockKey: diamonds[0], toolId: 'tool_iron_pickaxe', inventory: ['tool_iron_pickaxe'] }).ok) failures.push('Cuốc sắt hợp lệ không đào được kim cương.');
+    if (survivalModule.validateMineRequest({ blockType: 'stone', blockKey: `0:${survivalModule.WORLD.bedrockY}:0`, toolId: 'tool_wood_pickaxe', inventory: ['tool_wood_pickaxe'] }).ok) failures.push('Lớp đá nền cuối cùng đang bị phá được.');
+} catch (error) {
+    failures.push(`Không kiểm tra được mô-đun sinh tồn V11: ${error.message}`);
+}
+
+const survivalSource = ['trang-tri-phong.html','assets/room/survival-v11.js','assets/room/survival-v11.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
+for (const snippet of ['Sinh tồn', 'survivalBlock', 'survivalBedrock', '/api/survival/mine', 'Bàn chế tạo', 'handleAction']) {
+    if (!survivalSource.includes(snippet)) failures.push(`Thế giới sinh tồn V11 thiếu: ${snippet}`);
+}
+const learningV11Source = ['lo-trinh-hoc-tap.html','assets/learning/learning-v11.js','assets/learning/practical-assessment.js'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
+for (const snippet of ['Kế hoạch cá nhân hóa', '/api/learning/preferences', '/api/learning/roadmap', '/api/learning/practical/submit', 'dataset.practicalGate']) {
+    if (!learningV11Source.includes(snippet)) failures.push(`Học tập V11 thiếu: ${snippet}`);
+}
+
 const boardPages = ['caro.html', 'co-ty-phu.html', 'co-vua.html', 'co-vay.html', 'othello.html'];
 for (const boardPage of boardPages) {
     const content = fs.readFileSync(path.join(root, boardPage), 'utf8');
@@ -191,4 +246,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✅ Kiểm tra V9 thành công: ${htmlFiles.length} trang HTML, ${jsFiles.length} tệp JavaScript, ${serverRoutes.size} API, ${curriculumSummary.grades} lớp, ${curriculumSummary.subjects} lộ trình môn, ${curriculumSummary.lessons} bài học, ${curriculumSummary.lessonQuestions} câu hỏi lộ trình và 21.600+ câu hỏi ngân hàng.`);
+console.log(`✅ Kiểm tra V11 thành công: ${htmlFiles.length} trang HTML, ${jsFiles.length} tệp JavaScript, ${serverRoutes.size} API, ${curriculumSummary.grades} lớp, ${curriculumSummary.subjects} lộ trình môn, ${curriculumSummary.lessons} bài học, ${curriculumSummary.lessonQuestions} câu hỏi lộ trình và 21.600+ câu hỏi ngân hàng.`);

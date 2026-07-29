@@ -1,4 +1,4 @@
-# Hành Tinh Mơ Ước 9.1
+# Hành Tinh Mơ Ước 11.0
 
 Game web học tập, sáng tạo và thi đấu trực tuyến dành cho trẻ em. Backend dùng Node.js, Express, Socket.IO và MongoDB.
 
@@ -116,3 +116,15 @@ Xem [UPGRADE_V8.md](UPGRADE_V8.md) để biết chi tiết.
 - Thêm bảo vệ API, giới hạn tốc độ, giới hạn tạo giải và tối ưu tác vụ nền.
 
 Xem [UPGRADE_V9.md](UPGRADE_V9.md) để biết chi tiết.
+
+## Nâng cấp 11.0
+
+- Thêm khu sinh tồn khối vuông có thể đào cỏ, đất, đá, quặng và nền/móng đến lớp đá nền cuối cùng.
+- Lưu từng khối đã đào trên máy chủ, có máu, đói, thể lực, XP, cấp, hồi sinh, công cụ và chế tạo.
+- Máy chủ kiểm tra khai thác/chế tạo/ăn uống để hạn chế nhân đôi tài nguyên.
+- Nâng trung tâm học tập với lựa chọn bộ sách theo lớp, lộ trình 35 tuần, bộ đếm tập trung và hỗ trợ đọc.
+- Âm nhạc/Mĩ thuật/Nghệ thuật có thực hành hát hoặc vẽ bắt buộc và được tính lại điểm trên máy chủ.
+- Thêm lớp sửa giao diện responsive cho toàn bộ 39 trang, đặc biệt tab, bảng và hộp thoại trên điện thoại.
+- Tách mã mới thành mô-đun `assets/room`, `assets/learning`, `assets/ui` và `server/modules`.
+
+Xem [UPGRADE_V11.md](UPGRADE_V11.md) và [docs/ARCHITECTURE_V11.md](docs/ARCHITECTURE_V11.md).

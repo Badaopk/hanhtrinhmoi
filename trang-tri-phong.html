@@ -5,7 +5,7 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2735044868175045" crossorigin="anonymous"></script>
 
     <meta charset="UTF-8">
-    <title>Hành Tinh Mơ Ước - Thế Giới Khối Vuông 7.0</title>
+    <title>Hành Tinh Mơ Ước - Thế Giới Sinh Tồn Khối Vuông 11.0</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
@@ -219,6 +219,9 @@
 
     </style>
     <link rel="stylesheet" href="modern-ui.css">
+  <link rel="stylesheet" href="assets/room/room-v10.css">
+  <link rel="stylesheet" href="assets/room/survival-v11.css">
+  <link rel="stylesheet" href="assets/ui/ui-v11.css">
 </head>
 <body>
     <a href="index.html" id="home-btn">🏠 TRANG CHỦ</a>
@@ -420,7 +423,7 @@
     const graphicsPreset = GRAPHICS_PRESETS[graphicsQuality];
 
     const WORLD_THEMES = {
-        spring: { name:'Mùa xuân', ground:0x2ecc71, grass:'#27ae60', dirt:'#6e2c00', leaf:'#2ecc71', water:0x3498db, sand:'#f1c40f', wall:'#f5cd79', roof:'#c0392b', skyDay:0x87CEEB, skyNight:0x07152e, fog:0x87CEEB },
+        spring: { name:'Mùa xuân', ground:0x67b85f, grass:'#5eaa58', dirt:'#795238', leaf:'#4f9b50', water:0x3f8fc4, sand:'#d8bd72', wall:'#e8d2a6', roof:'#a94b3f', skyDay:0x91ccea, skyNight:0x07152e, fog:0x91ccea },
         sunset: { name:'Hoàng hôn', ground:0xd4a657, grass:'#b9770e', dirt:'#6e2c00', leaf:'#d68910', water:0x5dade2, sand:'#f5c16c', wall:'#f8c471', roof:'#922b21', skyDay:0xf5b06a, skyNight:0x24133d, fog:0xf5b06a },
         winter: { name:'Mùa đông', ground:0xdfe6e9, grass:'#ecf0f1', dirt:'#95a5a6', leaf:'#b8d8e8', water:0x74b9ff, sand:'#d6eaf8', wall:'#d6eaf8', roof:'#5d6d7e', skyDay:0xbde7ff, skyNight:0x0d1d32, fog:0xdfe6e9 },
         fantasy: { name:'Huyền ảo', ground:0x6c5ce7, grass:'#55efc4', dirt:'#4a235a', leaf:'#00cec9', water:0x0984e3, sand:'#ffeaa7', wall:'#d2b4de', roof:'#8e44ad', skyDay:0x74b9ff, skyNight:0x17002f, fog:0x6c5ce7 }
@@ -478,8 +481,8 @@
     graphicsSelect.addEventListener('change', () => {
         localStorage.setItem('roomGraphicsQuality', graphicsSelect.value);
         const label = GRAPHICS_PRESETS[graphicsSelect.value]?.name || 'Siêu nhẹ';
-        alert(`Đã chọn đồ họa ${label}. Thế giới sẽ tải lại để áp dụng.`);
-        location.reload();
+        showNotification(`Đã chọn đồ họa ${label}. Đang tải lại thế giới...`);
+        setTimeout(() => location.reload(), 650);
     });
     init3D();
     setupControls(); 
@@ -604,7 +607,7 @@
         // LƯỚI GRID MỞ RỘNG THEO SIZE 6000
         const gridHelper = new THREE.GridHelper(6000, 6000 / BLOCK_SIZE, 0x000000, 0x000000);
         gridHelper.position.set(0, 1, 450); // Căn giữa bề mặt
-        gridHelper.material.opacity = 0.2;
+        gridHelper.material.opacity = 0.07;
         gridHelper.material.transparent = true;
         scene.add(gridHelper); worldStaticObjects.push(gridHelper);
         const grassMat = createBlockMaterial(palette.grass), dirtMat = createBlockMaterial(palette.dirt);  
@@ -897,7 +900,7 @@
         document.addEventListener('keyup', e => {
             switch(e.code) { case 'KeyW': moveF = false; break; case 'KeyS': moveB = false; break; case 'KeyA': moveL = false; break; case 'KeyD': moveR = false; break; }
         });
-        document.addEventListener('mousedown', e => { if(controls.isLocked && !isSitting) handleBuildBreak(e.button === 0 ? 'build' : 'break'); });
+        document.addEventListener('mousedown', e => { if(controls.isLocked && !isSitting) { const survivalActive = window.SurvivalV11?.isActive?.(); handleBuildBreak(survivalActive ? (e.button === 0 ? 'break' : 'build') : (e.button === 0 ? 'build' : 'break')); } });
 
         const playBtn = document.getElementById('play-btn');
         playBtn.addEventListener('click', () => {
@@ -1561,6 +1564,7 @@
         raycaster.setFromCamera(new THREE.Vector2(), camera);
         const hits = raycaster.intersectObjects(objects, true);
         if(hits.length > 0) {
+            if(window.SurvivalV11?.handleAction(type, hits[0])) return;
             if(type === 'build') {
                 const id = hotbarSlots[selectedHotbarIndex]; if(!id) return;
                 const invIndex = houseState.inventory.indexOf(id);
@@ -1624,7 +1628,7 @@
                     socket.emit('break3DBlock', target.userData.uniqueId);
                     renderHotbarUI(); updateUI(); playSFX('break');
                 } else if(target.userData.isIndestructible) {
-                    showNotification("⛔ Không thể phá khối nền móng này!");
+                    showNotification(target.userData.isMinePlatform ? "⛏️ Hãy nhắm vào khối quặng, bệ mỏ được giữ cố định." : "🏕️ Khu làng được bảo vệ. Nhấn V hoặc chọn Sinh tồn để đào toàn bộ cỏ, đất, đá và quặng đến lớp đá nền.");
                 }
             }
         }
@@ -1703,64 +1707,7 @@ function setupMultiplayer() {
     }
     let isShopLoaded = false;
     
-    async function loadDataFromServer() {
-        try {
-            const res = await fetch('/api/house/info'); 
-            if(res.status === 401) { window.location.href = 'login.html'; return; }
-            const d = await res.json();
-            
-            myUsername = d.username || "Be_" + Math.floor(Math.random()*1000); 
-            currentHost = myUsername;
-            houseState.score = d.score || 0; 
-            houseState.inventory = d.inventory || [];
-            houseState.miningStats = d.miningStats || { total: 0, byOre: {} };
-            shopItems = d.shopItems || []; 
-            chestsData = d.chestsData || {};
-            
-            let slot = 0; [...new Set(houseState.inventory)].forEach(id => { if(slot < HOTBAR_SIZE){ hotbarSlots[slot]=id; slot++; } });
-            
-            updateUI(); renderHotbarUI();
-            
-            if(d.houseData) {
-                houseState.items = d.houseData; 
-                d.houseData.forEach(i => { 
-                    const info = shopItems.find(x => x.id === i.id); 
-                    if(info) {
-                        spawnItem(info, i.x, i.y, i.z, i.uniqueId, true); 
-                        if(i.isOpen) {
-                            const obj = objects.find(o => o.userData.uniqueId === i.uniqueId);
-                            if(obj) { obj.userData.isOpen = true; obj.rotation.y = Math.PI/2; obj.updateMatrixWorld(true); obj.userData.bbox.setFromObject(obj); }
-                        }
-                    }
-                });
-            }
-            socket.emit('join3DHouse', myUsername);
-            
-            // XÓA FLAG ĐỂ RƠI XUỐNG
-            setTimeout(() => { isLoadingMap = false; }, 500); 
-        } catch(error) { showNotification("⚠️ Lỗi tải dữ liệu. Hãy F5!"); }
-    }
     
-    function updateUI() {
-        document.getElementById('score').innerText = houseState.score.toLocaleString();
-        updateMiningHUD();
-        
-        if (!isShopLoaded) {
-            const sGrid = document.getElementById('grid-shop'); sGrid.innerHTML = '';
-            shopItems.forEach(i => sGrid.innerHTML += `<div class="item-card" onclick="buyItem('${i.id}')"><div>${i.icon}</div><b>${i.name}</b><div class="price">${i.price} 💎</div></div>`);
-            isShopLoaded = true;
-        }
-
-        const iGrid = document.getElementById('grid-inv'); 
-        const scrollPos = iGrid.scrollTop;
-        iGrid.innerHTML = '';
-        const counts = {}; houseState.inventory.forEach(id => counts[id] = (counts[id]||0)+1);
-        Object.entries(counts).forEach(([id, c]) => { 
-            const item = shopItems.find(x => x.id === id); 
-            if(item) iGrid.innerHTML += `<div class="item-card" onclick="equipToHotbar('${id}')"><div>${item.icon}</div><b>${item.name}</b><br><div class="count-badge">Còn: ${c}</div></div>`; 
-        });
-        iGrid.scrollTop = scrollPos; 
-    }
     
     function renderChestUI() {
         const cG = document.getElementById('grid-chest-inside'); cG.innerHTML=''; const iG = document.getElementById('grid-chest-inv'); iG.innerHTML='';
@@ -1794,30 +1741,6 @@ function setupMultiplayer() {
 
     // LƯU Ý LỖI #5: GỬI KÈM USERNAME KHI SAVE THỦ CÔNG
     // FIX LỖI #5: GỬI KÈM USERNAME KHI SAVE THỦ CÔNG (ĐÃ BỔ SUNG BẮT LỖI)
-    async function saveHouse() {
-        try {
-            const res = await fetch('/api/house/save', { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({
-                    username: myUsername, 
-                    items: houseState.items, 
-                    inventory: houseState.inventory, 
-                    chestsData: chestsData
-                }) 
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                showNotification("💾 Đã lưu Thế Giới thành công!");
-            } else {
-                // Báo lỗi chính xác nếu Server từ chối (VD: do đứng nhà bạn bè)
-                showNotification("❌ " + data.message, true); 
-            }
-        } catch(e) {
-            showNotification("⚠️ Lỗi mạng! Chưa thể lưu.", true);
-        }
-    }
 
     // BỔ SUNG HÀM NÀY: Do hệ thống Multiplayer (Socket) gọi hàm này mỗi khi có người xây/đập gạch
     // Nhưng bản cũ bạn quên định nghĩa nó, gây lỗi sập tiến trình ngầm.
@@ -1830,38 +1753,6 @@ function setupMultiplayer() {
         }, 2000);
     }
     // FIX LỖI #1: TRẢ LẠI HÀM VISIT FRIEND
-    async function visitFriend() {
-        const f = prompt("Nhập tên bạn bè muốn thăm:"); if(!f) return;
-        try {
-            const res = await fetch(`/api/house/visit/${f}`); 
-            const d = await res.json();
-            if(res.ok) { 
-                currentHost = f; 
-                document.getElementById('host-name').innerText = f; 
-                document.getElementById('visit-badge').style.display='block'; 
-                generateWorld(); 
-                if(d.houseData) {
-                    d.houseData.forEach(i => { 
-                        const info = shopItems.find(x => x.id === i.id); 
-                        if(info) {
-                            spawnItem(info, i.x, i.y, i.z, i.uniqueId, true);
-                            if(i.isOpen) {
-                                const obj = objects.find(o => o.userData.uniqueId === i.uniqueId);
-                                if(obj) { obj.userData.isOpen = true; obj.rotation.y = Math.PI/2; obj.updateMatrixWorld(true); obj.userData.bbox.setFromObject(obj); }
-                            }
-                        }
-                    }); 
-                }
-                socket.emit('join3DHouse', f); 
-                closePanels(); 
-                showNotification(`✈️ Đã bay tới nhà của ${f}`);
-            } else {
-                showNotification(`❌ ${d.message}`);
-            }
-        } catch(e) {
-            showNotification("⚠️ Lỗi kết nối!");
-        }
-    }
     
     function selectHotbar(i) { selectedHotbarIndex = i; renderHotbarUI(); }
     function equipToHotbar(id) { hotbarSlots[selectedHotbarIndex] = id; renderHotbarUI(); }
@@ -1884,12 +1775,6 @@ function setupMultiplayer() {
 
     }
     
-    function switchTab(t) { 
-        document.getElementById('grid-shop').style.display = t === 'shop' ? 'grid' : 'none'; 
-        document.getElementById('grid-inv').style.display = t === 'inv' ? 'grid' : 'none'; 
-        document.getElementById('tab-btn-shop').classList.toggle('active', t==='shop'); 
-        document.getElementById('tab-btn-inv').classList.toggle('active', t==='inv'); 
-    }
     
     function showNotification(m, isError = false) { 
         const n = document.createElement('div'); 
@@ -2231,6 +2116,7 @@ function setupMultiplayer() {
 
     function updateUI() {
         document.getElementById('score').innerText = Number(houseState.score || 0).toLocaleString('vi-VN');
+        updateMiningHUD();
         const rewardScore = document.getElementById('reward-score');
         if(rewardScore) rewardScore.textContent = Number(houseState.score || 0).toLocaleString('vi-VN');
         filterShop();
@@ -2483,6 +2369,9 @@ function setupMultiplayer() {
     }
 
 </script>
-    <script src="modern-ui.js"></script>
+    <script src="assets/room/room-v10.js"></script>
+    <script src="assets/room/survival-v11.js"></script>
+<script src="modern-ui.js"></script>
+  <script src="assets/ui/ui-v11.js"></script>
 </body>
 </html>

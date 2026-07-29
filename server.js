@@ -18,7 +18,7 @@ const MongoStore = require('connect-mongo');
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const APP_VERSION = '9.1.0';
+const APP_VERSION = '11.0.0';
 
 function readEnvInt(name, fallback, min, max) {
     const parsed = Number.parseInt(process.env[name], 10);
@@ -55,6 +55,8 @@ console.log(`📚 Ngân hàng đề thi: ${questionBankSummary.totalQuestions.to
 const { boardData } = require('./monopoly-data.js');
 const MonopolyGame = require('./monopoly-logic.js');
 const { PROGRAM_VERSION, PASS_SCORE, GRADE_FOCUS, CORE_QUALITIES, GENERAL_COMPETENCIES, getCatalog, getSubject, getLesson, scoreLesson } = require('./curriculum-data.js');
+const { BLOCKS: SURVIVAL_BLOCKS, RECIPES: SURVIVAL_RECIPES, safeState: safeSurvivalState, levelFromXp: survivalLevelFromXp, countInventory: inventoryCounts, validateMineRequest: validateSurvivalMine } = require('./server/modules/survival-v11.js');
+const { BOOKS: APPROVED_BOOK_PROFILES, practicalType: practicalTypeForSubject, scorePractical } = require('./server/modules/learning-v11.js');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -99,6 +101,17 @@ const userSchema = new mongoose.Schema({
     worldSettings: {
         type: Object,
         default: { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' }
+    },
+    survivalState: {
+        health: { type: Number, default: 100, min: 0, max: 100 },
+        hunger: { type: Number, default: 100, min: 0, max: 100 },
+        stamina: { type: Number, default: 100, min: 0, max: 100 },
+        xp: { type: Number, default: 0, min: 0 },
+        level: { type: Number, default: 1, min: 1, max: 999 },
+        deaths: { type: Number, default: 0, min: 0 },
+        equippedTool: { type: String, default: '' },
+        removedBlocks: { type: [String], default: [] },
+        lastUpdatedAt: { type: Date, default: null }
     },
     colors: { type: Object, default: { wall: '#b2bec3', floor: '#f5f6fa' } },
     // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
@@ -195,7 +208,13 @@ const learningProfileSchema = new mongoose.Schema({
     lastGrade: { type: Number, default: 1, min: 1, max: 12 },
     preferredSubjects: { type: [String], default: [] },
     weeklyGoalDays: { type: Number, default: 5, min: 1, max: 7 },
-    totalStudyMinutes: { type: Number, default: 0, min: 0 }
+    totalStudyMinutes: { type: Number, default: 0, min: 0 },
+    bookSelections: { type: Object, default: {} },
+    accessibility: {
+        type: Object,
+        default: { largeText: false, reducedMotion: false, highContrast: false, readingGuide: false }
+    },
+    focusMinutes: { type: Number, default: 25, min: 10, max: 60 }
 }, { timestamps: true });
 
 const learningNoteSchema = new mongoose.Schema({
@@ -219,10 +238,23 @@ const learningSelfAssessmentSchema = new mongoose.Schema({
 }, { timestamps: true });
 learningSelfAssessmentSchema.index({ username: 1, grade: 1, schoolYear: 1, semester: 1 }, { unique: true });
 
+const learningPracticalSchema = new mongoose.Schema({
+    username: { type: String, required: true, index: true },
+    grade: { type: Number, required: true, min: 1, max: 12 },
+    subjectId: { type: String, required: true },
+    lessonId: { type: String, required: true },
+    type: { type: String, enum: ['singing','drawing'], required: true },
+    score: { type: Number, required: true, min: 0, max: 10 },
+    metrics: { type: Object, default: {} },
+    feedback: { type: String, default: '', maxlength: 1000 },
+    evidenceId: { type: String, required: true, index: true }
+}, { timestamps: true });
+learningPracticalSchema.index({ username: 1, grade: 1, subjectId: 1, lessonId: 1, createdAt: -1 });
+
 const learningActivitySchema = new mongoose.Schema({
     username: { type: String, required: true, index: true },
     grade: { type: Number, required: true, min: 1, max: 12 },
-    type: { type: String, enum: ['lesson','review','note','self-assessment','speaking','essay'], required: true },
+    type: { type: String, enum: ['lesson','review','note','self-assessment','speaking','essay','practical'], required: true },
     subjectId: { type: String, default: '' },
     lessonId: { type: String, default: '' },
     score: { type: Number, default: null },
@@ -445,7 +477,15 @@ const MATERIALS = [
     { id: 'voxel_wool_pink', name: 'Len Hồng', price: 45, category: 'floor', value: '#fd79a8', icon: '🩷' },
     { id: 'voxel_coral', name: 'San Hô', price: 85, category: 'floor', value: '#ff7675', icon: '🪸' },
     { id: 'voxel_mud', name: 'Bùn Đầm Lầy', price: 30, category: 'floor', value: '#6d4c41', icon: '🟫' },
-    { id: 'voxel_cloud', name: 'Mây Xốp', price: 110, category: 'floor', value: '#ecf0f1', icon: '☁️' }
+    { id: 'voxel_cloud', name: 'Mây Xốp', price: 110, category: 'floor', value: '#ecf0f1', icon: '☁️' },
+    { id: 'survival_stone', name: 'Đá Sinh Tồn', price: 999999, category: 'survival', value: '#747d8c', icon: '🪨', purchasable: false },
+    { id: 'survival_log', name: 'Gỗ Thô', price: 999999, category: 'survival', value: '#8b5a2b', icon: '🪵', purchasable: false },
+    { id: 'survival_berry', name: 'Quả Rừng', price: 999999, category: 'survival', value: '#c0392b', icon: '🫐', purchasable: false },
+    { id: 'survival_bread', name: 'Bánh Mì Sinh Tồn', price: 999999, category: 'survival', value: '#d8a24a', icon: '🍞', purchasable: false },
+    { id: 'survival_torch', name: 'Đuốc', price: 999999, category: 'survival', value: '#f9ca24', icon: '🔥', purchasable: false },
+    { id: 'tool_wood_pickaxe', name: 'Cuốc Gỗ', price: 999999, category: 'survival', value: '#9c6b30', icon: '⛏️', purchasable: false },
+    { id: 'tool_stone_pickaxe', name: 'Cuốc Đá', price: 999999, category: 'survival', value: '#636e72', icon: '⛏️', purchasable: false },
+    { id: 'tool_iron_pickaxe', name: 'Cuốc Sắt', price: 999999, category: 'survival', value: '#b2bec3', icon: '⚒️', purchasable: false }
 ];
 const SHOP_ITEMS = [...HOME_FURNITURE, ...MATERIALS, ...SEASONAL_SOUVENIRS];
 const MINEABLE_ORES = Object.freeze({
@@ -498,6 +538,7 @@ const LearningSetting = mongoose.model('LearningSetting', learningSettingSchema)
 const LearningProfile = mongoose.model('LearningProfile', learningProfileSchema);
 const LearningNote = mongoose.model('LearningNote', learningNoteSchema);
 const LearningSelfAssessment = mongoose.model('LearningSelfAssessment', learningSelfAssessmentSchema);
+const LearningPractical = mongoose.model('LearningPractical', learningPracticalSchema);
 const LearningActivity = mongoose.model('LearningActivity', learningActivitySchema);
 const User = mongoose.model('User', userSchema);
 async function syncAdminFromEnvironment() {
@@ -2371,6 +2412,62 @@ app.post('/api/learning/note/:grade/:subjectId/:lessonId', requireAuth, async (r
     await logLearningActivity({ username: req.session.user.username, grade, type: 'note', subjectId: req.params.subjectId, lessonId: req.params.lessonId, metadata: { characters: content.length } });
     res.json({ message: 'Đã lưu ghi chú bài học.', content: note.content, updatedAt: note.updatedAt });
 });
+
+app.get('/api/learning/preferences', requireAuth, async (req, res) => {
+    const grade = clampInteger(req.query.grade, 1, 12, 1);
+    const profile = await LearningProfile.findOneAndUpdate(
+        { username: req.session.user.username },
+        { $setOnInsert: { username: req.session.user.username }, $set: { lastGrade: grade } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+    res.json({ grade, bookId: profile.bookSelections?.[String(grade)] || 'national', books: APPROVED_BOOK_PROFILES, accessibility: profile.accessibility || {}, focusMinutes: profile.focusMinutes || 25 });
+});
+app.post('/api/learning/preferences', requireAuth, async (req, res) => {
+    const grade = clampInteger(req.body.grade, 1, 12, 1);
+    const bookId = APPROVED_BOOK_PROFILES[req.body.bookId] ? String(req.body.bookId) : 'national';
+    const a = req.body.accessibility || {};
+    const accessibility = { largeText: Boolean(a.largeText), reducedMotion: Boolean(a.reducedMotion), highContrast: Boolean(a.highContrast), readingGuide: Boolean(a.readingGuide) };
+    const focusMinutes = clampInteger(req.body.focusMinutes, 10, 60, 25);
+    const profile = await LearningProfile.findOneAndUpdate(
+        { username: req.session.user.username },
+        { $setOnInsert: { username: req.session.user.username }, $set: { [`bookSelections.${grade}`]: bookId, accessibility, focusMinutes, lastGrade: grade } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+    res.json({ message: 'Đã lưu cấu hình học tập.', grade, bookId, accessibility, focusMinutes, book: APPROVED_BOOK_PROFILES[bookId] });
+});
+app.get('/api/learning/roadmap', requireAuth, async (req, res) => {
+    const grade = clampInteger(req.query.grade, 1, 12, 1);
+    const catalog = getCatalog(grade);
+    const records = await LearningRecord.find({ username: req.session.user.username, grade }).lean();
+    const passed = records.filter(item => item.passed).length;
+    const totalLessons = catalog.subjects.reduce((sum, subject) => sum + Number(subject.lessonCount || 0), 0);
+    const calendar = await getLearningCalendar();
+    const startDate = new Date(calendar.schoolStart || `${new Date().getFullYear()}-09-05`);
+    const currentWeek = Math.max(1, Math.min(35, Math.floor((Date.now() - startDate.getTime()) / 604800000) + 1));
+    const expected = Math.min(totalLessons, Math.round(totalLessons * currentWeek / 35));
+    const weeks = Array.from({ length: 35 }, (_, index) => {
+        const week = index + 1;
+        const phase = week <= 8 ? 'Học kỳ I • Giai đoạn 1' : week <= 18 ? 'Học kỳ I • Củng cố' : week <= 27 ? 'Học kỳ II • Giai đoạn 1' : 'Học kỳ II • Tổng kết';
+        return { week, phase, targetLessons: Math.max(1, Math.round(totalLessons / 35)), checkpoint: [9,18,27,35].includes(week) };
+    });
+    res.json({ grade, schoolYear: calendar.schoolYear, currentWeek, passed, totalLessons, expected, onTrack: passed >= Math.max(0, expected - 3), weeks });
+});
+app.post('/api/learning/practical/submit', requireAuth, async (req, res) => {
+    const grade = clampInteger(req.body.grade, 1, 12, 1);
+    const subjectId = String(req.body.subjectId || '');
+    const lessonId = String(req.body.lessonId || '');
+    const requiredType = practicalTypeForSubject(subjectId, lessonId);
+    const type = String(req.body.type || '');
+    if (!requiredType || type !== requiredType) return res.status(400).json({ message: 'Môn học hoặc loại thực hành không hợp lệ.' });
+    if (!getLesson(grade, subjectId, lessonId)) return res.status(404).json({ message: 'Không tìm thấy bài học.' });
+    const m = req.body.metrics || {};
+    const { score, feedback } = scorePractical(type, m);
+    const evidenceId = `PA-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    await LearningPractical.create({ username: req.session.user.username, grade, subjectId, lessonId, type, score, metrics: m, feedback, evidenceId });
+    await logLearningActivity({ username: req.session.user.username, grade, type: 'practical', subjectId, lessonId, score, minutes: type === 'singing' ? 5 : 15, metadata: { practicalType: type, evidenceId } });
+    res.json({ score, passed: score > PASS_SCORE, passScore: PASS_SCORE, feedback, evidenceId });
+});
+
 app.get('/api/learning/lesson/:grade/:subjectId/:lessonId', requireAuth, async (req, res) => {
     const grade = clampInteger(req.params.grade, 1, 12, 1);
     const lessonPack = getLesson(grade, req.params.subjectId, req.params.lessonId);
@@ -2379,13 +2476,24 @@ app.get('/api/learning/lesson/:grade/:subjectId/:lessonId', requireAuth, async (
     if (!unlocked) return res.status(403).json({ message: `Cần đạt trên ${PASS_SCORE} điểm ở bài trước để mở khóa.` });
     const safe = JSON.parse(JSON.stringify(lessonPack));
     safe.lesson.questions = safe.lesson.questions.map(({ answer, explanation, ...question }) => question);
-    res.json({ ...safe, passScore: PASS_SCORE, unlocked: true });
+    const practicalType = practicalTypeForSubject(req.params.subjectId, req.params.lessonId);
+    let practical = null;
+    if (practicalType) {
+        const latest = await LearningPractical.findOne({ username: req.session.user.username, grade, subjectId: req.params.subjectId, lessonId: req.params.lessonId }).sort({ createdAt: -1 }).lean();
+        practical = { required: true, type: practicalType, passScore: PASS_SCORE, latestScore: latest?.score ?? null, passed: Number(latest?.score) > PASS_SCORE, evidenceId: latest?.evidenceId || null };
+    }
+    res.json({ ...safe, passScore: PASS_SCORE, unlocked: true, practical });
 });
 app.post('/api/learning/lesson/:grade/:subjectId/:lessonId/submit', requireAuth, async (req, res) => {
     const grade = clampInteger(req.params.grade, 1, 12, 1);
     const pack = getLesson(grade, req.params.subjectId, req.params.lessonId);
     if (!pack) return res.status(404).json({ message: 'Không tìm thấy bài học.' });
     if (!await isLessonUnlocked(req.session.user.username, grade, req.params.subjectId, req.params.lessonId)) return res.status(403).json({ message: 'Bài học đang bị khóa.' });
+    const practicalType = practicalTypeForSubject(req.params.subjectId, req.params.lessonId);
+    if (practicalType) {
+        const practical = await LearningPractical.findOne({ username: req.session.user.username, grade, subjectId: req.params.subjectId, lessonId: req.params.lessonId, type: practicalType, score: { $gt: PASS_SCORE } }).sort({ createdAt: -1 }).lean();
+        if (!practical) return res.status(403).json({ message: `Cần hoàn thành phần ${practicalType === 'singing' ? 'hát' : 'vẽ'} và đạt trên ${PASS_SCORE}/10 trước khi nộp bài kiểm tra.` });
+    }
     const result = scoreLesson(pack.lesson, req.body.answers || {});
     const skillStats = {};
     for (const detail of result.details) { skillStats[detail.skill] ||= { correct: 0, total: 0 }; skillStats[detail.skill].total += 1; if (detail.isCorrect) skillStats[detail.skill].correct += 1; }
@@ -3283,7 +3391,8 @@ app.get('/api/house/visit/:friendUsername', async (req, res) => {
         res.json({ 
             friendName: friend.username,
             houseData: friend.houseData || [],
-            worldSettings: friend.worldSettings || { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' }
+            worldSettings: friend.worldSettings || { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' },
+            survivalState: friend.survivalState || {}
         });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server' });
@@ -3306,6 +3415,7 @@ app.get('/api/house/info', async (req, res) => {
             houseData: user.houseData || [],
             chestsData: user.chestsData || {},
             worldSettings: user.worldSettings || { theme: 'spring', weatherMode: 'auto', timeMode: 'auto' },
+            survivalState: user.survivalState || {},
             shopItems: SHOP_ITEMS // Đảm bảo biến SHOP_ITEMS đã được khai báo ở trên
         });
     } catch (error) {
@@ -3319,6 +3429,7 @@ app.post('/api/house/buy', async (req, res) => {
     const itemId = String(req.body.itemId || '');
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return res.status(400).json({ message: 'Vật phẩm không tồn tại' });
+    if (item.purchasable === false) return res.status(400).json({ message: 'Vật phẩm sinh tồn chỉ nhận bằng khai thác hoặc chế tạo.' });
 
     // Sơn và sàn được bán theo gói 10 ô; các vật phẩm khác nhận 1 món.
     const quantity = ['paint', 'floor'].includes(item.category) ? 10 : 1;
@@ -3393,6 +3504,130 @@ app.post('/api/house/mine', requireAuth, miningRateLimit, async (req, res) => {
         totalMined: Number(user.miningStats?.total) || 0,
         message: bonus ? `May mắn! Nhận ${quantity} ${item?.name || 'quặng'}.` : `Đã đào 1 ${item?.name || 'quặng'}.`
     });
+});
+
+
+// 2C. Sinh tồn V11: địa hình khối đào được, trạng thái sống và chế tạo an toàn phía máy chủ.
+async function withSurvivalLock(username, task) {
+    const previous = survivalLocks.get(username) || Promise.resolve();
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    const chain = previous.then(() => gate);
+    survivalLocks.set(username, chain);
+    await previous;
+    try { return await task(); } finally { release(); if (survivalLocks.get(username) === chain) survivalLocks.delete(username); }
+}
+app.get('/api/survival/state', requireAuth, async (req, res) => {
+    const user = await User.findOne({ username: req.session.user.username }).select('survivalState inventory').lean();
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người chơi.' });
+    res.json({ state: safeSurvivalState(user.survivalState), inventory: inventoryCounts(user.inventory || []), recipes: SURVIVAL_RECIPES });
+});
+app.post('/api/survival/sync', requireAuth, async (req, res) => {
+    const health = Math.max(0, Math.min(100, Number(req.body.health ?? 100)));
+    const hunger = Math.max(0, Math.min(100, Number(req.body.hunger ?? 100)));
+    const stamina = Math.max(0, Math.min(100, Number(req.body.stamina ?? 100)));
+    const equippedTool = String(req.body.equippedTool || '').slice(0, 50);
+    const update = { $set: { 'survivalState.health': health, 'survivalState.hunger': hunger, 'survivalState.stamina': stamina, 'survivalState.equippedTool': equippedTool, 'survivalState.lastUpdatedAt': new Date() } };
+    if (req.body.died === true) update.$inc = { 'survivalState.deaths': 1 };
+    const user = await User.findOneAndUpdate(
+        { username: req.session.user.username, isSuspended: { $ne: true } },
+        update,
+        { new: true }
+    ).select('survivalState');
+    if (!user) return res.status(403).json({ message: 'Tài khoản không thể đồng bộ sinh tồn.' });
+    res.json({ state: safeSurvivalState(user.survivalState) });
+});
+app.post('/api/survival/mine', requireAuth, async (req, res) => {
+    const username = req.session.user.username;
+    const now = Date.now();
+    const last = survivalActionCooldowns.get(username) || 0;
+    if (now - last < 120) return res.status(429).json({ message: 'Thao tác quá nhanh.' });
+    survivalActionCooldowns.set(username, now);
+
+    const blockType = String(req.body.blockType || '');
+    const blockKey = String(req.body.blockKey || '');
+    const toolId = String(req.body.toolId || '').slice(0, 50);
+    const current = await User.findOne({ username, isSuspended: { $ne: true } }).select('inventory survivalState.removedBlocks').lean();
+    if (!current) return res.status(403).json({ message: 'Tài khoản không thể khai thác.' });
+
+    const validation = validateSurvivalMine({ blockType, blockKey, toolId, inventory: current.inventory || [] });
+    if (!validation.ok) return res.status(400).json({ message: validation.message });
+    const config = validation.block;
+    const dropGranted = config.chance === undefined || Math.random() < config.chance;
+    const update = {
+        $addToSet: { 'survivalState.removedBlocks': blockKey },
+        $inc: { 'survivalState.xp': config.xp },
+        $set: { 'survivalState.lastUpdatedAt': new Date() }
+    };
+    if (dropGranted) update.$push = { inventory: config.drop };
+
+    const filter = {
+        username,
+        isSuspended: { $ne: true },
+        'survivalState.removedBlocks': { $ne: blockKey }
+    };
+    if (toolId) filter.inventory = toolId;
+    const user = await User.findOneAndUpdate(filter, update, { new: true }).select('survivalState inventory');
+    if (!user) return res.status(409).json({ message: 'Khối đã được khai thác hoặc công cụ không còn trong ba lô.' });
+
+    const xp = Number(user.survivalState?.xp) || 0;
+    const level = survivalLevelFromXp(xp);
+    if (Number(user.survivalState?.level) !== level) await User.updateOne({ username }, { $set: { 'survivalState.level': level } });
+    res.json({
+        blockKey,
+        blockType,
+        dropId: dropGranted ? config.drop : null,
+        quantity: dropGranted ? 1 : 0,
+        xp,
+        level,
+        message: dropGranted ? 'Đã khai thác và cất vật phẩm vào ba lô.' : 'Khối lá không rơi vật phẩm lần này.'
+    });
+});
+app.post('/api/survival/craft', requireAuth, async (req, res) => {
+    const username = req.session.user.username;
+    const recipeId = String(req.body.recipeId || '');
+    const recipe = SURVIVAL_RECIPES[recipeId];
+    if (!recipe) return res.status(400).json({ message: 'Công thức không hợp lệ.' });
+    const result = await withSurvivalLock(username, async () => {
+        const user = await User.findOne({ username, isSuspended: { $ne: true } });
+        if (!user) return { status: 403, body: { message: 'Tài khoản không thể chế tạo.' } };
+        const counts = inventoryCounts(user.inventory || []);
+        for (const [id, needed] of Object.entries(recipe.ingredients)) if ((counts[id] || 0) < needed) return { status: 400, body: { message: `Thiếu nguyên liệu ${id}.` } };
+        const inventory = [...(user.inventory || [])];
+        for (const [id, needed] of Object.entries(recipe.ingredients)) for (let i = 0; i < needed; i += 1) inventory.splice(inventory.indexOf(id), 1);
+        for (let i = 0; i < recipe.quantity; i += 1) inventory.push(recipe.output);
+        user.inventory = inventory;
+        user.survivalState ||= {};
+        user.survivalState.xp = (Number(user.survivalState.xp) || 0) + 5;
+        user.survivalState.level = survivalLevelFromXp(user.survivalState.xp);
+        user.survivalState.lastUpdatedAt = new Date();
+        await user.save();
+        return { status: 200, body: { message: 'Chế tạo thành công.', output: recipe.output, quantity: recipe.quantity, inventory: inventoryCounts(inventory), state: safeSurvivalState(user.survivalState) } };
+    });
+    res.status(result.status).json(result.body);
+});
+app.post('/api/survival/eat', requireAuth, async (req, res) => {
+    const username = req.session.user.username;
+    const itemId = String(req.body.itemId || '');
+    const food = { survival_berry: 12, survival_bread: 35 }[itemId];
+    if (!food) return res.status(400).json({ message: 'Vật phẩm này không ăn được.' });
+    const result = await withSurvivalLock(username, async () => {
+        const user = await User.findOne({ username, isSuspended: { $ne: true } });
+        const index = user?.inventory?.indexOf(itemId) ?? -1;
+        if (!user || index < 0) return { status: 400, body: { message: 'Không còn thức ăn này.' } };
+        user.inventory.splice(index, 1);
+        user.survivalState ||= {};
+        user.survivalState.hunger = Math.min(100, (Number(user.survivalState.hunger) || 0) + food);
+        user.survivalState.health = Math.min(100, (Number(user.survivalState.health) || 0) + (itemId === 'survival_bread' ? 8 : 2));
+        user.survivalState.lastUpdatedAt = new Date();
+        await user.save();
+        return { status: 200, body: { message: 'Đã ăn và hồi phục.', state: safeSurvivalState(user.survivalState) } };
+    });
+    res.status(result.status).json(result.body);
+});
+app.post('/api/survival/reset', requireAuth, async (req, res) => {
+    await User.updateOne({ username: req.session.user.username }, { $set: { survivalState: { health: 100, hunger: 100, stamina: 100, xp: 0, level: 1, deaths: 0, equippedTool: '', removedBlocks: [], lastUpdatedAt: new Date() } } });
+    res.json({ message: 'Đã tạo lại đảo sinh tồn.' });
 });
 
 // 3. Lưu vị trí đồ đạc (ĐÃ FIX LỖI CƯỚP NHÀ)

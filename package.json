@@ -1,7 +1,7 @@
 {
   "name": "hanh-tinh-mo-uoc",
-  "version": "9.1.0",
-  "description": "Hành Tinh Mơ Ước 9.1 - học thích ứng, giải cộng đồng an toàn bằng Điểm Đấu Trường, bàn cờ và hệ thống ổn định",
+  "version": "11.0.0",
+  "description": "Hành Tinh Mơ Ước V11 - sinh tồn khối vuông, đào địa hình, học tập cá nhân hóa và giao diện responsive",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
