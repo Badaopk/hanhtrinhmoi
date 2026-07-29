@@ -1,12 +1,12 @@
 {
   "name": "hanh-tinh-mo-uoc",
-  "version": "11.0.0",
-  "description": "Hành Tinh Mơ Ước V11 - sinh tồn khối vuông, đào địa hình, học tập cá nhân hóa và giao diện responsive",
+  "version": "13.0.0",
+  "description": "Hành Tinh Mơ Ước V13 - ổn định Render, nộp bài có hàng chờ, sinh tồn máy chủ kiểm soát và UX nâng cao",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node scripts/validate-project.js",
-    "check": "node scripts/validate-project.js"
+    "test": "node scripts/validate-project.js && node scripts/test-v13-runtime.js",
+    "check": "node scripts/validate-project.js && node scripts/test-v13-runtime.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

@@ -5,6 +5,7 @@ const CENTER={x:2350,z:-2700};
 const RADIUS=7;
 const MIN_Y=-12;
 const BEDROCK_Y=-13;
+const WORLD_VERSION=13;
 const TYPE_INFO={
  grass:{id:'floor_grass',name:'Khối cỏ',color:'#5eaa58',hardness:1,tier:0,icon:'🌿'},
  dirt:{id:'floor_dirt',name:'Đất',color:'#795238',hardness:1,tier:0,icon:'🟤'},
@@ -19,7 +20,8 @@ const TYPE_INFO={
  diamond:{id:'voxel_diamond',name:'Kim cương',color:'#54bfe2',hardness:5,tier:3,icon:'💎'},
  amethyst:{id:'voxel_amethyst',name:'Thạch anh tím',color:'#8e5ac8',hardness:4,tier:2,icon:'🟣'},
  log:{id:'survival_log',name:'Gỗ thô',color:'#875a31',hardness:2,tier:0,icon:'🪵'},
- leaves:{id:'survival_berry',name:'Tán lá',color:'#3f9148',hardness:1,tier:0,icon:'🍃'}
+ leaves:{id:'survival_berry',name:'Tán lá',color:'#3f9148',hardness:1,tier:0,icon:'🍃'},
+ torch:{id:'survival_torch',name:'Đuốc',color:'#f5b642',hardness:.5,tier:0,icon:'🔥'}
 };
 const TOOL_INFO={
  '':{name:'Tay không',tier:0,power:1},
@@ -40,7 +42,7 @@ let terrain=[];
 const liveKeys=new Map();
 let removed=new Set();
 let damage=new Map();
-let state={health:100,hunger:100,stamina:100,xp:0,level:1,deaths:0,equippedTool:''};
+let state={health:100,hunger:100,stamina:100,xp:0,level:1,deaths:0,equippedTool:'',placedBlocks:[],toolDurability:{},worldVersion:WORLD_VERSION};
 let lastVitalsSync=0;
 let tickTimer=null;
 let statusTimer=null;
@@ -51,7 +53,7 @@ const materialCache=new Map();
 function hash(x,y,z){let value=Math.imul(x,374761393)^Math.imul(y,668265263)^Math.imul(z,2147483647);value=Math.imul(value^(value>>>13),1274126177);value^=value>>>16;return(value>>>0)/4294967295}
 async function api(url,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),15000);try{const r=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options,signal:controller.signal});const type=r.headers.get('content-type')||'';const d=type.includes('application/json')?await r.json().catch(()=>({})):{};if(!r.ok){const message=r.status===401?'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.':r.status===503?'Máy chủ đang khởi động hoặc mất kết nối cơ sở dữ liệu.':d.message||`Không thể thực hiện (${r.status})`;throw new Error(message)}return d}catch(error){if(error.name==='AbortError')throw new Error('Máy chủ phản hồi quá lâu. Hãy bấm Kết nối lại.');if(error instanceof TypeError)throw new Error('Không thể kết nối máy chủ. Hãy kiểm tra Render rồi thử lại.');throw error}finally{clearTimeout(timeout)}}
 function safeNumber(v,fallback=0){v=Number(v);return Number.isFinite(v)?v:fallback}
-function applyState(next={}){state={...state,...next};state.health=Math.max(0,Math.min(100,safeNumber(state.health,100)));state.hunger=Math.max(0,Math.min(100,safeNumber(state.hunger,100)));state.stamina=Math.max(0,Math.min(100,safeNumber(state.stamina,100)));state.xp=Math.max(0,safeNumber(state.xp));state.level=Math.max(1,safeNumber(state.level,1));renderHUD()}
+function applyState(next={}){state={...state,...next};state.health=Math.max(0,Math.min(100,safeNumber(state.health,100)));state.hunger=Math.max(0,Math.min(100,safeNumber(state.hunger,100)));state.stamina=Math.max(0,Math.min(100,safeNumber(state.stamina,100)));state.xp=Math.max(0,safeNumber(state.xp));state.level=Math.max(1,safeNumber(state.level,1));state.placedBlocks=Array.isArray(state.placedBlocks)?state.placedBlocks:[];state.toolDurability=state.toolDurability&&typeof state.toolDurability==='object'?state.toolDurability:{};renderHUD()}
 function currentTool(){const selected=hotbarSlots?.[selectedHotbarIndex]||'';const id=TOOL_INFO[selected]?selected:'';return{id,...TOOL_INFO[id]}}
 function notify(message,error=false){if(typeof showNotification==='function')showNotification(message,error)}
 function ensureUI(){
@@ -63,6 +65,7 @@ function ensureUI(){
   <div class="survival-bar"><label>🍗 Đói</label><i><b id="survival-hunger-v11"></b></i><span id="survival-hunger-text-v11">100</span></div>
   <div class="survival-bar"><label>⚡ Thể lực</label><i><b id="survival-stamina-v11"></b></i><span id="survival-stamina-text-v11">100</span></div>
   <div class="survival-meta"><span id="survival-tool-v11">✋ Tay không</span><span id="survival-xp-v11">0 XP</span></div>
+  <div class="survival-durability"><span>🔧 Độ bền</span><b id="survival-durability-v13">—</b></div>
   <div class="survival-depth"><span>⛏️ Độ sâu</span><b id="survival-depth-v12">Mặt đất</b></div>
   <div class="survival-actions"><button type="button" data-action="craft">🛠️ Chế tạo</button><button type="button" data-action="eat">🍞 Ăn</button><button type="button" data-action="leave">🏠 Về làng</button></div>`;
  document.body.append(hud);
@@ -90,7 +93,7 @@ function renderHUD(){
  values.forEach(([key,value])=>{const bar=document.getElementById(`survival-${key}-v11`),text=document.getElementById(`survival-${key}-text-v11`);if(bar)bar.style.width=`${value}%`;if(text)text.textContent=Math.round(value)});
  const tool=currentTool();
  const level=document.getElementById('survival-level-v11'),toolEl=document.getElementById('survival-tool-v11'),xp=document.getElementById('survival-xp-v11');
- if(level)level.textContent=`Cấp ${state.level}`;if(toolEl)toolEl.textContent=`${tool.id?'⛏️':'✋'} ${tool.name}`;if(xp)xp.textContent=`${Math.round(state.xp)} XP`;const depth=document.getElementById('survival-depth-v12');if(depth&&typeof controls!=='undefined'){const gy=Math.floor((controls.getObject().position.y-BLOCK/2)/BLOCK);depth.textContent=gy>=0?'Mặt đất':gy<=MIN_Y+1?`Tầng móng ${Math.abs(gy)}`:`Tầng ${Math.abs(gy)}`}
+ if(level)level.textContent=`Cấp ${state.level}`;if(toolEl)toolEl.textContent=`${tool.id?'⛏️':'✋'} ${tool.name}`;if(xp)xp.textContent=`${Math.round(state.xp)} XP`;const durability=document.getElementById('survival-durability-v13');if(durability)durability.textContent=tool.id?`${Math.round(Number(state.toolDurability?.[tool.id])||0)} lượt`:'Không dùng công cụ';const depth=document.getElementById('survival-depth-v12');if(depth&&typeof controls!=='undefined'){const gy=Math.floor((controls.getObject().position.y-BLOCK/2)/BLOCK);depth.textContent=gy>=0?'Mặt đất':gy<=MIN_Y+1?`Tầng móng ${Math.abs(gy)}`:`Tầng ${Math.abs(gy)}`}
  const online=document.getElementById('survival-online-v12');if(online){online.textContent=serverOnline?'● Đã kết nối':'● Ngoại tuyến';online.classList.toggle('online',serverOnline);online.classList.toggle('offline',!serverOnline)}
  hud.classList.toggle('show',active);
 }
@@ -99,11 +102,11 @@ function topLevel(gx,gz){const n=hash(gx,19,gz);return n>.82?2:n>.48?1:0}
 function isCaveAt(gx,gy,gz){if(gy>-2||gy<=MIN_Y+1)return false;const primary=hash(gx*3+gy,gy*5-gz,gz*3-gx),secondary=hash(gx+91,gy-37,gz+53);return primary>.89&&secondary>.34}
 function typeAt(gx,gy,gz,top){if(gy===top)return'grass';if(gy>=top-2)return'dirt';if(isCaveAt(gx,gy,gz))return null;const r=hash(gx,gy,gz);if(gy<=-8&&r>.985)return'diamond';if(gy<=-6&&r>.971)return'emerald';if(gy<=-5&&r>.948)return'amethyst';if(gy<=-4&&r>.91)return'gold';if(gy<=-3&&r>.84)return'iron';if(gy<=-2&&r>.76)return'copper';if(r>.64)return'coal';if(gy<=MIN_Y+1)return'foundation';if(gy<=-7)return'deepstone';return'stone'}
 function keyOf(gx,gy,gz){return`${gx}:${gy}:${gz}`}
-function addBlock(gx,gy,gz,type,{bedrock=false}={}){
- if(!bedrock&&!type)return null;const key=keyOf(gx,gy,gz);if((!bedrock&&removed.has(key))||liveKeys.has(key))return null;
- const mesh=new THREE.Mesh(sharedBlockGeo,bedrock?createBlockMaterial('#20252b'):blockMaterial(type));
+function addBlock(gx,gy,gz,type,{bedrock=false,placed=false}={}){
+ if(!bedrock&&!type)return null;const key=keyOf(gx,gy,gz);if((!bedrock&&!placed&&removed.has(key))||liveKeys.has(key))return null;
+ const geometry=type==='torch'?new THREE.BoxGeometry(12,34,12):sharedBlockGeo;const mesh=new THREE.Mesh(geometry,bedrock?createBlockMaterial('#20252b'):blockMaterial(type));
  mesh.position.set(CENTER.x+gx*BLOCK,gy*BLOCK+BLOCK/2,CENTER.z+gz*BLOCK);mesh.castShadow=graphicsPreset?.shadows!==false;mesh.receiveShadow=true;mesh.updateMatrixWorld(true);
- mesh.userData={id:bedrock?'survival_bedrock':TYPE_INFO[type]?.id,bbox:new THREE.Box3().setFromObject(mesh),survivalBlock:!bedrock,survivalBedrock:bedrock,blockType:type,blockKey:key,hardness:TYPE_INFO[type]?.hardness||1,requiredTier:TYPE_INFO[type]?.tier||0};
+ mesh.userData={id:bedrock?'survival_bedrock':TYPE_INFO[type]?.id,bbox:new THREE.Box3().setFromObject(mesh),survivalBlock:!bedrock,survivalPlaced:placed,survivalBedrock:bedrock,blockType:type,blockKey:key,hardness:TYPE_INFO[type]?.hardness||1,requiredTier:TYPE_INFO[type]?.tier||0};
  scene.add(mesh);objects.push(mesh);terrain.push(mesh);liveKeys.set(key,mesh);return mesh
 }
 function addTree(gx,gz,base){
@@ -122,6 +125,7 @@ function generateTerrain(){
    for(let gy=MIN_Y;gy<=top;gy++){const type=typeAt(gx,gy,gz,top);if(type)addBlock(gx,gy,gz,type)}
    if(edge<RADIUS-2&&top>=0&&hash(gx,41,gz)>.92)addTree(gx,gz,top);
  }
+ for(const item of state.placedBlocks||[]){const [gx,gy,gz]=String(item.key||'').split(':').map(Number);if([gx,gy,gz].every(Number.isFinite)&&TYPE_INFO[item.type])addBlock(gx,gy,gz,item.type,{placed:true})}
  generated=true;
 }
 async function loadState(){try{const data=await api('/api/survival/state');serverOnline=true;removed=new Set(data.state?.removedBlocks||[]);applyState(data.state||{});return data}catch(error){serverOnline=false;renderHUD();notify(`⚠️ ${error.message}`,true);return null}}
@@ -136,7 +140,7 @@ function leaveSurvival(){active=false;document.body.classList.remove('survival-m
 function toggleCraft(){craftingOpen=!craftingOpen;const panel=document.getElementById('survival-craft-v11');panel?.classList.toggle('show',craftingOpen);panel?.setAttribute('aria-hidden',String(!craftingOpen));if(craftingOpen&&!isMobile)controls.unlock()}
 async function craftItem(recipeId){try{const data=await api('/api/survival/craft',{method:'POST',body:JSON.stringify({recipeId})});if(data.state)applyState(data.state);if(data.output){for(let i=0;i<(data.quantity||1);i++)houseState.inventory.push(data.output);if(TOOL_INFO[data.output]&&!hotbarSlots.includes(data.output)){const empty=hotbarSlots.indexOf(null);if(empty>=0)hotbarSlots[empty]=data.output}}renderHotbarUI();updateUI();notify(`🛠️ ${data.message}`)}catch(error){notify(`❌ ${error.message}`,true)}}
 async function eatSelected(){const selected=hotbarSlots?.[selectedHotbarIndex];const food=['survival_berry','survival_bread'].includes(selected)?selected:houseState.inventory.includes('survival_bread')?'survival_bread':houseState.inventory.includes('survival_berry')?'survival_berry':'';if(!food)return notify('🍽️ Ba lô chưa có quả rừng hoặc bánh mì.',true);try{const data=await api('/api/survival/eat',{method:'POST',body:JSON.stringify({itemId:food})});const index=houseState.inventory.indexOf(food);if(index>=0)houseState.inventory.splice(index,1);applyState(data.state);renderHotbarUI();updateUI();notify(data.message)}catch(error){notify(`❌ ${error.message}`,true)}}
-async function resetWorld(){if(!confirm('Tạo lại đảo sẽ phục hồi toàn bộ khối đã đào và đặt lại cấp sinh tồn. Tiếp tục?'))return;try{await api('/api/survival/reset',{method:'POST',body:'{}'});removed.clear();applyState({health:100,hunger:100,stamina:100,xp:0,level:1,deaths:0});generateTerrain();notify('🌍 Đã tạo lại đảo sinh tồn.')}catch(error){notify(`❌ ${error.message}`,true)}}
+async function resetWorld(){if(!confirm('Tạo lại đảo sẽ phục hồi toàn bộ khối đã đào và đặt lại cấp sinh tồn. Tiếp tục?'))return;try{const data=await api('/api/survival/reset',{method:'POST',body:'{}'});removed.clear();applyState(data.state||{health:100,hunger:100,stamina:100});generateTerrain();notify(`🌍 ${data.message}`)}catch(error){notify(`❌ ${error.message}`,true)}}
 function toolCanMine(block){const tool=currentTool();if(block.userData.requiredTier>tool.tier){notify(`⛏️ Cần công cụ bậc ${block.userData.requiredTier}. Hãy chế tạo cuốc tốt hơn.`,true);return false}return true}
 async function mineBlock(block){
  if(!active)return false;if(!serverOnline){notify('📡 Chưa kết nối máy chủ nên chưa thể đào. Bấm Kết nối lại.',true);return true}if(block.userData.survivalBedrock){notify('⬛ Đây là lớp đá nền cuối cùng của thế giới.',true);return true}if(!block.userData.survivalBlock)return false;if(!toolCanMine(block))return true;if(state.stamina<4){notify('⚡ Hết thể lực. Hãy chờ hồi phục.',true);return true}
@@ -145,17 +149,26 @@ async function mineBlock(block){
  damage.delete(key);
  try{
    const data=await api('/api/survival/mine',{method:'POST',body:JSON.stringify({blockType:block.userData.blockType,blockKey:key,toolId:tool.id})});
-   removed.add(key);liveKeys.delete(key);scene.remove(block);const oi=objects.indexOf(block);if(oi>=0)objects.splice(oi,1);const ti=terrain.indexOf(block);if(ti>=0)terrain.splice(ti,1);
+   if(!data.placed)removed.add(key);liveKeys.delete(key);scene.remove(block);const oi=objects.indexOf(block);if(oi>=0)objects.splice(oi,1);const ti=terrain.indexOf(block);if(ti>=0)terrain.splice(ti,1);
    if(data.dropId){houseState.inventory.push(data.dropId);const empty=hotbarSlots.indexOf(null);if(!hotbarSlots.includes(data.dropId)&&empty>=0)hotbarSlots[empty]=data.dropId}
-   applyState({xp:data.xp,level:data.level});renderHotbarUI();updateUI();playSFX('break');
+   if(data.tool?.broken){const toolIndex=houseState.inventory.indexOf(data.tool.id);if(toolIndex>=0)houseState.inventory.splice(toolIndex,1);for(let i=0;i<hotbarSlots.length;i++)if(hotbarSlots[i]===data.tool.id&&!houseState.inventory.includes(data.tool.id))hotbarSlots[i]=null;notify('💥 Công cụ đã hết độ bền và bị hỏng.',true)}
+   applyState(data.state||{xp:data.xp,level:data.level});renderHotbarUI();updateUI();playSFX('break');
    const label=TYPE_INFO[block.userData.blockType]?.name||'khối';notify(data.dropId?`📦 Đào được ${label}.`:`🍃 Đã phá ${label}, lần này không rơi vật phẩm.`);
  }catch(error){serverOnline=false;renderHUD();notify(`⚠️ ${error.message}`,true)}
  return true
 }
-function handleAction(type,hit){const target=hit?.object?.userData?.parentGroup||hit?.object;if(!target)return false;if(type==='break'&&(target.userData.survivalBlock||target.userData.survivalBedrock)){mineBlock(target);return true}if(type==='break'&&target.userData.isIndestructible&&active){notify('🏕️ Khu làng vẫn được bảo vệ. Hãy đào các khối trên đảo sinh tồn.',true);return true}return false}
-async function syncVitals(force=false,died=false){if(!active&&!force)return;const now=Date.now();if(!force&&now-lastVitalsSync<12000)return;lastVitalsSync=now;try{const data=await api('/api/survival/sync',{method:'POST',body:JSON.stringify({health:state.health,hunger:state.hunger,stamina:state.stamina,equippedTool:currentTool().id,died})});applyState(data.state||{})}catch(error){console.warn('Survival sync:',error.message)}}
+async function placeBlock(target,hit){
+ if(!active)return false;if(!serverOnline){notify('📡 Chưa kết nối máy chủ nên chưa thể đặt khối.',true);return true}
+ const itemId=hotbarSlots?.[selectedHotbarIndex]||'';if(!itemId||!houseState.inventory.includes(itemId)){notify('📦 Chọn một khối có trong ba lô để đặt.',true);return true}
+ const placeable=['floor_grass','floor_dirt','survival_stone','survival_deepslate','survival_log','survival_torch'];if(!placeable.includes(itemId)){notify('🧱 Vật phẩm này không dùng để xây trong sinh tồn.',true);return true}
+ const [gx,gy,gz]=String(target.userData.blockKey||'').split(':').map(Number);if(![gx,gy,gz].every(Number.isFinite))return true;
+ const normal=hit?.face?.normal||{x:0,y:1,z:0};const nx=gx+Math.round(normal.x),ny=gy+Math.round(normal.y),nz=gz+Math.round(normal.z);const key=keyOf(nx,ny,nz);
+ try{const data=await api('/api/survival/place',{method:'POST',body:JSON.stringify({itemId,blockKey:key})});const index=houseState.inventory.indexOf(itemId);if(index>=0)houseState.inventory.splice(index,1);state.placedBlocks=data.state?.placedBlocks||state.placedBlocks;applyState(data.state||{});addBlock(nx,ny,nz,data.blockType,{placed:true});renderHotbarUI();updateUI();playSFX('build');notify(`🧱 ${data.message}`)}catch(error){if(/kết nối|máy chủ/i.test(error.message))serverOnline=false;renderHUD();notify(`⚠️ ${error.message}`,true)}return true
+}
+function handleAction(type,hit){const target=hit?.object?.userData?.parentGroup||hit?.object;if(!target)return false;if(type==='break'&&(target.userData.survivalBlock||target.userData.survivalBedrock)){mineBlock(target);return true}if(type==='build'&&(target.userData.survivalBlock||target.userData.survivalBedrock)){placeBlock(target,hit);return true}if(type==='break'&&target.userData.isIndestructible&&active){notify('🏕️ Khu làng được bảo vệ; hãy đào hoặc xây trên đảo sinh tồn.',true);return true}return false}
+async function syncVitals(force=false,died=false){if(!active&&!force)return;const now=Date.now();if(!force&&now-lastVitalsSync<12000)return;lastVitalsSync=now;try{const data=await api('/api/survival/sync',{method:'POST',body:JSON.stringify({equippedTool:currentTool().id,died})});applyState(data.state||{})}catch(error){console.warn('Survival sync:',error.message)}}
 function startTicks(){if(tickTimer)return;tickTimer=setInterval(()=>{if(!active)return;state.hunger=Math.max(0,state.hunger-.55);state.stamina=Math.min(100,state.stamina+4);if(state.hunger<=0)state.health=Math.max(0,state.health-2);else if(state.hunger>72&&state.health<100)state.health=Math.min(100,state.health+.5);if(state.health<=0){state.health=100;state.hunger=70;state.stamina=100;controls.getObject().position.set(CENTER.x,320,CENTER.z);syncVitals(true,true);notify('💫 Bạn đã kiệt sức và hồi sinh tại trại.',true)}renderHUD();syncVitals(false)},5000);statusTimer=setInterval(async()=>{if(active&&generated&&!terrain.some(m=>m.parent===scene))generateTerrain();if(active&&!serverOnline)await reconnectServer()},10000)}
 function setupKeys(){document.addEventListener('keydown',event=>{if(event.code==='KeyV'){event.preventDefault();active?leaveSurvival():enterSurvival()}if(event.code==='KeyC'&&active){event.preventDefault();toggleCraft()}if(event.code==='KeyF'&&active){event.preventDefault();eatSelected()}})}
-function setup(){ensureUI();setupKeys();loadState();window.addEventListener('beforeunload',()=>syncVitals(true));window.SurvivalV11={handleAction,enter:enterSurvival,leave:leaveSurvival,reconnect:reconnectServer,isActive:()=>active,isFoundationHole:()=>false}}
+function setup(){ensureUI();setupKeys();loadState();document.addEventListener('contextmenu',event=>{if(active)event.preventDefault()});window.addEventListener('beforeunload',()=>syncVitals(true));window.SurvivalV13={handleAction,enter:enterSurvival,leave:leaveSurvival,reconnect:reconnectServer,isActive:()=>active,isFoundationHole:()=>false};window.SurvivalV11=window.SurvivalV13}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
 })();

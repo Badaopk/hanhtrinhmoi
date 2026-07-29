@@ -6,6 +6,8 @@ require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
+const crypto = require('crypto');
+const path = require('path');
 const { Server } = require("socket.io");
 const session = require('express-session');
 const bcrypt = require('bcrypt');
@@ -18,7 +20,7 @@ const MongoStore = require('connect-mongo');
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const APP_VERSION = '11.0.0';
+const APP_VERSION = '13.0.0';
 
 function readEnvInt(name, fallback, min, max) {
     const parsed = Number.parseInt(process.env[name], 10);
@@ -43,8 +45,7 @@ const COMMUNITY_TOURNAMENT_MAX_DAILY = readEnvInt('COMMUNITY_TOURNAMENT_MAX_DAIL
 const COMMUNITY_TOURNAMENT_MAX_PLAYERS = readEnvInt('COMMUNITY_TOURNAMENT_MAX_PLAYERS', 32, 2, 64);
 
 if (!MONGO_URI) {
-    console.error('❌ Thiếu biến môi trường MONGO_URI hoặc MONGODB_URI.');
-    process.exit(1);
+    console.error('⚠️ Thiếu MONGO_URI/MONGODB_URI. Máy chủ sẽ chạy chế độ chẩn đoán; các API cần dữ liệu sẽ tạm thời không hoạt động.');
 }
 
 // --- 1. IMPORT DỮ LIỆU & LOGIC ---
@@ -55,11 +56,62 @@ console.log(`📚 Ngân hàng đề thi: ${questionBankSummary.totalQuestions.to
 const { boardData } = require('./monopoly-data.js');
 const MonopolyGame = require('./monopoly-logic.js');
 const { PROGRAM_VERSION, PASS_SCORE, GRADE_FOCUS, CORE_QUALITIES, GENERAL_COMPETENCIES, getCatalog, getSubject, getLesson, scoreLesson } = require('./curriculum-data.js');
-const { BLOCKS: SURVIVAL_BLOCKS, RECIPES: SURVIVAL_RECIPES, safeState: safeSurvivalState, levelFromXp: survivalLevelFromXp, countInventory: inventoryCounts, validateMineRequest: validateSurvivalMine } = require('./server/modules/survival-v11.js');
+const { WORLD: SURVIVAL_WORLD, BLOCKS: SURVIVAL_BLOCKS, PLACEABLE: SURVIVAL_PLACEABLE, TOOLS: SURVIVAL_TOOLS, RECIPES: SURVIVAL_RECIPES, safeState: safeSurvivalState, advanceState: advanceSurvivalState, levelFromXp: survivalLevelFromXp, countInventory: inventoryCounts, validateMineRequest: validateSurvivalMine, validatePlaceRequest: validateSurvivalPlace, applyToolWear: applySurvivalToolWear } = require('./server/modules/survival-v13.js');
 const { BOOKS: APPROVED_BOOK_PROFILES, practicalType: practicalTypeForSubject, scorePractical } = require('./server/modules/learning-v11.js');
 
 const app = express();
 app.set('trust proxy', 1);
+// Header an toàn và mã yêu cầu phải có trước static/session để trang chẩn đoán
+// vẫn nhận được thông tin đầy đủ khi MongoDB hoặc kho phiên đang gián đoạn.
+app.use((req, res, next) => {
+    const requestId = String(req.get('X-Request-Id') || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`).slice(0, 80);
+    req.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()');
+    if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+    next();
+});
+// Endpoint sống độc lập với Mongo/session dành riêng cho Render.
+app.get('/healthz', (req, res) => res.status(200).json({ status: 'alive', version: APP_VERSION, uptimeSeconds: Math.floor(process.uptime()) }));
+// Express 4 không tự chuyển lỗi từ async/await vào error middleware.
+// Bọc toàn bộ route để một lỗi MongoDB không làm request treo hoặc đánh sập tiến trình.
+for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+    const original = app[method].bind(app);
+    app[method] = (path, ...handlers) => {
+        if (!handlers.length) return original(path);
+        const wrapped = handlers.map(handler => {
+            if (typeof handler !== 'function') return handler;
+            return function safeAsyncRoute(req, res, next) {
+                try {
+                    const result = handler(req, res, next);
+                    if (result && typeof result.then === 'function') result.catch(next);
+                    return result;
+                } catch (error) {
+                    return next(error);
+                }
+            };
+        });
+        return original(path, ...wrapped);
+    };
+}
+
+// Tài nguyên công khai phải tải được ngay cả khi kho phiên MongoDB đang kết nối lại.
+// Điều này ngăn trang đăng nhập/status bị 503 chỉ vì session store tạm thời gián đoạn.
+const publicStaticOptions = { etag: true, maxAge: IS_PRODUCTION ? '1h' : 0 };
+app.use('/assets', express.static(path.join(__dirname, 'assets'), publicStaticOptions));
+const publicFiles = new Set([
+    '/login.html', '/index.html', '/status.html', '/style.css', '/modern-ui.css', '/modern-ui.js',
+    '/global-client.js', '/heartbeat.js', '/ads.txt', '/board-ui-v8.css', '/board-ui-v8.js',
+    '/tournament-v9.css', '/tournament-v9.js'
+]);
+const publicStatic = express.static(__dirname, publicStaticOptions);
+app.use((req, res, next) => {
+    if (!['GET', 'HEAD'].includes(req.method) || !publicFiles.has(req.path)) return next();
+    return publicStatic(req, res, next);
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -111,7 +163,11 @@ const userSchema = new mongoose.Schema({
         deaths: { type: Number, default: 0, min: 0 },
         equippedTool: { type: String, default: '' },
         removedBlocks: { type: [String], default: [] },
-        lastUpdatedAt: { type: Date, default: null }
+        placedBlocks: { type: Array, default: [] },
+        toolDurability: { type: Object, default: {} },
+        lastUpdatedAt: { type: Date, default: null },
+        lastResetAt: { type: Date, default: null },
+        worldVersion: { type: Number, default: 13 }
     },
     colors: { type: Object, default: { wall: '#b2bec3', floor: '#f5f6fa' } },
     // --- DANH SÁCH 14 CẤP ĐỘ GAME ---
@@ -191,7 +247,8 @@ const learningRecordSchema = new mongoose.Schema({
     nextReviewAt: { type: Date, default: null, index: true },
     reviewIntervalDays: { type: Number, default: 0, min: 0, max: 365 },
     reviewStreak: { type: Number, default: 0, min: 0, max: 999 },
-    completedAt: Date
+    completedAt: Date,
+    submissionIds: { type: [String], default: [] }
 }, { timestamps: true });
 learningRecordSchema.index({ username: 1, grade: 1, subjectId: 1, lessonId: 1 }, { unique: true });
 
@@ -479,6 +536,7 @@ const MATERIALS = [
     { id: 'voxel_mud', name: 'Bùn Đầm Lầy', price: 30, category: 'floor', value: '#6d4c41', icon: '🟫' },
     { id: 'voxel_cloud', name: 'Mây Xốp', price: 110, category: 'floor', value: '#ecf0f1', icon: '☁️' },
     { id: 'survival_stone', name: 'Đá Sinh Tồn', price: 999999, category: 'survival', value: '#747d8c', icon: '🪨', purchasable: false },
+    { id: 'survival_deepslate', name: 'Đá Sâu / Móng Đá', price: 999999, category: 'survival', value: '#3f4852', icon: '🧱', purchasable: false },
     { id: 'survival_log', name: 'Gỗ Thô', price: 999999, category: 'survival', value: '#8b5a2b', icon: '🪵', purchasable: false },
     { id: 'survival_berry', name: 'Quả Rừng', price: 999999, category: 'survival', value: '#c0392b', icon: '🫐', purchasable: false },
     { id: 'survival_bread', name: 'Bánh Mì Sinh Tồn', price: 999999, category: 'survival', value: '#d8a24a', icon: '🍞', purchasable: false },
@@ -499,6 +557,8 @@ const MINEABLE_ORES = Object.freeze({
     voxel_amethyst: { weight: 2 }
 });
 const mineCooldowns = new Map();
+const survivalLocks = new Map();
+const survivalActionCooldowns = new Map();
 const notificationSchema = new mongoose.Schema({
     title: { type: String, required: true, maxlength: 120 },
     content: { type: String, required: true, maxlength: 2000 },
@@ -582,64 +642,100 @@ async function syncAdminFromEnvironment() {
     }
 }
 
-mongoose.connect(MONGO_URI)
-    .then(async () => {
-        console.log('✅ Đã kết nối MongoDB thành công!');
-        try {
-            await syncAdminFromEnvironment();
-            await Tournament.updateMany(
-                { organizerType: { $exists: false } },
-                { $set: { organizerType: 'official', creator: 'admin', pointMode: 'official-score', minParticipants: 2, maxParticipants: 128, entryFee: 0, escrowBalance: 0 } }
-            );
-        } catch (error) {
-            console.error('❌ Không thể đồng bộ tài khoản Admin:', error.message);
-            if (IS_PRODUCTION) process.exit(1);
-        }
-    })
-    .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
-// --- 3. CẤU HÌNH MIDDLEWARE ---
-const sessionSecret = process.env.SESSION_SECRET;
-if (IS_PRODUCTION && (!sessionSecret || sessionSecret.length < 32)) {
-    console.error('❌ SESSION_SECRET phải được cấu hình và dài tối thiểu 32 ký tự trên production.');
-    process.exit(1);
+let mongoConnectTimer = null;
+let mongoLastError = '';
+async function afterMongoConnected() {
+    try {
+        await syncAdminFromEnvironment();
+    } catch (error) {
+        // Không làm sập toàn bộ website chỉ vì ADMIN_PASSWORD cũ/thiếu.
+        // Admin hiện có vẫn được giữ nguyên; quản trị viên sửa Environment rồi triển khai lại.
+        console.error('⚠️ Bỏ qua đồng bộ Admin:', error.message);
+    }
+    try {
+        await Tournament.updateMany(
+            { organizerType: { $exists: false } },
+            { $set: { organizerType: 'official', creator: 'admin', pointMode: 'official-score', minParticipants: 2, maxParticipants: 128, entryFee: 0, escrowBalance: 0 } }
+        );
+    } catch (error) {
+        console.error('⚠️ Không thể nâng dữ liệu giải đấu:', error.message);
+    }
 }
+async function connectMongoWithRetry() {
+    if (!MONGO_URI || mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) return;
+    try {
+        await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 12000, connectTimeoutMS: 12000 });
+        mongoLastError = '';
+        console.log('✅ Đã kết nối MongoDB thành công!');
+        await afterMongoConnected();
+    } catch (error) {
+        mongoLastError = String(error?.message || error).slice(0, 300);
+        console.error('❌ Lỗi kết nối MongoDB, sẽ tự thử lại:', mongoLastError);
+        clearTimeout(mongoConnectTimer);
+        mongoConnectTimer = setTimeout(connectMongoWithRetry, 15000);
+    }
+}
+connectMongoWithRetry();
+mongoose.connection.on('disconnected', () => {
+    console.warn('⚠️ MongoDB mất kết nối. Đang lên lịch kết nối lại.');
+    clearTimeout(mongoConnectTimer);
+    mongoConnectTimer = setTimeout(connectMongoWithRetry, 5000);
+});
+// API chẩn đoán công khai được đăng ký trước session store để vẫn phản hồi khi MongoDB gián đoạn.
+app.get('/api/health', (req, res) => {
+    const mongoReady = mongoose.connection.readyState === 1;
+    // Health check của Render phải phản ánh tiến trình Node còn sống, tránh vòng lặp 503
+    // khi MongoDB chỉ mất kết nối tạm thời.
+    res.status(200).json({
+        status: mongoReady ? 'ok' : 'degraded',
+        database: mongoReady ? 'connected' : 'disconnected',
+        mongoState: mongoose.connection.readyState,
+        lastDatabaseError: mongoReady ? '' : mongoLastError,
+        uptimeSeconds: Math.floor(process.uptime()),
+        version: APP_VERSION
+    });
+});
+app.get('/api/ready', (req, res) => {
+    const mongoReady = mongoose.connection.readyState === 1;
+    res.status(mongoReady ? 200 : 503).json({ ready: mongoReady, database: mongoReady ? 'connected' : 'disconnected', version: APP_VERSION });
+});
 
-const sessionMiddleware = session({
+
+// --- 3. CẤU HÌNH MIDDLEWARE ---
+let sessionSecret = String(process.env.SESSION_SECRET || '');
+if (sessionSecret.length < 32) {
+    sessionSecret = crypto.createHash('sha256').update(`hanh-trinh-mo-uoc|${MONGO_URI || 'local'}|session-v12`).digest('hex');
+    console.warn('⚠️ SESSION_SECRET thiếu hoặc quá ngắn; đang dùng khóa ổn định sinh từ cấu hình máy chủ. Nên đặt SESSION_SECRET dài tối thiểu 32 ký tự trên Render.');
+}
+const sessionOptions = {
     name: 'hanhtrinh.sid',
-    secret: sessionSecret || 'dev-only-session-secret-change-before-production',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     rolling: true,
-    store: MongoStore.create({
-        mongoUrl: MONGO_URI,
-        ttl: 24 * 60 * 60,
-        autoRemove: 'native'
-    }),
     cookie: {
         httpOnly: true,
         secure: IS_PRODUCTION,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000
     }
-});
+};
+if (MONGO_URI) {
+    try {
+        const sessionStore = MongoStore.create({ mongoUrl: MONGO_URI, ttl: 24 * 60 * 60, autoRemove: 'native' });
+        sessionStore.on('error', error => console.error('⚠️ Lỗi kho phiên đăng nhập:', error.message));
+        sessionOptions.store = sessionStore;
+    } catch (error) {
+        console.error('⚠️ Không tạo được Mongo session store, tạm dùng MemoryStore:', error.message);
+    }
+} else {
+    console.warn('⚠️ Đang dùng MemoryStore tạm thời vì thiếu Mongo URI.');
+}
+const sessionMiddleware = session(sessionOptions);
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
-app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()');
-    next();
-});
-app.use((req, res, next) => {
-    const requestId = String(req.get('X-Request-Id') || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`).slice(0, 80);
-    req.requestId = requestId;
-    res.setHeader('X-Request-Id', requestId);
-    if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
-    next();
-});
 app.use('/api', (req, res, next) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
     const fetchSite = String(req.get('Sec-Fetch-Site') || '').toLowerCase();
@@ -824,14 +920,13 @@ const tournamentRateLimit = createRateLimiter({
     message: 'Bạn thao tác giải đấu quá nhanh. Hãy thử lại sau ít phút.'
 });
 
-app.get('/api/health', (req, res) => {
-    const mongoReady = mongoose.connection.readyState === 1;
-    res.status(mongoReady ? 200 : 503).json({
-        status: mongoReady ? 'ok' : 'degraded',
-        database: mongoReady ? 'connected' : 'disconnected',
-        uptimeSeconds: Math.floor(process.uptime()),
-        version: APP_VERSION
-    });
+// Trả lỗi có cấu trúc thay vì để request treo khi MongoDB đang khởi động.
+app.use('/api', (req, res, next) => {
+    if (req.path === '/health' || req.path === '/ready') return next();
+    if (!MONGO_URI || mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ message: 'Cơ sở dữ liệu đang kết nối lại. Vui lòng chờ khoảng 15 giây rồi thử lại.', code: 'DATABASE_RECONNECTING', requestId: req.requestId });
+    }
+    next();
 });
 
 // Bảo vệ toàn bộ API quản trị, tránh người chơi gọi trực tiếp từ trình duyệt.
@@ -2106,6 +2201,47 @@ app.post('/api/learning/self-assessment', requireAuth, async (req, res) => {
     res.json({ message: 'Đã lưu bản tự đánh giá học kỳ.', selfAssessment: record });
 });
 
+app.get('/api/learning/weekly-assignments', requireAuth, async (req, res) => {
+    const grade = clampInteger(req.query.grade, 1, 12, 1);
+    const username = req.session.user.username;
+    const catalog = getCatalog(grade);
+    const records = await LearningRecord.find({ username, grade }).lean();
+    const recordMap = new Map(records.map(record => [`${record.subjectId}:${record.lessonId}`, record]));
+    const now = new Date();
+    const monday = new Date(now);
+    const day = (monday.getDay() + 6) % 7;
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - day);
+    const dueAt = new Date(monday);
+    dueAt.setDate(dueAt.getDate() + 6);
+    dueAt.setHours(20, 0, 0, 0);
+    const assignments = [];
+    for (const subject of catalog.subjects) {
+        const full = getSubject(grade, subject.id, { includeLessons: true });
+        if (!full?.lessons?.length) continue;
+        const target = full.lessons.find(lesson => !recordMap.get(`${subject.id}:${lesson.id}`)?.passed) || full.lessons.find(lesson => recordMap.get(`${subject.id}:${lesson.id}`)?.nextReviewAt && new Date(recordMap.get(`${subject.id}:${lesson.id}`).nextReviewAt) <= now);
+        if (!target) continue;
+        const record = recordMap.get(`${subject.id}:${target.id}`);
+        assignments.push({
+            id: `${grade}:${subject.id}:${target.id}:${monday.toISOString().slice(0, 10)}`,
+            subjectId: subject.id,
+            subjectName: subject.name,
+            icon: subject.icon,
+            lessonId: target.id,
+            lessonTitle: target.title,
+            isCheckpoint: Boolean(target.isCheckpoint),
+            estimatedMinutes: Number(target.estimatedMinutes || 20),
+            dueAt,
+            status: record?.passed ? 'completed' : now > dueAt ? 'overdue' : 'assigned',
+            bestScore: Number(record?.bestScore) || 0,
+            attempts: Number(record?.attempts) || 0
+        });
+        if (assignments.length >= 8) break;
+    }
+    const completed = assignments.filter(item => item.status === 'completed').length;
+    res.json({ grade, weekStart: monday, dueAt, completed, total: assignments.length, assignments, notice: 'Danh sách này là kế hoạch học tập tự động hỗ trợ, không thay bài tập chính thức do giáo viên giao.' });
+});
+
 app.get('/api/learning/catalog', requireAuth, async (req, res) => {
     const grade = clampInteger(req.query.grade, 1, 12, 1);
     res.json(getCatalog(grade));
@@ -2468,6 +2604,28 @@ app.post('/api/learning/practical/submit', requireAuth, async (req, res) => {
     res.json({ score, passed: score > PASS_SCORE, passScore: PASS_SCORE, feedback, evidenceId });
 });
 
+app.get('/api/learning/preflight/:grade/:subjectId/:lessonId', requireAuth, async (req, res) => {
+    const grade = clampInteger(req.params.grade, 1, 12, 1);
+    const pack = getLesson(grade, req.params.subjectId, req.params.lessonId);
+    if (!pack) return res.status(404).json({ ready: false, message: 'Không tìm thấy bài học.' });
+    const unlocked = await isLessonUnlocked(req.session.user.username, grade, req.params.subjectId, req.params.lessonId);
+    const practicalType = practicalTypeForSubject(req.params.subjectId, req.params.lessonId);
+    let practical = { required: false, passed: true, type: null, latestScore: null };
+    if (practicalType) {
+        const latest = await LearningPractical.findOne({ username: req.session.user.username, grade, subjectId: req.params.subjectId, lessonId: req.params.lessonId, type: practicalType }).sort({ createdAt: -1 }).lean();
+        practical = { required: true, passed: Number(latest?.score) > PASS_SCORE, type: practicalType, latestScore: latest?.score ?? null };
+    }
+    res.json({
+        ready: unlocked && practical.passed,
+        unlocked,
+        practical,
+        passScore: PASS_SCORE,
+        questionCount: pack.lesson.questions.length,
+        serverTime: new Date().toISOString(),
+        message: !unlocked ? 'Bài học đang bị khóa.' : !practical.passed ? 'Cần hoàn thành phần thực hành trước khi nộp bài.' : 'Bài học sẵn sàng để nộp.'
+    });
+});
+
 app.get('/api/learning/lesson/:grade/:subjectId/:lessonId', requireAuth, async (req, res) => {
     const grade = clampInteger(req.params.grade, 1, 12, 1);
     const lessonPack = getLesson(grade, req.params.subjectId, req.params.lessonId);
@@ -2488,13 +2646,41 @@ app.post('/api/learning/lesson/:grade/:subjectId/:lessonId/submit', requireAuth,
     const grade = clampInteger(req.params.grade, 1, 12, 1);
     const pack = getLesson(grade, req.params.subjectId, req.params.lessonId);
     if (!pack) return res.status(404).json({ message: 'Không tìm thấy bài học.' });
+    const submissionId = String(req.body.submissionId || '').trim().slice(0, 100);
+    if (submissionId && !/^[A-Za-z0-9_-]{8,100}$/.test(submissionId)) return res.status(400).json({ message: 'Mã lần nộp bài không hợp lệ.' });
+    const suppliedAnswers = req.body.answers && typeof req.body.answers === 'object' && !Array.isArray(req.body.answers) ? req.body.answers : {};
+    const expectedQuestionIds = pack.lesson.questions.map(question => String(question.id));
+    const missingAnswers = expectedQuestionIds.filter(id => !Object.prototype.hasOwnProperty.call(suppliedAnswers, id));
+    if (missingAnswers.length) return res.status(400).json({ message: `Còn ${missingAnswers.length} câu chưa chọn đáp án.`, missingAnswers });
+    if (submissionId) {
+        const duplicated = await LearningRecord.findOne({ username: req.session.user.username, grade, subjectId: req.params.subjectId, lessonId: req.params.lessonId, submissionIds: submissionId }).lean();
+        if (duplicated) {
+            const details = Array.isArray(duplicated.lastDetails) ? duplicated.lastDetails : [];
+            const correct = details.filter(item => item.isCorrect).length;
+            return res.json({
+                score: Number(duplicated.lastScore) || 0,
+                bestScore: Number(duplicated.bestScore) || 0,
+                correct,
+                total: details.length || pack.lesson.questions.length,
+                details,
+                passed: Boolean(duplicated.passed),
+                attempts: Number(duplicated.attempts) || 1,
+                masteryLevel: duplicated.masteryLevel || 'practicing',
+                nextLessonUnlocked: Boolean(duplicated.passed),
+                xpEarned: 0,
+                duplicate: true,
+                receiptId: submissionId,
+                message: 'Bài nộp trước đã được máy chủ ghi nhận; không cộng thêm lượt hoặc XP.'
+            });
+        }
+    }
     if (!await isLessonUnlocked(req.session.user.username, grade, req.params.subjectId, req.params.lessonId)) return res.status(403).json({ message: 'Bài học đang bị khóa.' });
     const practicalType = practicalTypeForSubject(req.params.subjectId, req.params.lessonId);
     if (practicalType) {
         const practical = await LearningPractical.findOne({ username: req.session.user.username, grade, subjectId: req.params.subjectId, lessonId: req.params.lessonId, type: practicalType, score: { $gt: PASS_SCORE } }).sort({ createdAt: -1 }).lean();
         if (!practical) return res.status(403).json({ message: `Cần hoàn thành phần ${practicalType === 'singing' ? 'hát' : 'vẽ'} và đạt trên ${PASS_SCORE}/10 trước khi nộp bài kiểm tra.` });
     }
-    const result = scoreLesson(pack.lesson, req.body.answers || {});
+    const result = scoreLesson(pack.lesson, suppliedAnswers);
     const skillStats = {};
     for (const detail of result.details) { skillStats[detail.skill] ||= { correct: 0, total: 0 }; skillStats[detail.skill].total += 1; if (detail.isCorrect) skillStats[detail.skill].correct += 1; }
     const existing = await LearningRecord.findOne({ username: req.session.user.username, grade, subjectId: req.params.subjectId, lessonId: req.params.lessonId });
@@ -2519,7 +2705,8 @@ app.post('/api/learning/lesson/:grade/:subjectId/:lessonId/submit', requireAuth,
                 reviewStreak: reviewSchedule.reviewStreak,
                 ...(bestScore > PASS_SCORE && !existing?.completedAt ? { completedAt: new Date() } : {})
             },
-            $inc: { attempts: 1 }
+            $inc: { attempts: 1 },
+            ...(submissionId ? { $addToSet: { submissionIds: submissionId } } : {})
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
     );
@@ -2543,7 +2730,7 @@ app.post('/api/learning/lesson/:grade/:subjectId/:lessonId/submit', requireAuth,
         : record.passed
             ? 'Đã đạt yêu cầu và mở bài tiếp theo.'
             : `Cần đạt trên ${PASS_SCORE} điểm. Hãy xem giải thích và thử lại.`;
-    res.json({ ...result, bestScore: record.bestScore, attempts: record.attempts, masteryLevel, nextLessonUnlocked: record.passed, xpEarned, totalXp: profile.xp, streak: calculateLearningStreak(profile.studyDays), nextReviewAt: reviewSchedule.nextReviewAt, reviewIntervalDays: reviewSchedule.intervalDays, message });
+    res.json({ ...result, receiptId: submissionId || `LS-${record._id}-${record.attempts}`, bestScore: record.bestScore, attempts: record.attempts, masteryLevel, nextLessonUnlocked: record.passed, xpEarned, totalXp: profile.xp, streak: calculateLearningStreak(profile.studyDays), nextReviewAt: reviewSchedule.nextReviewAt, reviewIntervalDays: reviewSchedule.intervalDays, message });
 });
 function normalizeSpeech(text) { return String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim(); }
 app.post('/api/learning/english/speaking', requireAuth, aiRateLimit, async (req, res) => {
@@ -3507,7 +3694,7 @@ app.post('/api/house/mine', requireAuth, miningRateLimit, async (req, res) => {
 });
 
 
-// 2C. Sinh tồn V11: địa hình khối đào được, trạng thái sống và chế tạo an toàn phía máy chủ.
+// 2C. Sinh tồn V13: trạng thái có thẩm quyền phía máy chủ, đặt khối, độ bền công cụ và mô phỏng theo thời gian.
 async function withSurvivalLock(username, task) {
     const previous = survivalLocks.get(username) || Promise.resolve();
     let release;
@@ -3517,71 +3704,128 @@ async function withSurvivalLock(username, task) {
     await previous;
     try { return await task(); } finally { release(); if (survivalLocks.get(username) === chain) survivalLocks.delete(username); }
 }
+function setSurvivalState(user, nextState) {
+    const safe = safeSurvivalState(nextState);
+    user.set('survivalState', safe);
+    user.markModified('survivalState');
+    return safe;
+}
+function removeOne(items, itemId) {
+    const index = items.indexOf(itemId);
+    if (index < 0) return false;
+    items.splice(index, 1);
+    return true;
+}
 app.get('/api/survival/state', requireAuth, async (req, res) => {
-    const user = await User.findOne({ username: req.session.user.username }).select('survivalState inventory').lean();
-    if (!user) return res.status(404).json({ message: 'Không tìm thấy người chơi.' });
-    res.json({ state: safeSurvivalState(user.survivalState), inventory: inventoryCounts(user.inventory || []), recipes: SURVIVAL_RECIPES });
+    const result = await withSurvivalLock(req.session.user.username, async () => {
+        const user = await User.findOne({ username: req.session.user.username, isSuspended: { $ne: true } }).select('survivalState inventory');
+        if (!user) return { status: 404, body: { message: 'Không tìm thấy người chơi.' } };
+        const state = setSurvivalState(user, advanceSurvivalState(user.survivalState));
+        await user.save();
+        return { status: 200, body: { state, inventory: inventoryCounts(user.inventory || []), recipes: SURVIVAL_RECIPES, placeable: SURVIVAL_PLACEABLE, world: SURVIVAL_WORLD } };
+    });
+    res.status(result.status).json(result.body);
 });
 app.post('/api/survival/sync', requireAuth, async (req, res) => {
-    const health = Math.max(0, Math.min(100, Number(req.body.health ?? 100)));
-    const hunger = Math.max(0, Math.min(100, Number(req.body.hunger ?? 100)));
-    const stamina = Math.max(0, Math.min(100, Number(req.body.stamina ?? 100)));
-    const equippedTool = String(req.body.equippedTool || '').slice(0, 50);
-    const update = { $set: { 'survivalState.health': health, 'survivalState.hunger': hunger, 'survivalState.stamina': stamina, 'survivalState.equippedTool': equippedTool, 'survivalState.lastUpdatedAt': new Date() } };
-    if (req.body.died === true) update.$inc = { 'survivalState.deaths': 1 };
-    const user = await User.findOneAndUpdate(
-        { username: req.session.user.username, isSuspended: { $ne: true } },
-        update,
-        { new: true }
-    ).select('survivalState');
-    if (!user) return res.status(403).json({ message: 'Tài khoản không thể đồng bộ sinh tồn.' });
-    res.json({ state: safeSurvivalState(user.survivalState) });
+    const result = await withSurvivalLock(req.session.user.username, async () => {
+        const user = await User.findOne({ username: req.session.user.username, isSuspended: { $ne: true } }).select('survivalState inventory');
+        if (!user) return { status: 403, body: { message: 'Tài khoản không thể đồng bộ sinh tồn.' } };
+        const state = advanceSurvivalState(user.survivalState);
+        const requestedTool = String(req.body.equippedTool || '').slice(0, 50);
+        state.equippedTool = requestedTool && (user.inventory || []).includes(requestedTool) && SURVIVAL_TOOLS[requestedTool] ? requestedTool : '';
+        if (req.body.died === true && state.health <= 5) {
+            state.deaths += 1;
+            state.health = 100;
+            state.hunger = 70;
+            state.stamina = 100;
+        }
+        const safe = setSurvivalState(user, state);
+        await user.save();
+        return { status: 200, body: { state: safe, inventory: inventoryCounts(user.inventory || []) } };
+    });
+    res.status(result.status).json(result.body);
 });
 app.post('/api/survival/mine', requireAuth, async (req, res) => {
     const username = req.session.user.username;
     const now = Date.now();
     const last = survivalActionCooldowns.get(username) || 0;
-    if (now - last < 120) return res.status(429).json({ message: 'Thao tác quá nhanh.' });
+    if (now - last < 100) return res.status(429).json({ message: 'Thao tác quá nhanh.' });
     survivalActionCooldowns.set(username, now);
-
     const blockType = String(req.body.blockType || '');
     const blockKey = String(req.body.blockKey || '');
     const toolId = String(req.body.toolId || '').slice(0, 50);
-    const current = await User.findOne({ username, isSuspended: { $ne: true } }).select('inventory survivalState.removedBlocks').lean();
-    if (!current) return res.status(403).json({ message: 'Tài khoản không thể khai thác.' });
+    const result = await withSurvivalLock(username, async () => {
+        const user = await User.findOne({ username, isSuspended: { $ne: true } }).select('inventory survivalState');
+        if (!user) return { status: 403, body: { message: 'Tài khoản không thể khai thác.' } };
+        const state = advanceSurvivalState(user.survivalState);
+        const placedIndex = state.placedBlocks.findIndex(item => item.key === blockKey);
+        const placedBlock = placedIndex >= 0 ? state.placedBlocks[placedIndex] : null;
+        if (!placedBlock && state.removedBlocks.includes(blockKey)) return { status: 409, body: { message: 'Khối này đã được khai thác.' } };
+        const validation = validateSurvivalMine({ blockType, blockKey, toolId, inventory: user.inventory || [], placedBlock });
+        if (!validation.ok) return { status: 400, body: { message: validation.message } };
+        if (state.stamina < validation.block.staminaCost) return { status: 409, body: { message: 'Không đủ thể lực. Hãy nghỉ một lát hoặc ăn để hồi phục.' } };
+        if (!placedBlock && state.removedBlocks.length >= SURVIVAL_WORLD.maxChangedBlocks) return { status: 409, body: { message: 'Thế giới đã đạt giới hạn khối thay đổi. Hãy tạo lại đảo hoặc lấp bớt hố.' } };
 
-    const validation = validateSurvivalMine({ blockType, blockKey, toolId, inventory: current.inventory || [] });
-    if (!validation.ok) return res.status(400).json({ message: validation.message });
-    const config = validation.block;
-    const dropGranted = config.chance === undefined || Math.random() < config.chance;
-    const update = {
-        $addToSet: { 'survivalState.removedBlocks': blockKey },
-        $inc: { 'survivalState.xp': config.xp },
-        $set: { 'survivalState.lastUpdatedAt': new Date() }
-    };
-    if (dropGranted) update.$push = { inventory: config.drop };
+        if (placedBlock) state.placedBlocks.splice(placedIndex, 1);
+        else state.removedBlocks.push(blockKey);
+        state.stamina = Math.max(0, state.stamina - validation.block.staminaCost);
+        state.hunger = Math.max(0, state.hunger - 0.12);
+        state.xp += Number(validation.block.xp) || 0;
+        state.level = survivalLevelFromXp(state.xp);
 
-    const filter = {
-        username,
-        isSuspended: { $ne: true },
-        'survivalState.removedBlocks': { $ne: blockKey }
-    };
-    if (toolId) filter.inventory = toolId;
-    const user = await User.findOneAndUpdate(filter, update, { new: true }).select('survivalState inventory');
-    if (!user) return res.status(409).json({ message: 'Khối đã được khai thác hoặc công cụ không còn trong ba lô.' });
+        const worn = applySurvivalToolWear({ inventory: user.inventory || [], durability: state.toolDurability, toolId });
+        user.inventory = worn.inventory;
+        state.toolDurability = worn.durability;
+        if (worn.broken && state.equippedTool === toolId && !user.inventory.includes(toolId)) state.equippedTool = '';
 
-    const xp = Number(user.survivalState?.xp) || 0;
-    const level = survivalLevelFromXp(xp);
-    if (Number(user.survivalState?.level) !== level) await User.updateOne({ username }, { $set: { 'survivalState.level': level } });
-    res.json({
-        blockKey,
-        blockType,
-        dropId: dropGranted ? config.drop : null,
-        quantity: dropGranted ? 1 : 0,
-        xp,
-        level,
-        message: dropGranted ? 'Đã khai thác và cất vật phẩm vào ba lô.' : 'Khối lá không rơi vật phẩm lần này.'
+        const dropGranted = validation.block.chance === undefined || Math.random() < validation.block.chance;
+        if (dropGranted) user.inventory.push(validation.block.drop);
+        const safe = setSurvivalState(user, state);
+        user.markModified('inventory');
+        await user.save();
+        return {
+            status: 200,
+            body: {
+                blockKey,
+                blockType: validation.effectiveType,
+                placed: validation.placed,
+                dropId: dropGranted ? validation.block.drop : null,
+                quantity: dropGranted ? 1 : 0,
+                tool: toolId ? { id: toolId, durability: worn.remaining, maxDurability: SURVIVAL_TOOLS[toolId]?.maxDurability || 0, broken: worn.broken } : null,
+                state: safe,
+                inventory: inventoryCounts(user.inventory || []),
+                message: worn.broken ? 'Đã khai thác nhưng công cụ đã hết độ bền và bị hỏng.' : dropGranted ? 'Đã khai thác và cất vật phẩm vào ba lô.' : 'Khối lá không rơi vật phẩm lần này.'
+            }
+        };
     });
+    res.status(result.status).json(result.body);
+});
+app.post('/api/survival/place', requireAuth, async (req, res) => {
+    const username = req.session.user.username;
+    const now = Date.now();
+    const last = survivalActionCooldowns.get(username) || 0;
+    if (now - last < 100) return res.status(429).json({ message: 'Thao tác quá nhanh.' });
+    survivalActionCooldowns.set(username, now);
+    const itemId = String(req.body.itemId || '').slice(0, 80);
+    const blockKey = String(req.body.blockKey || '').slice(0, 50);
+    const result = await withSurvivalLock(username, async () => {
+        const user = await User.findOne({ username, isSuspended: { $ne: true } }).select('inventory survivalState');
+        if (!user) return { status: 403, body: { message: 'Tài khoản không thể đặt khối.' } };
+        const state = advanceSurvivalState(user.survivalState);
+        if (state.placedBlocks.length >= SURVIVAL_WORLD.maxChangedBlocks) return { status: 409, body: { message: 'Đã đạt giới hạn khối do người chơi đặt.' } };
+        const validation = validateSurvivalPlace({ itemId, blockKey, inventory: user.inventory || [], removedBlocks: state.removedBlocks, placedBlocks: state.placedBlocks });
+        if (!validation.ok) return { status: 400, body: { message: validation.message } };
+        const inventory = [...(user.inventory || [])];
+        if (!removeOne(inventory, itemId)) return { status: 409, body: { message: 'Vật phẩm đã được sử dụng ở thao tác khác.' } };
+        state.placedBlocks.push({ key: validation.position.key, type: validation.blockType, placedAt: new Date() });
+        state.stamina = Math.max(0, state.stamina - 0.5);
+        user.inventory = inventory;
+        user.markModified('inventory');
+        const safe = setSurvivalState(user, state);
+        await user.save();
+        return { status: 200, body: { message: 'Đã đặt khối và lưu vào thế giới.', blockKey: validation.position.key, blockType: validation.blockType, state: safe, inventory: inventoryCounts(inventory) } };
+    });
+    res.status(result.status).json(result.body);
 });
 app.post('/api/survival/craft', requireAuth, async (req, res) => {
     const username = req.session.user.username;
@@ -3589,20 +3833,24 @@ app.post('/api/survival/craft', requireAuth, async (req, res) => {
     const recipe = SURVIVAL_RECIPES[recipeId];
     if (!recipe) return res.status(400).json({ message: 'Công thức không hợp lệ.' });
     const result = await withSurvivalLock(username, async () => {
-        const user = await User.findOne({ username, isSuspended: { $ne: true } });
+        const user = await User.findOne({ username, isSuspended: { $ne: true } }).select('inventory survivalState');
         if (!user) return { status: 403, body: { message: 'Tài khoản không thể chế tạo.' } };
+        const state = advanceSurvivalState(user.survivalState);
         const counts = inventoryCounts(user.inventory || []);
-        for (const [id, needed] of Object.entries(recipe.ingredients)) if ((counts[id] || 0) < needed) return { status: 400, body: { message: `Thiếu nguyên liệu ${id}.` } };
+        for (const [id, needed] of Object.entries(recipe.ingredients)) {
+            if ((counts[id] || 0) < needed) return { status: 400, body: { message: `Thiếu ${needed - (counts[id] || 0)} × ${id}.` } };
+        }
         const inventory = [...(user.inventory || [])];
-        for (const [id, needed] of Object.entries(recipe.ingredients)) for (let i = 0; i < needed; i += 1) inventory.splice(inventory.indexOf(id), 1);
+        for (const [id, needed] of Object.entries(recipe.ingredients)) for (let i = 0; i < needed; i += 1) removeOne(inventory, id);
         for (let i = 0; i < recipe.quantity; i += 1) inventory.push(recipe.output);
+        state.xp += 5;
+        state.level = survivalLevelFromXp(state.xp);
+        if (SURVIVAL_TOOLS[recipe.output]) state.toolDurability[recipe.output] = SURVIVAL_TOOLS[recipe.output].maxDurability;
         user.inventory = inventory;
-        user.survivalState ||= {};
-        user.survivalState.xp = (Number(user.survivalState.xp) || 0) + 5;
-        user.survivalState.level = survivalLevelFromXp(user.survivalState.xp);
-        user.survivalState.lastUpdatedAt = new Date();
+        user.markModified('inventory');
+        const safe = setSurvivalState(user, state);
         await user.save();
-        return { status: 200, body: { message: 'Chế tạo thành công.', output: recipe.output, quantity: recipe.quantity, inventory: inventoryCounts(inventory), state: safeSurvivalState(user.survivalState) } };
+        return { status: 200, body: { message: 'Chế tạo thành công.', output: recipe.output, quantity: recipe.quantity, inventory: inventoryCounts(inventory), state: safe } };
     });
     res.status(result.status).json(result.body);
 });
@@ -3612,23 +3860,38 @@ app.post('/api/survival/eat', requireAuth, async (req, res) => {
     const food = { survival_berry: 12, survival_bread: 35 }[itemId];
     if (!food) return res.status(400).json({ message: 'Vật phẩm này không ăn được.' });
     const result = await withSurvivalLock(username, async () => {
-        const user = await User.findOne({ username, isSuspended: { $ne: true } });
-        const index = user?.inventory?.indexOf(itemId) ?? -1;
-        if (!user || index < 0) return { status: 400, body: { message: 'Không còn thức ăn này.' } };
-        user.inventory.splice(index, 1);
-        user.survivalState ||= {};
-        user.survivalState.hunger = Math.min(100, (Number(user.survivalState.hunger) || 0) + food);
-        user.survivalState.health = Math.min(100, (Number(user.survivalState.health) || 0) + (itemId === 'survival_bread' ? 8 : 2));
-        user.survivalState.lastUpdatedAt = new Date();
+        const user = await User.findOne({ username, isSuspended: { $ne: true } }).select('inventory survivalState');
+        if (!user) return { status: 403, body: { message: 'Tài khoản không thể sử dụng thức ăn.' } };
+        const inventory = [...(user.inventory || [])];
+        if (!removeOne(inventory, itemId)) return { status: 400, body: { message: 'Không còn thức ăn này.' } };
+        const state = advanceSurvivalState(user.survivalState);
+        state.hunger = Math.min(100, state.hunger + food);
+        state.health = Math.min(100, state.health + (itemId === 'survival_bread' ? 8 : 2));
+        user.inventory = inventory;
+        user.markModified('inventory');
+        const safe = setSurvivalState(user, state);
         await user.save();
-        return { status: 200, body: { message: 'Đã ăn và hồi phục.', state: safeSurvivalState(user.survivalState) } };
+        return { status: 200, body: { message: 'Đã ăn và hồi phục.', state: safe, inventory: inventoryCounts(inventory) } };
     });
     res.status(result.status).json(result.body);
 });
 app.post('/api/survival/reset', requireAuth, async (req, res) => {
-    await User.updateOne({ username: req.session.user.username }, { $set: { survivalState: { health: 100, hunger: 100, stamina: 100, xp: 0, level: 1, deaths: 0, equippedTool: '', removedBlocks: [], lastUpdatedAt: new Date() } } });
-    res.json({ message: 'Đã tạo lại đảo sinh tồn.' });
+    const username = req.session.user.username;
+    const result = await withSurvivalLock(username, async () => {
+        const user = await User.findOne({ username, isSuspended: { $ne: true } }).select('survivalState inventory');
+        if (!user) return { status: 403, body: { message: 'Tài khoản không thể tạo lại đảo.' } };
+        const current = safeSurvivalState(user.survivalState);
+        const lastReset = current.lastResetAt ? new Date(current.lastResetAt).getTime() : 0;
+        const waitMs = 10 * 60 * 1000 - (Date.now() - lastReset);
+        if (waitMs > 0) return { status: 429, body: { message: `Có thể tạo lại đảo sau ${Math.ceil(waitMs / 60000)} phút.` } };
+        const next = { health: 100, hunger: 100, stamina: 100, xp: current.xp, level: current.level, deaths: current.deaths, equippedTool: current.equippedTool, removedBlocks: [], placedBlocks: [], toolDurability: current.toolDurability, lastUpdatedAt: new Date(), lastResetAt: new Date(), worldVersion: SURVIVAL_WORLD.version };
+        const safe = setSurvivalState(user, next);
+        await user.save();
+        return { status: 200, body: { message: 'Đã tạo lại địa hình. Cấp, XP, công cụ và vật phẩm được giữ nguyên.', state: safe } };
+    });
+    res.status(result.status).json(result.body);
 });
+
 
 // 3. Lưu vị trí đồ đạc (ĐÃ FIX LỖI CƯỚP NHÀ)
 app.post('/api/house/save', async (req, res) => {
@@ -4862,6 +5125,25 @@ app.use((error, req, res, next) => {
     res.status(500).json({ message: 'Hệ thống gặp lỗi ngoài dự kiến. Vui lòng thử lại.', requestId: req.requestId });
 });
 
+process.on('unhandledRejection', error => {
+    console.error('⚠️ Promise bị từ chối chưa xử lý:', error);
+});
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`🛑 Nhận ${signal}. Đang đóng kết nối an toàn...`);
+    clearTimeout(mongoConnectTimer);
+    const forceTimer = setTimeout(() => process.exit(1), 12000);
+    forceTimer.unref?.();
+    server.close(async () => {
+        try { await mongoose.disconnect(); } catch (error) { console.error('⚠️ Lỗi đóng MongoDB:', error.message); }
+        clearTimeout(forceTimer);
+        process.exit(0);
+    });
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 const HOST = '0.0.0.0'; 
 server.listen(PORT, HOST, () => {
     console.log(`🚀 Server đang chạy!`);

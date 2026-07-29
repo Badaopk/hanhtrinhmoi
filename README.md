@@ -1,4 +1,22 @@
-# Hành Tinh Mơ Ước 11.0
+## Cập nhật V13
+
+- Trang đăng nhập và trạng thái vẫn mở được khi MongoDB/session store đang kết nối lại.
+- Nộp bài có hàng chờ trên thiết bị, tự gửi lại bằng cùng mã nộp để không mất đáp án hoặc cộng XP trùng.
+- Sinh tồn do máy chủ kiểm soát máu–đói–thể lực, có đặt khối lưu lâu dài và độ bền công cụ.
+- Thêm bài tập tuần tự động, trang chẩn đoán hệ thống và lớp UX V13 trên toàn bộ giao diện.
+
+Xem `UPGRADE_V13.md` và `docs/ARCHITECTURE_V13.md`.
+
+
+## Cập nhật V12
+
+- Khắc phục vòng lặp HTTP 503 trên Render bằng health check độc lập và MongoDB tự kết nối lại.
+- Sửa nộp bài: lưu nháp, chống nộp trùng, biên nhận, timeout và thông báo lỗi rõ ràng.
+- Sinh tồn có 12 tầng đào, hang, đá sâu và móng đá đào được; chỉ bedrock cuối cùng không phá.
+- Giám sát kết nối trên toàn bộ trang và kiểm tra AdSense trên 39 trang HTML.
+
+Xem chi tiết tại `UPGRADE_V12.md`.
+# Hành Tinh Mơ Ước 13.0
 
 Game web học tập, sáng tạo và thi đấu trực tuyến dành cho trẻ em. Backend dùng Node.js, Express, Socket.IO và MongoDB.
 

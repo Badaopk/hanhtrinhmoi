@@ -22,14 +22,16 @@
         .submit-btn { width: 100%; padding: 12px; background: #ff6347; color: white; border: none; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: background-color 0.3s; }
         .submit-btn:hover { background-color: #e5533d; }
         #message { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 8px; display: none; }
+        .server-state{margin:0 0 18px;padding:10px 12px;border-radius:12px;background:#eef6ff;color:#244a75;font-weight:800;font-size:.9rem}.server-state.ok{background:#e8f8ef;color:#17663a}.server-state.warn{background:#fff4dd;color:#835d00}.server-state.error{background:#ffe9e5;color:#8f2e21}.server-state button{float:right;border:0;border-radius:8px;padding:4px 8px;cursor:pointer}
         #message.success { background-color: #d4edda; color: #155724; display: block; }
         #message.error { background-color: #f8d7da; color: #721c24; display: block; }
     </style>
     <link rel="stylesheet" href="modern-ui.css">
   <link rel="stylesheet" href="assets/ui/ui-v11.css">
+  <link rel="stylesheet" href="assets/ui/ux-v13.css">
 </head>
 <body>
-    <div class="auth-container">
+    <div class="auth-container"><div id="server-state" class="server-state">Đang kiểm tra máy chủ… <button type="button" id="retry-server">Thử lại</button></div><p style="margin:-8px 0 16px;text-align:center"><a href="status.html">Xem trạng thái và hướng xử lý lỗi</a></p>
         <div class="auth-tabs">
             <button class="tab-btn active" onclick="showForm(event, 'login')">Đăng Nhập</button>
             <button class="tab-btn" onclick="showForm(event, 'register')">Đăng Ký</button>
@@ -87,15 +89,27 @@
             submitButton.textContent = 'Đang xử lý...';
             
             try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json();
-                
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 20000);
+                let res;
+                try {
+                    res = await fetch(url, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body),
+                        signal: controller.signal
+                    });
+                } finally {
+                    clearTimeout(timeout);
+                }
+                const type = res.headers.get('content-type') || '';
+                const data = type.includes('application/json') ? await res.json().catch(() => ({})) : {};
                 if (!res.ok) {
-                    throw new Error(data.message);
+                    const message = res.status === 503
+                        ? 'Máy chủ đang kết nối lại cơ sở dữ liệu. Chờ khoảng 15 giây rồi thử lại.'
+                        : data.message || `Không thể đăng nhập (${res.status}).`;
+                    throw new Error(message);
                 }
 
                 // Vì không còn phụ huynh, ta chỉ in ra thông báo mặc định
@@ -116,13 +130,40 @@
                 }
 
             } catch (err) {
-                showMessage(err.message, true);
+                const message = err.name === 'AbortError' ? 'Máy chủ phản hồi quá lâu. Hãy thử lại.' : err instanceof TypeError ? 'Không thể kết nối máy chủ Render.' : err.message;
+                showMessage(message, true);
             } finally {
                  submitButton.disabled = false;
                  if(url === '/api/login') submitButton.textContent = 'Vào Hành Tinh!';
                  else submitButton.textContent = 'Tạo Tài Khoản';
             }
         }
+
+
+        async function checkServer() {
+            const box = document.getElementById('server-state');
+            box.className = 'server-state';
+            box.firstChild.textContent = 'Đang kiểm tra máy chủ… ';
+            try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 10000);
+                const response = await fetch('/api/health', { cache: 'no-store', signal: controller.signal });
+                clearTimeout(timer);
+                const data = await response.json();
+                if (data.database === 'connected') {
+                    box.className = 'server-state ok';
+                    box.firstChild.textContent = `Máy chủ hoạt động • phiên bản ${data.version || ''} `;
+                } else {
+                    box.className = 'server-state warn';
+                    box.firstChild.textContent = 'Máy chủ đang chạy nhưng cơ sở dữ liệu đang kết nối lại. ';
+                }
+            } catch (error) {
+                box.className = 'server-state error';
+                box.firstChild.textContent = 'Không thể liên hệ máy chủ Render. ';
+            }
+        }
+        document.getElementById('retry-server').addEventListener('click', checkServer);
+        checkServer();
 
         document.getElementById('login-form').addEventListener('submit', (e) => handleFormSubmit(e, '/api/login'));
         // Lưu ý: Đảm bảo endpoint API '/api/register' ở phía Backend không yêu cầu parentCode
@@ -137,5 +178,7 @@
     </script>
     <script src="modern-ui.js"></script>
   <script src="assets/ui/ui-v11.js"></script>
+  <script src="assets/ui/connection-v13.js"></script>
+  <script src="assets/ui/ux-v13.js"></script>
 </body>
 </html>

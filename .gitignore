@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 build/
 coverage/
@@ -6,5 +6,5 @@ coverage/
 .env.*
 !.env.example
 *.log
-.vscode/
 .DS_Store
+.vscode/

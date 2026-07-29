@@ -70,6 +70,10 @@ for (const htmlFile of htmlFiles) {
 for (const htmlFile of htmlFiles) {
     const content = fs.readFileSync(path.join(root, htmlFile), 'utf8');
     if (!content.includes('assets/ui/ui-v11.css') || !content.includes('assets/ui/ui-v11.js')) failures.push(`${htmlFile}: chưa nạp lớp sửa giao diện V11.`);
+    if (!content.includes('assets/ui/connection-v13.js')) failures.push(`${htmlFile}: chưa nạp giám sát kết nối V13.`);
+    if (htmlFile !== 'status.html' && (!content.includes('assets/ui/ux-v13.css') || !content.includes('assets/ui/ux-v13.js'))) failures.push(`${htmlFile}: chưa nạp lớp trải nghiệm người dùng V13.`);
+    const adsenseScripts = [...content.matchAll(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-2735044868175045/g)].length;
+    if (adsenseScripts !== 1) failures.push(`${htmlFile}: cần đúng một mã AdSense ca-pub-2735044868175045, hiện có ${adsenseScripts}.`);
     const ids = [...content.matchAll(/\sid=["']([^"']+)["']/gi)].map(match => match[1]);
     const seen = new Set();
     for (const id of ids) { if (seen.has(id)) failures.push(`${htmlFile}: ID giao diện bị trùng ${id}`); seen.add(id); }
@@ -160,7 +164,15 @@ for (const requiredSnippet of ['generateInfiniteMine()', 'isMineable', '/api/hou
     if (!roomSource.includes(requiredSnippet)) failures.push(`Trang trí phòng thiếu tính năng mỏ V7: ${requiredSnippet}`);
 }
 
+const renderSource = fs.readFileSync(path.join(root, 'render.yaml'), 'utf8');
+if (!renderSource.includes('healthCheckPath: /healthz')) failures.push('Render chưa dùng health check độc lập /healthz.');
 const serverSource = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+const headerMiddlewareIndex = serverSource.indexOf("res.setHeader('X-Request-Id'");
+const publicStaticIndex = serverSource.indexOf("app.use('/assets', express.static");
+const sessionIndex = serverSource.indexOf('app.use(sessionMiddleware)');
+if (headerMiddlewareIndex < 0 || publicStaticIndex < 0 || headerMiddlewareIndex > publicStaticIndex) failures.push('Header bảo mật/mã yêu cầu phải chạy trước tài nguyên công khai.');
+if (publicStaticIndex < 0 || sessionIndex < 0 || publicStaticIndex > sessionIndex) failures.push('Trang đăng nhập/status chưa được phục vụ trước session store.');
+if (!serverSource.includes("'/status.html'")) failures.push('Máy chủ chưa công khai trang chẩn đoán status.html.');
 const serverRoutes = new Set([...serverSource.matchAll(/app\.(?:get|post|put|delete)\(\s*['"]([^'"]+)['"]/g)].map(match => match[1]));
 for (const route of ['/api/learning/week-plan', '/api/learning/review-quiz', '/api/learning/review-quiz/submit', '/api/house/mine']) {
     if (!serverRoutes.has(route)) failures.push(`Thiếu API V7: ${route}`);
@@ -175,16 +187,16 @@ for (const snippet of ['arenaPoints', 'arena-noncash', 'refundTournamentEntries'
     if (!serverSource.includes(snippet)) failures.push(`Máy chủ thiếu bảo vệ quỹ giải V9: ${snippet}`);
 }
 
-for (const route of ['/api/survival/state', '/api/survival/sync', '/api/survival/mine', '/api/survival/craft', '/api/survival/eat', '/api/survival/reset', '/api/learning/preferences', '/api/learning/roadmap', '/api/learning/practical/submit']) {
+for (const route of ['/api/health', '/api/ready', '/api/survival/state', '/api/survival/sync', '/api/survival/mine', '/api/survival/place', '/api/survival/craft', '/api/survival/eat', '/api/survival/reset', '/api/learning/preferences', '/api/learning/roadmap', '/api/learning/practical/submit', '/api/learning/preflight/:grade/:subjectId/:lessonId', '/api/learning/weekly-assignments']) {
     if (!serverRoutes.has(route)) failures.push(`Thiếu API V11: ${route}`);
 }
 for (const snippet of ['survivalState', 'removedBlocks', 'SURVIVAL_RECIPES', 'validateSurvivalMine', 'LearningPractical', 'practicalTypeForSubject']) {
     if (!serverSource.includes(snippet)) failures.push(`Máy chủ thiếu nâng cấp V11: ${snippet}`);
 }
 try {
-    const survivalModule = require(path.join(root, 'server/modules/survival-v11.js'));
+    const survivalModule = require(path.join(root, 'server/modules/survival-v13.js'));
     const types = Object.keys(survivalModule.BLOCKS || {});
-    if (types.length < 10 || Object.keys(survivalModule.RECIPES || {}).length < 5) failures.push('Mô-đun sinh tồn V11 thiếu khối hoặc công thức.');
+    if (types.length < 12 || Object.keys(survivalModule.RECIPES || {}).length < 5) failures.push('Mô-đun sinh tồn V11 thiếu khối hoặc công thức.');
     const diamonds = [];
     for (let x = -survivalModule.WORLD.radius; x <= survivalModule.WORLD.radius; x += 1) {
         for (let z = -survivalModule.WORLD.radius; z <= survivalModule.WORLD.radius; z += 1) {
@@ -198,16 +210,50 @@ try {
     if (diamonds.length && survivalModule.validateMineRequest({ blockType: 'diamond', blockKey: diamonds[0], toolId: '', inventory: [] }).ok) failures.push('Máy chủ cho phép đào kim cương bằng tay không.');
     if (diamonds.length && !survivalModule.validateMineRequest({ blockType: 'diamond', blockKey: diamonds[0], toolId: 'tool_iron_pickaxe', inventory: ['tool_iron_pickaxe'] }).ok) failures.push('Cuốc sắt hợp lệ không đào được kim cương.');
     if (survivalModule.validateMineRequest({ blockType: 'stone', blockKey: `0:${survivalModule.WORLD.bedrockY}:0`, toolId: 'tool_wood_pickaxe', inventory: ['tool_wood_pickaxe'] }).ok) failures.push('Lớp đá nền cuối cùng đang bị phá được.');
+    const foundationPositions = [];
+    for (let x = -survivalModule.WORLD.radius; x <= survivalModule.WORLD.radius; x += 1) {
+        for (let z = -survivalModule.WORLD.radius; z <= survivalModule.WORLD.radius; z += 1) {
+            for (let y = survivalModule.WORLD.minY; y < survivalModule.WORLD.minY + 2; y += 1) {
+                if (survivalModule.allowedBlockTypesAt(x, y, z).has('foundation')) foundationPositions.push(`${x}:${y}:${z}`);
+            }
+        }
+    }
+    if (!foundationPositions.length) failures.push('Thế giới V12 không sinh lớp móng đào được.');
+    if (foundationPositions.length && !survivalModule.validateMineRequest({ blockType: 'foundation', blockKey: foundationPositions[0], toolId: 'tool_stone_pickaxe', inventory: ['tool_stone_pickaxe'] }).ok) failures.push('Cuốc đá không đào được lớp móng V13.');
+    const placeKey = '0:0:0';
+    const placeResult = survivalModule.validatePlaceRequest({ itemId: 'survival_stone', blockKey: placeKey, inventory: ['survival_stone'], removedBlocks: [placeKey], placedBlocks: [] });
+    if (!placeResult.ok) failures.push(`Không đặt lại được khối vào hố đã đào: ${placeResult.message}`);
+    const floating = survivalModule.validatePlaceRequest({ itemId: 'survival_stone', blockKey: '0:15:0', inventory: ['survival_stone'], removedBlocks: [], placedBlocks: [] });
+    if (floating.ok) failures.push('Máy chủ cho phép đặt khối lơ lửng không có điểm tựa.');
+    const worn = survivalModule.applyToolWear({ inventory: ['tool_wood_pickaxe'], durability: { tool_wood_pickaxe: 1 }, toolId: 'tool_wood_pickaxe' });
+    if (!worn.broken || worn.inventory.includes('tool_wood_pickaxe')) failures.push('Độ bền công cụ V13 không làm hỏng công cụ đúng lúc.');
+    const advanced = survivalModule.advanceState({ hunger: 100, stamina: 0, health: 100, lastUpdatedAt: new Date(Date.now() - 60000) }, new Date());
+    if (!(advanced.hunger < 100 && advanced.stamina > 0)) failures.push('Mô phỏng đói/thể lực phía máy chủ không hoạt động.');
+
 } catch (error) {
-    failures.push(`Không kiểm tra được mô-đun sinh tồn V11: ${error.message}`);
+    failures.push(`Không kiểm tra được mô-đun sinh tồn V13: ${error.message}`);
 }
 
-const survivalSource = ['trang-tri-phong.html','assets/room/survival-v11.js','assets/room/survival-v11.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
+
+for (const snippet of ['safeAsyncRoute', 'connectMongoWithRetry', 'DATABASE_RECONNECTING', "app.get('/api/ready'", 'submissionIds']) {
+    if (!serverSource.includes(snippet)) failures.push(`Máy chủ V12 thiếu cơ chế ổn định: ${snippet}`);
+}
+if (serverSource.includes("if (IS_PRODUCTION) process.exit(1)")) failures.push('Máy chủ vẫn có nhánh process.exit khi lỗi cấu hình tạm thời.');
+
+for (const snippet of ['survivalLocks = new Map()', 'survivalActionCooldowns = new Map()', 'advanceSurvivalState', 'validateSurvivalPlace', 'applySurvivalToolWear', 'gracefulShutdown', 'publicFiles']) {
+    if (!serverSource.includes(snippet)) failures.push(`Máy chủ V13 thiếu cơ chế ổn định/sinh tồn: ${snippet}`);
+}
+const learningReliabilitySource = fs.readFileSync(path.join(root, 'assets/learning/learning-v13.js'), 'utf8');
+for (const snippet of ['learning-submission-outbox-v13', 'learning:outbox-sent', 'submissionId']) if (!learningReliabilitySource.includes(snippet)) failures.push(`Học tập V13 thiếu hàng chờ nộp bài: ${snippet}`);
+const learningPageSource = fs.readFileSync(path.join(root, 'lo-trinh-hoc-tap.html'), 'utf8');
+for (const snippet of ['/api/learning/preflight/', 'hanhtrinh:learning-synced', 'clearTestDraft']) if (!learningPageSource.includes(snippet)) failures.push(`Trang lộ trình chưa hoàn tất luồng nộp bài V13: ${snippet}`);
+
+const survivalSource = ['trang-tri-phong.html','assets/room/survival-v13.js','assets/room/survival-v13.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
 for (const snippet of ['Sinh tồn', 'survivalBlock', 'survivalBedrock', '/api/survival/mine', 'Bàn chế tạo', 'handleAction']) {
-    if (!survivalSource.includes(snippet)) failures.push(`Thế giới sinh tồn V11 thiếu: ${snippet}`);
+    if (!survivalSource.includes(snippet)) failures.push(`Thế giới sinh tồn V13 thiếu: ${snippet}`);
 }
 const learningV11Source = ['lo-trinh-hoc-tap.html','assets/learning/learning-v11.js','assets/learning/practical-assessment.js'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
-for (const snippet of ['Kế hoạch cá nhân hóa', '/api/learning/preferences', '/api/learning/roadmap', '/api/learning/practical/submit', 'dataset.practicalGate']) {
+for (const snippet of ['Kế hoạch cá nhân hóa', 'learning-draft-v12', 'test-submit-status', '/api/learning/preferences', '/api/learning/roadmap', '/api/learning/practical/submit', 'dataset.practicalGate']) {
     if (!learningV11Source.includes(snippet)) failures.push(`Học tập V11 thiếu: ${snippet}`);
 }
 
@@ -246,4 +292,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✅ Kiểm tra V11 thành công: ${htmlFiles.length} trang HTML, ${jsFiles.length} tệp JavaScript, ${serverRoutes.size} API, ${curriculumSummary.grades} lớp, ${curriculumSummary.subjects} lộ trình môn, ${curriculumSummary.lessons} bài học, ${curriculumSummary.lessonQuestions} câu hỏi lộ trình và 21.600+ câu hỏi ngân hàng.`);
+console.log(`✅ Kiểm tra V13 thành công: ${htmlFiles.length} trang HTML, ${jsFiles.length} tệp JavaScript, ${serverRoutes.size} API, ${curriculumSummary.grades} lớp, ${curriculumSummary.subjects} lộ trình môn, ${curriculumSummary.lessons} bài học, ${curriculumSummary.lessonQuestions} câu hỏi lộ trình và 21.600+ câu hỏi ngân hàng.`);
