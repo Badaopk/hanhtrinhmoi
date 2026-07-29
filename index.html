@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta name="google-adsense-account" content="ca-pub-2735044868175045">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2735044868175045" crossorigin="anonymous"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6757d9">
+    <meta name="description" content="Hành Tinh Mơ Ước - thế giới học tập, sáng tạo và thi đấu dành cho trẻ em.">
+    <title>Hành Tinh Mơ Ước 5.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="modern-ui.css">
+  <link rel="stylesheet" href="assets/ui/ui-v11.css">
+  <link rel="stylesheet" href="assets/ui/ux-v13.css">
+</head>
+<body class="home-v2">
+    <div class="home-sky" aria-hidden="true">
+        <span class="home-star star-one">✦</span>
+        <span class="home-star star-two">✦</span>
+        <span class="home-star star-three">✦</span>
+    </div>
+
+    <header class="home-topbar">
+        <a class="home-brand" href="index.html" aria-label="Trang chủ Hành Tinh Mơ Ước">
+            <span class="home-brand__logo">🪐</span>
+            <span>
+                <strong>Hành Tinh Mơ Ước</strong>
+                <small>Phiên bản 5.0</small>
+            </span>
+        </a>
+        <div class="home-auth" id="auth-container" aria-live="polite">
+            <span class="home-auth__loading">Đang kiểm tra tài khoản…</span>
+        </div>
+    </header>
+
+    <main class="home-shell">
+        <section class="home-hero">
+            <div class="home-hero__content">
+                <span class="home-eyebrow">HỌC • CHƠI • SÁNG TẠO</span>
+                <h1>Mỗi ngày là một chuyến phiêu lưu mới</h1>
+                <p>Khám phá trò chơi trí tuệ, xây dựng thế giới riêng và cùng bạn bè chinh phục các thử thách.</p>
+                <div class="home-hero__actions">
+                    <a class="home-button home-button--primary" href="#game-library">🚀 Bắt đầu khám phá</a>
+                    <a class="home-button home-button--secondary" id="continue-button" href="nhiem-vu.html">▶ Tiếp tục chơi</a>
+                </div>
+                <div class="home-system-status" id="system-status">
+                    <span class="status-dot"></span>
+                    <span>Đang kiểm tra máy chủ…</span>
+                </div>
+            </div>
+            <div class="home-hero__planet" aria-label="Minh họa hành tinh trò chơi">
+                <div class="planet-orbit orbit-one"><span>🎨</span></div>
+                <div class="planet-orbit orbit-two"><span>🏆</span></div>
+                <div class="planet-core">🌍</div>
+                <div class="planet-shadow"></div>
+            </div>
+        </section>
+
+        <section class="home-stats" id="player-stats" hidden>
+            <article class="home-stat-card">
+                <span class="home-stat-card__icon">💎</span>
+                <div><small>Tổng điểm</small><strong id="stat-score">0</strong></div>
+            </article>
+            <article class="home-stat-card">
+                <span class="home-stat-card__icon">⭐</span>
+                <div><small>Cấp trung bình</small><strong id="stat-level">1</strong></div>
+            </article>
+            <article class="home-stat-card">
+                <span class="home-stat-card__icon">🎯</span>
+                <div><small>Nhiệm vụ đang có</small><strong id="stat-quests">0</strong></div>
+            </article>
+            <article class="home-stat-card">
+                <span class="home-stat-card__icon">🔥</span>
+                <div><small>Chuỗi đăng nhập</small><strong><span id="stat-streak">1</span> ngày</strong></div>
+            </article>
+        </section>
+
+        <section class="tournament-banner" id="tournament-banner" hidden>
+            <div>
+                <span class="tournament-banner__icon">🏆</span>
+                <div>
+                    <strong id="tournament-title">Giải đấu đang diễn ra</strong>
+                    <p id="tournament-description">Kiểm tra lịch thi đấu và đăng ký tham gia.</p>
+                </div>
+            </div>
+            <a href="giai-dau.html">Xem giải đấu →</a>
+        </section>
+
+        <section class="home-section" id="game-library">
+            <div class="home-section__heading">
+                <div>
+                    <span class="home-eyebrow">THƯ VIỆN HOẠT ĐỘNG</span>
+                    <h2>Chọn nơi bạn muốn khám phá</h2>
+                </div>
+                <label class="game-search">
+                    <span>🔎</span>
+                    <input id="game-search" type="search" placeholder="Tìm trò chơi…" autocomplete="off">
+                </label>
+            </div>
+
+            <div class="game-filters" role="group" aria-label="Lọc hoạt động">
+                <button class="game-filter is-active" type="button" data-filter="all">Tất cả</button>
+                <button class="game-filter" type="button" data-filter="creative">Sáng tạo</button>
+                <button class="game-filter" type="button" data-filter="learning">Học tập</button>
+                <button class="game-filter" type="button" data-filter="competition">Thi đấu</button>
+                <button class="game-filter" type="button" data-filter="personal">Cá nhân</button>
+            </div>
+
+            <div class="game-library" id="game-grid">
+                <a class="game-hub-card card-pink" href="thanh-pho-sang-tao.html" data-category="creative" data-title="Thành phố sáng tạo">
+                    <span class="game-hub-card__icon">🎨</span><span class="game-hub-card__tag">Sáng tạo</span>
+                    <h3>Thành Phố Sáng Tạo</h3><p>Vẽ tranh, làm nhạc, kể chuyện và xây dựng ý tưởng.</p><span class="game-hub-card__go">Khám phá →</span>
+                </a>
+                <a class="game-hub-card card-blue" href="thu-vien-tri-thuc.html" data-category="learning" data-title="Thư viện tri thức">
+                    <span class="game-hub-card__icon">📚</span><span class="game-hub-card__tag">Học tập</span>
+                    <h3>Thư Viện Tri Thức</h3><p>Đọc truyện, khám phá khoa học và học điều mới mỗi ngày.</p><span class="game-hub-card__go">Mở thư viện →</span>
+                </a>
+                <a class="game-hub-card card-orange" href="dau-truong-thu-thach.html" data-category="learning competition" data-title="Đấu trường thử thách">
+                    <span class="game-hub-card__icon">🎯</span><span class="game-hub-card__tag">Thử thách</span>
+                    <h3>Đấu Trường Thử Thách</h3><p>Rèn toán học, ngôn ngữ, trí nhớ và khả năng quan sát.</p><span class="game-hub-card__go">Vào đấu trường →</span>
+                </a>
+                <a class="game-hub-card card-purple" href="choi-co.html" data-category="competition" data-title="Đấu trường cờ">
+                    <span class="game-hub-card__icon">♟️</span><span class="game-hub-card__tag">Đấu trí</span>
+                    <h3>Đấu Trường Cờ</h3><p>Cờ vua, Caro, Cờ vây, Othello và Cờ tỷ phú trực tuyến.</p><span class="game-hub-card__go">Tìm đối thủ →</span>
+                </a>
+                <a class="game-hub-card card-gold" href="giai-dau.html" data-category="competition" data-title="Giải đấu hành tinh">
+                    <span class="game-hub-card__icon">🏆</span><span class="game-hub-card__tag">Trực tuyến</span>
+                    <h3>Giải Đấu Hành Tinh</h3><p>Đăng ký, xem lịch và tranh tài trong những giải đấu lớn.</p><span class="game-hub-card__go">Xem lịch đấu →</span>
+                </a>
+                <a class="game-hub-card card-green" href="nhiem-vu.html" data-category="personal" data-title="Nhiệm vụ hằng ngày">
+                    <span class="game-hub-card__icon">✅</span><span class="game-hub-card__tag">Mỗi ngày</span>
+                    <h3>Nhiệm Vụ Hằng Ngày</h3><p>Hoàn thành mục tiêu, nhận điểm thưởng và nâng cấp kỹ năng.</p><span class="game-hub-card__go">Xem nhiệm vụ →</span>
+                </a>
+                <a class="game-hub-card card-blue" href="lo-trinh-hoc-tap.html" data-category="learning" data-title="Lộ trình học tập lớp 1 đến 12">
+                    <span class="game-hub-card__icon">🎓</span><span class="game-hub-card__tag">Chính khóa</span>
+                    <h3>Lộ Trình Học Tập 1–12</h3><p>Mỗi lớp có môn và bài riêng, phải trên 8 điểm để mở khóa; có kế hoạch ngày, ôn lỗi sai và AI phân tích.</p><span class="game-hub-card__go">Bắt đầu học →</span>
+                </a>
+                <a class="game-hub-card card-cyan" href="bai-kiem-tra.html" data-category="learning" data-title="Bài kiểm tra">
+                    <span class="game-hub-card__icon">📝</span><span class="game-hub-card__tag">Kiến thức</span>
+                    <h3>Bài Kiểm Tra</h3><p>Luyện tập theo lớp, môn học và độ khó phù hợp.</p><span class="game-hub-card__go">Làm bài →</span>
+                </a>
+                <a class="game-hub-card card-teal" href="trang-tri-phong.html" data-category="creative personal" data-title="Trang trí phòng">
+                    <span class="game-hub-card__icon">🛋️</span><span class="game-hub-card__tag">Xây dựng</span>
+                    <h3>Trang Trí Phòng</h3><p>Mua đồ, xây phòng 3D và mời bạn bè đến tham quan.</p><span class="game-hub-card__go">Vào phòng →</span>
+                </a>
+                <a class="game-hub-card card-lime" href="ngoi-nha-cua-be.html" data-category="personal" data-title="Hồ sơ của bé">
+                    <span class="game-hub-card__icon">🏡</span><span class="game-hub-card__tag">Hồ sơ</span>
+                    <h3>Ngôi Nhà Của Bé</h3><p>Xem thành tích, danh hiệu và bảng xếp hạng toàn hành tinh.</p><span class="game-hub-card__go">Xem thành tích →</span>
+                </a>
+                <a class="game-hub-card card-indigo" href="phong-trung-bay.html" data-category="creative personal" data-title="Bảo tàng và quà">
+                    <span class="game-hub-card__icon">🏛️</span><span class="game-hub-card__tag">Bộ sưu tập</span>
+                    <h3>Bảo Tàng & Quà</h3><p>Trưng bày tranh, quà lưu niệm và các vật phẩm hiếm.</p><span class="game-hub-card__go">Tham quan →</span>
+                </a>
+            </div>
+            <p class="game-empty" id="game-empty" hidden>Không tìm thấy hoạt động phù hợp.</p>
+        </section>
+
+        <section class="home-bottom-grid">
+            <article class="home-panel">
+                <div class="home-panel__heading"><div><span>🏅</span><h2>Bảng vàng</h2></div><a href="ngoi-nha-cua-be.html">Xem tất cả</a></div>
+                <ol class="leaderboard-preview" id="leaderboard-preview"><li class="leaderboard-loading">Đang tải bảng xếp hạng…</li></ol>
+            </article>
+            <article class="home-panel home-tip-panel">
+                <span class="home-tip-panel__icon">💡</span>
+                <div><span class="home-eyebrow">GỢI Ý HÔM NAY</span><h2>Chơi cân bằng, tiến bộ bền vững</h2><p>Hãy hoàn thành nhiệm vụ học tập trước, sau đó chọn một trò sáng tạo hoặc đấu trí để thư giãn.</p></div>
+            </article>
+        </section>
+    </main>
+
+    <footer class="home-footer">
+        <span>🪐 Hành Tinh Mơ Ước 5.0</span>
+        <span>Học vui • Chơi an toàn • Phát triển mỗi ngày</span>
+    </footer>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="global-client.js"></script>
+    <script>
+        (() => {
+            'use strict';
+            const levelKeys = ['musicLevel','paintingLevel','memoryLevel','shapeLevel','buildLevel','crosswordLevel','detectiveLevel','storyLevel','vietSpeechLevel','englishSpeechLevel','chessLevel','caroLevel','goLevel','monopolyLevel','othelloLevel'];
+            const authContainer = document.getElementById('auth-container');
+            const gameCards = [...document.querySelectorAll('.game-hub-card')];
+            const searchInput = document.getElementById('game-search');
+            const filterButtons = [...document.querySelectorAll('.game-filter')];
+            let activeFilter = 'all';
+
+            function createButtonLink(text, href, className) {
+                const link = document.createElement('a');
+                link.textContent = text;
+                link.href = href;
+                link.className = className;
+                return link;
+            }
+
+            function renderLoggedOut() {
+                authContainer.replaceChildren(
+                    createButtonLink('Đăng nhập', 'login.html', 'home-button home-button--ghost'),
+                    createButtonLink('Tạo tài khoản', 'login.html#register', 'home-button home-button--small')
+                );
+                document.getElementById('player-stats').hidden = true;
+            }
+
+            function renderLoggedIn(user) {
+                const notificationLink = createButtonLink('🔔', 'thong-bao.html', 'home-notification-link');
+                notificationLink.setAttribute('aria-label', 'Xem thông báo');
+                const badge = document.createElement('span');
+                badge.id = 'notif-count-badge';
+                badge.className = 'home-notification-badge';
+                badge.hidden = true;
+                notificationLink.appendChild(badge);
+
+                const identity = document.createElement('div');
+                identity.className = 'home-user-chip';
+                const avatar = document.createElement('span');
+                avatar.textContent = user.role === 'admin' ? '🛡️' : user.role === 'parent' ? '👤' : '🚀';
+                const nameWrap = document.createElement('span');
+                const label = document.createElement('small');
+                label.textContent = 'Xin chào';
+                const name = document.createElement('strong');
+                name.textContent = user.username;
+                nameWrap.append(label, name);
+                identity.append(avatar, nameWrap);
+
+                const controls = [notificationLink, identity];
+                if (user.role === 'admin') controls.push(createButtonLink('⚙️ Admin', 'admin-panel.html', 'home-button home-button--ghost'));
+                if (user.role === 'parent') controls.push(createButtonLink('👨‍👩‍👧 Phụ huynh', 'phu-huynh.html', 'home-button home-button--ghost'));
+                const logout = document.createElement('button');
+                logout.type = 'button';
+                logout.className = 'home-button home-button--small';
+                logout.textContent = 'Đăng xuất';
+                logout.addEventListener('click', async () => {
+                    logout.disabled = true;
+                    await fetch('/api/logout', { method: 'POST' }).catch(() => null);
+                    localStorage.removeItem('currentUser');
+                    localStorage.removeItem('role');
+                    window.location.href = 'login.html';
+                });
+                controls.push(logout);
+                authContainer.replaceChildren(...controls);
+            }
+
+            function renderStats(user) {
+                document.getElementById('player-stats').hidden = false;
+                document.getElementById('stat-score').textContent = Number(user.score || 0).toLocaleString('vi-VN');
+                const total = levelKeys.reduce((sum, key) => sum + Math.max(1, Number(user[key] || 1)), 0);
+                document.getElementById('stat-level').textContent = Math.round(total / levelKeys.length);
+                document.getElementById('stat-quests').textContent = Array.isArray(user.quests) ? user.quests.length : 0;
+                document.getElementById('stat-streak').textContent = Math.max(1, Number(user.loginStreak || 1));
+            }
+
+            async function loadUser() {
+                try {
+                    const response = await fetch('/api/user/progress', { cache: 'no-store' });
+                    if (!response.ok) return renderLoggedOut();
+                    const user = await response.json();
+                    localStorage.setItem('currentUser', user.username);
+                    localStorage.setItem('role', user.role || 'child');
+                    window.dispatchEvent(new CustomEvent('hanhtrinh:authenticated'));
+                    renderLoggedIn(user);
+                    renderStats(user);
+                    await updateNotificationCount();
+                } catch (_) {
+                    renderLoggedOut();
+                }
+            }
+
+            async function updateNotificationCount() {
+                const badge = document.getElementById('notif-count-badge');
+                if (!badge) return;
+                try {
+                    const response = await fetch('/api/notifications', { cache: 'no-store' });
+                    if (!response.ok) return;
+                    const notifications = await response.json();
+                    badge.textContent = notifications.length > 9 ? '9+' : String(notifications.length);
+                    badge.hidden = notifications.length === 0;
+                } catch (_) {}
+            }
+
+            function applyFilters() {
+                const query = searchInput.value.trim().toLocaleLowerCase('vi');
+                let visible = 0;
+                gameCards.forEach(card => {
+                    const categories = card.dataset.category.split(' ');
+                    const matchesCategory = activeFilter === 'all' || categories.includes(activeFilter);
+                    const haystack = `${card.dataset.title} ${card.textContent}`.toLocaleLowerCase('vi');
+                    const matchesSearch = !query || haystack.includes(query);
+                    card.hidden = !(matchesCategory && matchesSearch);
+                    if (!card.hidden) visible += 1;
+                });
+                document.getElementById('game-empty').hidden = visible !== 0;
+            }
+
+            filterButtons.forEach(button => button.addEventListener('click', () => {
+                activeFilter = button.dataset.filter;
+                filterButtons.forEach(item => item.classList.toggle('is-active', item === button));
+                applyFilters();
+            }));
+            searchInput.addEventListener('input', applyFilters);
+
+            gameCards.forEach(card => card.addEventListener('click', () => {
+                localStorage.setItem('lastGameHref', card.getAttribute('href'));
+                localStorage.setItem('lastGameTitle', card.dataset.title);
+            }));
+
+            const lastHref = localStorage.getItem('lastGameHref');
+            const lastTitle = localStorage.getItem('lastGameTitle');
+            if (lastHref && lastTitle) {
+                const continueButton = document.getElementById('continue-button');
+                continueButton.href = lastHref;
+                continueButton.textContent = `▶ Tiếp tục: ${lastTitle}`;
+            }
+
+            async function loadLeaderboard() {
+                const list = document.getElementById('leaderboard-preview');
+                try {
+                    const response = await fetch('/api/leaderboard', { cache: 'no-store' });
+                    if (!response.ok) throw new Error();
+                    const users = await response.json();
+                    list.replaceChildren(...users.slice(0, 5).map((user, index) => {
+                        const item = document.createElement('li');
+                        const rank = document.createElement('span');
+                        rank.className = `leaderboard-rank rank-${index + 1}`;
+                        rank.textContent = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : String(index + 1);
+                        const username = document.createElement('strong');
+                        username.textContent = user.username;
+                        const score = document.createElement('span');
+                        score.textContent = `${Number(user.score || 0).toLocaleString('vi-VN')} điểm`;
+                        item.append(rank, username, score);
+                        return item;
+                    }));
+                    if (!users.length) list.innerHTML = '<li class="leaderboard-loading">Chưa có người chơi trên bảng vàng.</li>';
+                } catch (_) {
+                    list.innerHTML = '<li class="leaderboard-loading">Chưa thể tải bảng xếp hạng.</li>';
+                }
+            }
+
+            async function loadTournament() {
+                try {
+                    const response = await fetch('/api/tournament/status', { cache: 'no-store' });
+                    if (!response.ok) return;
+                    const tournament = await response.json();
+                    if (!tournament || tournament.status === 'none' || tournament.status === 'finished') return;
+                    const banner = document.getElementById('tournament-banner');
+                    banner.hidden = false;
+                    document.getElementById('tournament-title').textContent = tournament.status === 'open' ? 'Giải đấu đang mở đăng ký' : 'Giải đấu đang diễn ra';
+                    const playerCount = Array.isArray(tournament.participants) ? tournament.participants.length : 0;
+                    document.getElementById('tournament-description').textContent = `${String(tournament.gameType || 'game').toUpperCase()} • ${playerCount} người tham gia`;
+                } catch (_) {}
+            }
+
+            async function loadHealth() {
+                const status = document.getElementById('system-status');
+                try {
+                    const response = await fetch('/api/health', { cache: 'no-store' });
+                    const data = await response.json();
+                    status.classList.toggle('is-online', response.ok && data.status === 'ok');
+                    status.lastElementChild.textContent = response.ok ? 'Máy chủ đang hoạt động ổn định' : 'Máy chủ đang kết nối lại';
+                } catch (_) {
+                    status.lastElementChild.textContent = 'Không thể kiểm tra máy chủ';
+                }
+            }
+
+            window.addEventListener('hanhtrinh:notification', updateNotificationCount);
+            window.addEventListener('hanhtrinh:session-expired', renderLoggedOut);
+            document.addEventListener('DOMContentLoaded', () => {
+                loadUser();
+                loadLeaderboard();
+                loadTournament();
+                loadHealth();
+            });
+        })();
+    </script>
+    <script src="modern-ui.js"></script>
+  <script src="assets/ui/ui-v11.js"></script>
+  <script src="assets/ui/connection-v13.js"></script>
+  <script src="assets/ui/ux-v13.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+/* V14: lớp sửa cuối dành riêng cho các bàn cờ. Được nạp sau UI chung để
+   ngăn min-height toàn cục làm vỡ ô cờ và giữ toàn bộ bàn trong vùng nhìn. */
+body.board-page{display:block!important;min-height:100dvh!important;height:auto!important;overflow:auto!important;padding:0 0 88px!important;align-items:stretch!important}
+body.board-page .header-bar,body.board-page .top{width:100%;max-width:none;box-sizing:border-box}
+body.board-page .game-layout,body.board-page .shell{margin-inline:auto!important;min-width:0!important}
+body.board-page .game-layout{display:grid!important;grid-template-columns:minmax(320px,min(68dvh,620px)) minmax(280px,380px)!important;align-items:start!important;justify-content:center!important;gap:18px!important;padding:14px!important}
+body.board-page .sidebar,body.board-page .panel{min-width:0!important;max-width:100%!important;height:auto!important;max-height:calc(100dvh - 145px)!important;overflow:auto!important}
+/* Cờ vua: phục hồi đúng cấu trúc 8 hàng × 8 cột của chessboard.js. */
+body.board-page #myBoard{width:min(68dvh,620px)!important;max-width:calc(100vw - 430px)!important;min-width:320px!important;aspect-ratio:1/1!important;height:auto!important;overflow:hidden!important;align-self:start!important}
+body.board-page #myBoard .board-b72b1{width:100%!important;height:100%!important;display:block!important;position:relative!important}
+body.board-page #myBoard .clearfix-7da63{display:block!important;clear:both!important;width:100%!important;height:12.5%!important;min-height:0!important;margin:0!important;padding:0!important}
+body.board-page #myBoard .square-55d63{float:left!important;width:12.5%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;line-height:1!important}
+body.board-page #myBoard img{display:block!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:contain!important;margin:0!important;padding:0!important}
+/* Caro: nút ô cờ không nhận min-height 40px từ UI chung. */
+body.board-page .board .cell{min-width:var(--cell)!important;min-height:var(--cell)!important;width:var(--cell)!important;height:var(--cell)!important;padding:0!important;margin:0!important;border-radius:0!important;line-height:1!important}
+body.board-page .board-wrap{display:flex!important;justify-content:center!important;align-items:flex-start!important;max-height:calc(100dvh - 230px)!important;overflow:auto!important}
+body.board-page .board-wrap .board{flex:0 0 auto!important}
+/* Cờ Vây */
+body.board-page canvas#goBoard{display:block!important;width:min(68dvh,620px)!important;height:min(68dvh,620px)!important;max-width:100%!important;aspect-ratio:1/1!important;margin:auto!important}
+body.board-page .mode-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;overflow:visible!important}
+body.board-page .mode-tabs>*{min-width:0!important;white-space:normal!important}
+/* Cờ tỷ phú: bàn cờ và bảng người chơi cùng nằm trong viewport. */
+body.board-page:has(#main-board){display:grid!important;grid-template-columns:minmax(420px,1fr) minmax(270px,340px)!important;grid-template-rows:auto 1fr!important;background-attachment:fixed!important}
+body.board-page:has(#main-board) #home-link{grid-column:1;grid-row:1;position:sticky!important;top:10px!important;z-index:50;margin:10px!important;width:max-content}
+body.board-page:has(#main-board) .game-container{grid-column:1;grid-row:1/3;min-width:0!important;min-height:100dvh!important;padding:70px 14px 90px!important;display:grid!important;place-items:center!important}
+body.board-page:has(#main-board) #main-board{width:min(76dvh,calc(100vw - 390px),760px)!important;height:min(76dvh,calc(100vw - 390px),760px)!important;max-width:none!important;max-height:none!important}
+body.board-page:has(#main-board)>.sidebar{grid-column:2;grid-row:1/3;position:sticky!important;top:0!important;width:100%!important;height:100dvh!important;max-height:100dvh!important;overflow:auto!important}
+.board-v8-tools{bottom:10px!important;left:10px!important;max-width:min(680px,calc(100vw - 20px))!important}.board-v8-tools button{min-height:38px!important}
+@media(max-width:980px){body.board-page .game-layout{grid-template-columns:1fr!important;place-items:center!important}body.board-page #myBoard{max-width:min(92vw,620px)!important;width:min(78dvh,92vw,620px)!important}.game-layout .sidebar{width:min(92vw,620px)!important;max-height:none!important}body.board-page:has(#main-board){display:block!important}body.board-page:has(#main-board) .game-container{min-height:auto!important;padding:65px 8px 18px!important}body.board-page:has(#main-board) #main-board{width:min(92vw,72dvh)!important;height:min(92vw,72dvh)!important}body.board-page:has(#main-board)>.sidebar{position:static!important;width:100%!important;height:auto!important;max-height:none!important}}
+@media(max-width:850px){body.board-page .shell{display:flex!important;flex-direction:column!important;padding:8px!important}body.board-page .game{order:1;width:100%!important}body.board-page .panel{order:2;width:100%!important;max-height:none!important}body.board-page .board-wrap{justify-content:flex-start!important;max-height:min(68dvh,680px)!important}}
+@media(max-width:560px){body.board-page{padding-bottom:126px!important}body.board-page #myBoard{min-width:0!important;width:calc(100vw - 20px)!important}body.board-page canvas#goBoard{width:calc(100vw - 26px)!important;height:calc(100vw - 26px)!important}.board-v8-tools{right:8px!important;left:8px!important}.board-v8-tools button{font-size:.75rem!important;padding:6px!important}}
